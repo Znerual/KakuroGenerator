@@ -37,6 +37,8 @@ def list_puzzles() -> List[Dict]:
                         "difficulty": data.get("difficulty"),
                         "width": data.get("width"),
                         "height": data.get("height"),
+                        "grid": data.get("grid"),
+                        "userGrid": data.get("userGrid"),
                         "status": data.get("status", "started"),
                         "timestamp": data.get("timestamp")
                     })

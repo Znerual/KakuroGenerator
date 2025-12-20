@@ -150,7 +150,23 @@ async function renderLibrary() {
             .forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'puzzle-card';
+
+                // Render thumbnail
+                let thumbnailHtml = `<div class="puzzle-thumbnail" style="grid-template-columns: repeat(${p.width}, 1fr)">`;
+                const gridToShow = p.userGrid || p.grid;
+                if (gridToShow) {
+                    gridToShow.forEach(row => {
+                        row.forEach(cell => {
+                            const typeClass = cell.type === 'BLOCK' ? 'block' : 'white';
+                            const val = cell.userValue || '';
+                            thumbnailHtml += `<div class="mini-cell ${typeClass}">${val}</div>`;
+                        });
+                    });
+                }
+                thumbnailHtml += `</div>`;
+
                 card.innerHTML = `
+                    ${thumbnailHtml}
                     <div class="puzzle-info">
                         <h3>${p.difficulty.replace('_', ' ').toUpperCase()}</h3>
                         <p>${p.width}x${p.height}</p>

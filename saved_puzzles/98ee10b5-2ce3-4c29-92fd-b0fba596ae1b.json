@@ -411,6 +411,463 @@
             }
         ]
     ],
+    "userGrid": [
+        [
+            {
+                "r": 0,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 0,
+                "c": 1,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 0,
+                "c": 2,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 0,
+                "c": 3,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": 6,
+                "userValue": null
+            },
+            {
+                "r": 0,
+                "c": 4,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": 10,
+                "userValue": null
+            },
+            {
+                "r": 0,
+                "c": 5,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": 9,
+                "userValue": null
+            },
+            {
+                "r": 0,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ],
+        [
+            {
+                "r": 1,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 1,
+                "c": 1,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 1,
+                "c": 2,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": 6,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 1,
+                "c": 3,
+                "type": "WHITE",
+                "value": 1,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 1,
+                "c": 4,
+                "type": "WHITE",
+                "value": 3,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 1,
+                "c": 5,
+                "type": "WHITE",
+                "value": 2,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 1,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ],
+        [
+            {
+                "r": 2,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 2,
+                "c": 1,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": 8,
+                "userValue": null
+            },
+            {
+                "r": 2,
+                "c": 2,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": 11,
+                "clue_v": 12,
+                "userValue": null
+            },
+            {
+                "r": 2,
+                "c": 3,
+                "type": "WHITE",
+                "value": 5,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 2,
+                "c": 4,
+                "type": "WHITE",
+                "value": 2,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 2,
+                "c": 5,
+                "type": "WHITE",
+                "value": 4,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 2,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ],
+        [
+            {
+                "r": 3,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": 7,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 3,
+                "c": 1,
+                "type": "WHITE",
+                "value": 3,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 3,
+                "c": 2,
+                "type": "WHITE",
+                "value": 4,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": 2
+            },
+            {
+                "r": 3,
+                "c": 3,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": 8,
+                "clue_v": 5,
+                "userValue": null
+            },
+            {
+                "r": 3,
+                "c": 4,
+                "type": "WHITE",
+                "value": 5,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 3,
+                "c": 5,
+                "type": "WHITE",
+                "value": 3,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 3,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ],
+        [
+            {
+                "r": 4,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": 10,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 4,
+                "c": 1,
+                "type": "WHITE",
+                "value": 4,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 4,
+                "c": 2,
+                "type": "WHITE",
+                "value": 5,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": 3
+            },
+            {
+                "r": 4,
+                "c": 3,
+                "type": "WHITE",
+                "value": 1,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": 1
+            },
+            {
+                "r": 4,
+                "c": 4,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 4,
+                "c": 5,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 4,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ],
+        [
+            {
+                "r": 5,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": 8,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 5,
+                "c": 1,
+                "type": "WHITE",
+                "value": 1,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 5,
+                "c": 2,
+                "type": "WHITE",
+                "value": 3,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 5,
+                "c": 3,
+                "type": "WHITE",
+                "value": 4,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 5,
+                "c": 4,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 5,
+                "c": 5,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 5,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ],
+        [
+            {
+                "r": 6,
+                "c": 0,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 6,
+                "c": 1,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 6,
+                "c": 2,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 6,
+                "c": 3,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 6,
+                "c": 4,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 6,
+                "c": 5,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            },
+            {
+                "r": 6,
+                "c": 6,
+                "type": "BLOCK",
+                "value": null,
+                "clue_h": null,
+                "clue_v": null,
+                "userValue": null
+            }
+        ]
+    ],
     "status": "started",
     "rowNotes": [
         "",
@@ -430,5 +887,5 @@
         "",
         ""
     ],
-    "timestamp": "2025-12-21T00:05:07.254673"
+    "timestamp": "2025-12-21T00:09:57.668399"
 }
