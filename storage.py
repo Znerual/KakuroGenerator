@@ -1,9 +1,21 @@
 import os
 import json
 import uuid
+import sys
 from typing import List, Dict, Optional
 
-STORAGE_DIR = "saved_puzzles"
+def get_storage_path():
+    if getattr(sys, 'frozen', False):
+        # We are running in a bundle, use the directory of the executable
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # Normal Python environment
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    storage_dir = os.path.join(base_dir, "saved_puzzles")
+    return storage_dir
+
+STORAGE_DIR = get_storage_path()
 
 def ensure_storage_dir():
     if not os.path.exists(STORAGE_DIR):

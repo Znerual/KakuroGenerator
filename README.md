@@ -35,15 +35,40 @@ A robust, full-stack Kakuro puzzle platform featuring a sophisticated procedural
 
 ### Running the Tool
 
+#### 1. As an Executable (Recommended for users)
+If you have a pre-built executable:
+- Simply run `KakuroGenerator.exe`.
+- The application will be available at `http://localhost:8000`.
+
+#### 2. From Source (Development)
 1.  **Start the Backend Server**:
     From the `backend` directory, run:
     ```bash
     python main.py
     ```
-    The server will start on `http://localhost:8000`.
+    The server will start on `http://localhost:8008`.
 
 2.  **Access the Application**:
-    Open your web browser and navigate to `http://localhost:8000`. The frontend is served statically by the FastAPI backend.
+    Open your web browser and navigate to `http://localhost:8008`.
+
+---
+
+## 📦 Packaging (Build your own executable)
+
+If you want to create a standalone `.exe` for distribution:
+
+1.  **Ensure you are in the `backend` directory**.
+2.  **Run the packaging script**:
+    ```bash
+    python package_app.py
+    ```
+    This script will:
+    - Install `PyInstaller` if it's missing.
+    - Bundle the `static` folder and the Python backend into a single file.
+    - Generate the executable in the `dist` directory.
+
+> [!NOTE]
+> The generated executable will store puzzles in a `saved_puzzles` folder located in the same directory as the `.exe`.
 
 ---
 

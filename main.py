@@ -2,6 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+import os
+import sys
+import webbrowser
+import threading
+import time
 from kakuro import KakuroBoard
 from solver import CSPSolver
 import uvicorn
@@ -21,11 +26,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+def get_base_path():
+    if getattr(sys, 'frozen', False):
+        # We are running in a bundle (e.g., PyInstaller)
+        return sys._MEIPASS
+    else:
+        # We are running in a normal Python environment
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+STATIC_PATH = os.path.join(BASE_PATH, "static")
+
+app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 
 @app.get("/")
 async def read_index():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(STATIC_PATH, "index.html"))
 
 DIFFICULTY_MAP = {
     "very_easy": 0.15,
@@ -161,5 +177,33 @@ def delete_puzzle_endpoint(puzzle_id: str):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Puzzle not found")
 
+def open_browser(url: str):
+    """Wait for the server to start and then open the browser."""
+    time.sleep(1.5)  # Give the server a moment to start
+    webbrowser.open(url)
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    host = "127.0.0.1"
+    port = 8008
+    url = f"http://{host}:{port}"
+    
+    try:
+        # Check if we're running as a bundle to disable reload
+        is_frozen = getattr(sys, 'frozen', False)
+        
+        # Open browser in a separate thread
+        threading.Thread(target=open_browser, args=(url,), daemon=True).start()
+        
+        if is_frozen:
+            # Pass app object directly to avoid import issues in frozen environment
+            uvicorn.run(app, host=host, port=port, reload=False)
+        else:
+            uvicorn.run("main:app", host=host, port=port, reload=True)
+            
+    except Exception as e:
+        # Log error to file if startup fails in frozen mode
+        if getattr(sys, 'frozen', False):
+            with open("startup_error.log", "w") as f:
+                import traceback
+                f.write(traceback.format_exc())
+        raise e
