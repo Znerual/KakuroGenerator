@@ -5,16 +5,39 @@ const state = {
     rowNotes: [],    // Notes for each row (displayed on the left)
     colNotes: [],    // Notes for each column (displayed on top)
     editingNote: null, // { type: 'row'|'col', index: number }
-    showErrors: false
+    showErrors: false,
+    currentTab: 'started' // 'started' or 'solved'
 };
 
 const boardEl = document.getElementById('kakuro-board');
 const btnGenerate = document.getElementById('btn-generate');
 const btnCheck = document.getElementById('btn-check');
+const btnSave = document.getElementById('btn-save');
+const btnLibrary = document.getElementById('btn-library');
+const libraryModal = document.getElementById('library-modal');
+const closeModal = libraryModal.querySelector('.close');
+const libraryList = document.getElementById('library-list');
+const tabButtons = document.querySelectorAll('.tab-btn');
 
 function init() {
     btnGenerate.addEventListener('click', fetchPuzzle);
     btnCheck.addEventListener('click', checkPuzzle);
+    btnSave.addEventListener('click', saveCurrentState);
+    btnLibrary.addEventListener('click', openLibrary);
+    closeModal.addEventListener('click', () => libraryModal.style.display = 'none');
+    window.addEventListener('click', (e) => {
+        if (e.target === libraryModal) libraryModal.style.display = 'none';
+    });
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.currentTab = btn.dataset.tab;
+            renderLibrary();
+        });
+    });
+
     window.addEventListener('keydown', handleGlobalKey);
     fetchPuzzle();
 }
@@ -25,34 +48,148 @@ async function fetchPuzzle() {
     try {
         const difficultySelect = document.getElementById('difficulty-select');
         const difficulty = difficultySelect ? difficultySelect.value : 'medium';
-        const res = await fetch(`/generate?difficulty=${difficulty}`);
+
+        let width = 10, height = 10;
+        if (difficulty === 'very_easy') {
+            width = 7;
+            height = 7;
+        } else if (difficulty === 'easy') {
+            width = 8;
+            height = 8;
+        }
+
+        const res = await fetch(`/generate?difficulty=${difficulty}&width=${width}&height=${height}`);
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         console.log("Received data:", data);
 
-        if (!data || !data.grid) {
-            throw new Error("Invalid data format received from server");
-        }
-
-        state.puzzle = data;
-        state.userGrid = data.grid.map(row => row.map(cell => ({
-            ...cell,
-            userValue: null
-        })));
-        state.selected = null;
-        state.rowNotes = Array(data.height).fill('');
-        state.colNotes = Array(data.width).fill('');
-        state.editingNote = null;
-        state.showErrors = false;
-
-        console.log("State updated, rendering board...");
-        renderBoard();
+        loadPuzzleIntoState(data);
     } catch (e) {
         console.error("Error in fetchPuzzle:", e);
         alert("Error generating puzzle: " + e.message);
     } finally {
         btnGenerate.textContent = "New Puzzle";
         btnGenerate.disabled = false;
+    }
+}
+
+function loadPuzzleIntoState(data) {
+    state.puzzle = data;
+    // If loading from storage, userGrid might already be present
+    if (data.userGrid) {
+        state.userGrid = data.userGrid;
+    } else {
+        state.userGrid = data.grid.map(row => row.map(cell => ({
+            ...cell,
+            userValue: cell.userValue || null
+        })));
+    }
+
+    state.selected = null;
+    state.rowNotes = data.rowNotes || Array(data.height).fill('');
+    state.colNotes = data.colNotes || Array(data.width).fill('');
+    state.editingNote = null;
+    state.showErrors = false;
+
+    console.log("State updated, rendering board...");
+    renderBoard();
+}
+
+async function saveCurrentState() {
+    if (!state.puzzle) return;
+
+    const data = {
+        id: state.puzzle.id,
+        width: state.puzzle.width,
+        height: state.puzzle.height,
+        difficulty: state.puzzle.difficulty,
+        grid: state.puzzle.grid,
+        userGrid: state.userGrid,
+        status: state.puzzle.status || "started",
+        rowNotes: state.rowNotes,
+        colNotes: state.colNotes
+    };
+
+    try {
+        const res = await fetch('/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            showToast("Progress Saved!");
+        } else {
+            showToast("Failed to save progress.");
+        }
+    } catch (e) {
+        console.error("Save error:", e);
+        showToast("Error saving progress.");
+    }
+}
+
+async function openLibrary() {
+    libraryModal.style.display = 'block';
+    renderLibrary();
+}
+
+async function renderLibrary() {
+    libraryList.innerHTML = '<p>Loading puzzles...</p>';
+    try {
+        const res = await fetch('/list_saved');
+        const puzzles = await res.json();
+
+        const filtered = puzzles.filter(p => p.status === state.currentTab);
+
+        if (filtered.length === 0) {
+            libraryList.innerHTML = `<p>No ${state.currentTab} puzzles found.</p>`;
+            return;
+        }
+
+        libraryList.innerHTML = '';
+        filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'puzzle-card';
+                card.innerHTML = `
+                    <div class="puzzle-info">
+                        <h3>${p.difficulty.replace('_', ' ').toUpperCase()}</h3>
+                        <p>${p.width}x${p.height}</p>
+                        <p>${new Date(p.timestamp).toLocaleString()}</p>
+                    </div>
+                    <button class="delete-btn" onclick="deletePuzzle(event, '${p.id}')">&times;</button>
+                `;
+                card.addEventListener('click', () => loadSavedPuzzle(p.id));
+                libraryList.appendChild(card);
+            });
+    } catch (e) {
+        libraryList.innerHTML = '<p>Error loading library.</p>';
+    }
+}
+
+async function loadSavedPuzzle(id) {
+    try {
+        const res = await fetch(`/load/${id}`);
+        if (!res.ok) throw new Error("Failed to load");
+        const data = await res.json();
+        loadPuzzleIntoState(data);
+        libraryModal.style.display = 'none';
+        showToast("Puzzle Loaded!");
+    } catch (e) {
+        alert("Error loading puzzle: " + e.message);
+    }
+}
+
+async function deletePuzzle(event, id) {
+    event.stopPropagation();
+    if (!confirm("Delete this puzzle?")) return;
+
+    try {
+        const res = await fetch(`/delete/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            renderLibrary();
+        }
+    } catch (e) {
+        alert("Error deleting puzzle.");
     }
 }
 
@@ -281,6 +418,8 @@ function checkPuzzle() {
 
     if (allCorrect) {
         showToast("Perfect! Puzzle Solved!");
+        state.puzzle.status = "solved";
+        saveCurrentState();
     } else if (allFilled) {
         showToast("Almost there, but some numbers are wrong.");
     } else {
@@ -295,10 +434,13 @@ function showToast(message) {
     document.body.appendChild(toast);
 
     setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.5s ease';
-        setTimeout(() => toast.remove(), 500);
-    }, 3000);
+        toast.style.opacity = '1'; // Ensure it's visible
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    }, 10);
 }
 
 init();

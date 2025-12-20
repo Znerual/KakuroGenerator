@@ -282,6 +282,117 @@ button:hover {
 }
 
 /* Success Feedback */
+/* Modal and Library UI */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: var(--bg-card);
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: var(--radius-lg);
+    width: 80%;
+    max-width: 800px;
+    box-shadow: var(--shadow-xl);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.close {
+    color: var(--text-muted);
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: var(--text-primary);
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+}
+
+.tab-btn.active {
+    color: var(--text-primary);
+    background: var(--bg-body);
+    box-shadow: var(--shadow-sm);
+}
+
+.library-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.puzzle-card {
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 15px;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    position: relative;
+}
+
+.puzzle-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-light);
+}
+
+.puzzle-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.puzzle-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 1.2rem;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+}
+
 .toast {
     position: fixed;
     bottom: 2rem;

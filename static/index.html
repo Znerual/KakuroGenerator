@@ -21,16 +21,34 @@
 
             <div class="controls">
                 <select id="difficulty-select">
+                    <option value="very_easy">Very Easy</option>
                     <option value="easy">Easy</option>
                     <option value="medium" selected>Medium</option>
                     <option value="hard">Hard</option>
                 </select>
                 <button id="btn-generate">New Puzzle</button>
-                <button id="btn-check">Check</button>
+                <button id="btn-save">Save Progress</button>
+                <button id="btn-library">My Library</button>
+                <button id="btn-check" class="primary">Check</button>
             </div>
 
             <div class="board-container">
                 <div id="kakuro-board" class="kakuro-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library Modal -->
+    <div id="library-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>My Puzzles</h2>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="started">In Progress</button>
+                <button class="tab-btn" data-tab="solved">Solved</button>
+            </div>
+            <div id="library-list" class="library-list">
+                <!-- Puzzles will be listed here -->
             </div>
         </div>
     </div>

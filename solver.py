@@ -7,15 +7,15 @@ class CSPSolver:
     def __init__(self, board: KakuroBoard):
         self.board = board
 
-    def solve_fill(self, max_nodes: int = 20000) -> bool:
+    def solve_fill(self, max_nodes: int = 20000, prefer_small_numbers: bool = False) -> bool:
         """Phase 3: Populate grid with numbers (1-9) ensuring uniqueness in sectors."""
         # Variables: self.board.white_cells
         # Domains: {1..9}
         assignment = {} # Cell -> int
         node_count = [0]
-        return self._backtrack_fill_optimized(assignment, node_count, max_nodes)
+        return self._backtrack_fill_optimized(assignment, node_count, max_nodes, prefer_small_numbers)
 
-    def _backtrack_fill_optimized(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int) -> bool:
+    def _backtrack_fill_optimized(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int, prefer_small_numbers: bool = False) -> bool:
         if node_count[0] >= max_nodes:
             return False
         node_count[0] += 1
@@ -43,12 +43,21 @@ class CSPSolver:
 
         # Randomize domain order to get different puzzles
         domain = list(range(1, 10))
-        random.shuffle(domain)
+        if prefer_small_numbers:
+            # Favor 1-5 more heavily. We still want some variety, so we'll 
+            # shuffle them but keep them mostly at the front of the list.
+            smalls = [1, 2, 3, 4, 5]
+            larges = [6, 7, 8, 9]
+            random.shuffle(smalls)
+            random.shuffle(larges)
+            domain = smalls + larges
+        else:
+            random.shuffle(domain)
 
         for value in domain:
             if self._is_consistent_fill(var, value, assignment):
                 assignment[var] = value
-                if self._backtrack_fill_optimized(assignment, node_count, max_nodes):
+                if self._backtrack_fill_optimized(assignment, node_count, max_nodes, prefer_small_numbers):
                     return True
                 del assignment[var]
         
@@ -237,7 +246,7 @@ class CSPSolver:
                 
         return True
 
-    def generate_with_uniqueness(self, max_iterations: int = 10) -> Tuple[bool, Optional[str]]:
+    def generate_with_uniqueness(self, max_iterations: int = 10, prefer_small_numbers: bool = False) -> Tuple[bool, Optional[str]]:
         """
         Generate a puzzle with guaranteed unique solution.
         Uses iterative constraint tightening if initial puzzle isn't unique.
@@ -246,7 +255,7 @@ class CSPSolver:
         """
         for iteration in range(max_iterations):
             # Step 1: Fill the board with numbers
-            success = self.solve_fill()
+            success = self.solve_fill(prefer_small_numbers=prefer_small_numbers)
             if not success:
                 return False, "Failed to fill board"
             
