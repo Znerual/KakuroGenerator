@@ -34,6 +34,13 @@ DIFFICULTY_MAP = {
     "hard": 0.22
 }
 
+DIFFICULTY_SIZE_RANGES = {
+    "very_easy": (6, 8),
+    "easy": (8, 10),
+    "medium": (10, 12),
+    "hard": (12, 14)
+}
+
 MIN_WHITE_CELLS = 15  # Minimum white cells for a valid puzzle
 MAX_RETRIES = 20  # More retries for reliability
 
@@ -41,10 +48,20 @@ def validate_board(board, min_white_cells: int) -> bool:
     """Check if the board has enough white cells."""
     return len(board.white_cells) >= min_white_cells
 
+import random
+
 @app.get("/generate")
-def generate_puzzle(width: int = 10, height: int = 10, difficulty: str = "medium", verify_unique: bool = False):
+def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, difficulty: str = "medium", verify_unique: bool = False):
     density = DIFFICULTY_MAP.get(difficulty, 0.15)
     
+    # Randomize size if not specified
+    if width is None or height is None:
+        min_s, max_s = DIFFICULTY_SIZE_RANGES.get(difficulty, (10, 10))
+        if width is None:
+            width = random.randint(min_s, max_s)
+        if height is None:
+            height = random.randint(min_s, max_s)
+
     # Adjust minimum white cells and sector length for very easy
     min_white = MIN_WHITE_CELLS
     if difficulty == "very_easy" or width < 8 or height < 8:

@@ -49,16 +49,7 @@ async function fetchPuzzle() {
         const difficultySelect = document.getElementById('difficulty-select');
         const difficulty = difficultySelect ? difficultySelect.value : 'medium';
 
-        let width = 10, height = 10;
-        if (difficulty === 'very_easy') {
-            width = 7;
-            height = 7;
-        } else if (difficulty === 'easy') {
-            width = 8;
-            height = 8;
-        }
-
-        const res = await fetch(`/generate?difficulty=${difficulty}&width=${width}&height=${height}`);
+        const res = await fetch(`/generate?difficulty=${difficulty}`);
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         console.log("Received data:", data);
