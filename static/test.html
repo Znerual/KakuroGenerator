@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Kakuro Frontend Test</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background-color: #333;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Frontend Test</h1>
+    <div id="root">
+        <div class="app-container">
+            <div class="board-container">
+                <div id="kakuro-board" class="kakuro-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inline script to mimic script.js but with hardcoded data -->
+    <script>
+        const state = {
+            puzzle: null,
+            userGrid: [],
+            selected: null
+        };
+
+        const boardEl = document.getElementById('kakuro-board');
+
+        // Hardcoded mock data mimicking the backend response
+        const mockData = {
+            "width": 3,
+            "height": 3,
+            "grid": [
+                [
+                    { "r": 0, "c": 0, "type": "BLOCK", "value": null, "clue_h": null, "clue_v": null },
+                    { "r": 0, "c": 1, "type": "BLOCK", "value": null, "clue_h": null, "clue_v": 4 },
+                    { "r": 0, "c": 2, "type": "BLOCK", "value": null, "clue_h": null, "clue_v": 3 }
+                ],
+                [
+                    { "r": 1, "c": 0, "type": "BLOCK", "value": null, "clue_h": 3, "clue_v": null },
+                    { "r": 1, "c": 1, "type": "WHITE", "value": 1, "clue_h": null, "clue_v": null },
+                    { "r": 1, "c": 2, "type": "WHITE", "value": 2, "clue_h": null, "clue_v": null }
+                ],
+                [
+                    { "r": 2, "c": 0, "type": "BLOCK", "value": null, "clue_h": 4, "clue_v": null },
+                    { "r": 2, "c": 1, "type": "WHITE", "value": 3, "clue_h": null, "clue_v": null },
+                    { "r": 2, "c": 2, "type": "WHITE", "value": 1, "clue_h": null, "clue_v": null }
+                ]
+            ]
+        };
+
+        function runTest() {
+            console.log("Running test with mock data", mockData);
+
+            state.puzzle = mockData;
+            state.userGrid = mockData.grid.map(row => row.map(cell => ({
+                ...cell,
+                userValue: null
+            })));
+
+            renderBoard();
+        }
+
+        function renderBoard() {
+            if (!state.puzzle) return;
+
+            boardEl.innerHTML = '';
+            const { width, height } = state.puzzle;
+
+            boardEl.style.gridTemplateColumns = `repeat(${width}, 60px)`;
+            boardEl.style.gridTemplateRows = `repeat(${height}, 60px)`;
+
+            for (let r = 0; r < height; r++) {
+                for (let c = 0; c < width; c++) {
+                    const cellData = state.userGrid[r][c];
+                    const el = document.createElement('div');
+                    el.className = 'cell';
+
+                    const isSelected = state.selected && state.selected.r === r && state.selected.c === c;
+
+                    if (cellData.type === 'BLOCK') {
+                        el.classList.add('block');
+                        let content = `<div class="clue-container"><div class="diagonal-line"></div>`;
+                        if (cellData.clue_h !== null && cellData.clue_h !== undefined) {
+                            content += `<div class="clue-h">${cellData.clue_h}</div>`;
+                        }
+                        if (cellData.clue_v !== null && cellData.clue_v !== undefined) {
+                            content += `<div class="clue-v">${cellData.clue_v}</div>`;
+                        }
+                        content += `</div>`;
+                        el.innerHTML = content;
+                    } else {
+                        el.classList.add('white');
+                        if (isSelected) {
+                            el.classList.add('selected');
+                        }
+                        if (cellData.userValue) {
+                            el.textContent = cellData.userValue;
+                        }
+                    }
+
+                    boardEl.appendChild(el);
+                }
+            }
+            console.log("Render completed. Board children count:", boardEl.children.length);
+        }
+
+        // Run immediately
+        runTest();
+    </script>
+</body>
+
+</html>

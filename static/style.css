@@ -1,0 +1,325 @@
+:root {
+    --bg-color: #121212;
+    --surface-color: #1e1e1e;
+    --primary-color: #bb86fc;
+    --secondary-color: #03dac6;
+    --text-color: #e0e0e0;
+    --grid-line: #333;
+    --block-color: #2c2c2c;
+    --white-cell: #ffffff;
+    --white-cell-text: #000000;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#root {
+    width: 100%;
+    max-width: 1200px;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.header {
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 3rem;
+    margin: 0;
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(187, 134, 252, 0.3));
+}
+
+.controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+button {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-color);
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.board-container {
+    background: var(--surface-color);
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--glass-border);
+    overflow: auto;
+}
+
+/* Grid Styles */
+.kakuro-grid {
+    display: grid;
+    gap: 1px;
+    background-color: var(--grid-line);
+    border: 2px solid var(--grid-line);
+}
+
+.cell {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.cell.block {
+    background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
+    color: #888;
+    font-size: 0.8rem;
+}
+
+.cell.white {
+    background-color: var(--white-cell);
+    color: var(--white-cell-text);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cell.white:hover {
+    background-color: #f0f0f0;
+}
+
+.cell.white.selected {
+    background-color: #e3f2fd;
+    box-shadow: inset 0 0 0 2px var(--primary-color);
+}
+
+.cell.white.incorrect {
+    color: #ff5252;
+    background-color: #ffebee;
+}
+
+.cell.white.correct {
+    color: #4caf50;
+}
+
+/* Clues in Block Cells */
+.clue-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.clue-h {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+}
+
+.clue-v {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    font-size: 0.9rem;
+    color: var(--primary-color);
+}
+
+.diagonal-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to top right, transparent calc(50% - 1px), #555, transparent calc(50% + 1px));
+}
+
+/* Notes */
+.notes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.note-num {
+    font-size: 0.6rem;
+    color: #555;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Board Wrapper Layout */
+.board-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.col-notes-row {
+    display: grid;
+    gap: 1px;
+}
+
+.main-grid-area {
+    display: grid;
+    gap: 1px;
+    background-color: var(--grid-line);
+}
+
+.margin-corner {
+    width: 40px;
+    height: 28px;
+    background: transparent;
+}
+
+/* Margin Notes */
+.margin-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.margin-note:hover {
+    background: rgba(187, 134, 252, 0.2);
+}
+
+.margin-note-col {
+    width: 60px;
+    height: 28px;
+    background: rgba(3, 218, 198, 0.1);
+    border: 1px solid rgba(3, 218, 198, 0.2);
+}
+
+.margin-note-row {
+    width: 40px;
+    height: 60px;
+    background: rgba(187, 134, 252, 0.1);
+    border: 1px solid rgba(187, 134, 252, 0.2);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}
+
+.note-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+    text-align: center;
+    font-size: 0.7rem;
+    outline: none;
+    padding: 2px;
+    box-sizing: border-box;
+}
+
+.margin-note-row .note-input {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}
+
+.note-input:focus {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+/* Marginal Notes */
+.marginal-notes-h {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    width: 100%;
+    height: 20px;
+    font-size: 0.7rem;
+    color: var(--text-color);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+/* Success Feedback */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--secondary-color);
+    color: var(--bg-color);
+    padding: 1rem 2rem;
+    border-radius: 30px;
+    font-weight: 600;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translate(-50%, 50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+.marginal-notes-v {
+    position: absolute;
+    left: -20px;
+    top: 0;
+    width: 20px;
+    height: 100%;
+    font-size: 0.7rem;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
