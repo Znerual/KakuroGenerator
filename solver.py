@@ -2,6 +2,9 @@ from typing import List, Dict, Set, Optional, Tuple
 from kakuro import KakuroBoard, Cell, CellType
 import copy
 import random
+import logging
+
+logger = logging.getLogger("kakuro_solver")
 
 class CSPSolver:
     def __init__(self, board: KakuroBoard):
@@ -254,9 +257,11 @@ class CSPSolver:
         Returns: (success: bool, message: str)
         """
         for iteration in range(max_iterations):
+            logger.info(f"Uniqueness iteration {iteration + 1}/{max_iterations}")
             # Step 1: Fill the board with numbers
             success = self.solve_fill(prefer_small_numbers=prefer_small_numbers)
             if not success:
+                logger.warning("Failed to fill board")
                 return False, "Failed to fill board"
             
             # Step 2: Calculate clues
@@ -265,9 +270,11 @@ class CSPSolver:
             # Step 3: Check uniqueness (with node limit)
             is_unique = self.verify_unique_solution(max_nodes=10000)
             if is_unique:
+                logger.info(f"Unique puzzle generated at iteration {iteration + 1}")
                 return True, f"Unique puzzle generated (iteration {iteration + 1})"
             
             # Step 4: Puzzle is NOT unique - apply constraint tightening
+            logger.info("Puzzle not unique, tightening constraints...")
             tightened = self._tighten_constraints()
             if not tightened:
                 # Could not tighten further, this topology may not support unique puzzles

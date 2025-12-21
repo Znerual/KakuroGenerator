@@ -13,8 +13,29 @@ import uvicorn
 import uuid
 import datetime
 import storage
+import logging
+import traceback
 from pydantic import BaseModel
 from typing import List, Optional, Dict
+
+# Configure logging
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+
+# Clear existing handlers to avoid duplicates during reload
+if root_logger.hasHandlers():
+    root_logger.handlers.clear()
+
+file_handler = logging.FileHandler("kakuro_debug.log", mode='a')
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+root_logger.addHandler(file_handler)
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+root_logger.addHandler(stream_handler)
+
+logger = logging.getLogger("kakuro_main")
+logger.info("Logging initialized or re-initialized")
 
 app = FastAPI()
 
@@ -67,7 +88,8 @@ def validate_board(board, min_white_cells: int) -> bool:
 import random
 
 @app.get("/generate")
-def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, difficulty: str = "medium", verify_unique: bool = False):
+def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, difficulty: str = "medium", verify_unique: bool = True):
+    logger.info(f"Received generate request: width={width}, height={height}, difficulty={difficulty}, verify_unique={verify_unique}")
     density = DIFFICULTY_MAP.get(difficulty, 0.15)
     
     # Randomize size if not specified
@@ -78,64 +100,76 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
         if height is None:
             height = random.randint(min_s, max_s)
 
+    logger.info(f"Generated puzzle with width={width}, height={height}")
+
     # Adjust minimum white cells and sector length for very easy
     min_white = MIN_WHITE_CELLS
     if difficulty == "very_easy" or width < 8 or height < 8:
         min_white = 8  # Allow smaller puzzles for very easy
     
-    for attempt in range(MAX_RETRIES):
-        # 1. Topology (with smaller sectors when uniqueness is requested)
-        board = KakuroBoard(width, height)
-        # Even stricter sector limiting for higher difficulties to aid uniqueness
-        max_sector = 4 if (verify_unique or difficulty == "very_easy") else 9
-        if difficulty == "hard": max_sector = min(max_sector, 5)
-        
-        board.generate_topology(density=density, max_sector_length=max_sector)
-        
-        # Validate board has enough white cells
-        if not validate_board(board, min_white):
-            continue  # Retry
-        
-        # 2. Fill and ensure uniqueness (using iterative refinement)
-        solver = CSPSolver(board)
-        
-        if verify_unique:
-            # New smart generation with iterative tightening
-            success, msg = solver.generate_with_uniqueness(
-                max_iterations=5, 
-                prefer_small_numbers=(difficulty == "very_easy")
-            )
-            if not success:
-                continue  # Full retry with new topology
-        else:
-            # Standard fill without uniqueness check (with node limit for safety)
-            success = solver.solve_fill(
-                max_nodes=10000, 
-                prefer_small_numbers=(difficulty == "very_easy")
-            )
-            if not success:
+    try:
+        for attempt in range(MAX_RETRIES):
+            logger.info(f"Generation attempt {attempt + 1}/{MAX_RETRIES} for difficulty {difficulty}")
+            # 1. Topology (with smaller sectors when uniqueness is requested)
+            board = KakuroBoard(width, height)
+            # Even stricter sector limiting for higher difficulties to aid uniqueness
+            max_sector = 4 if (verify_unique or difficulty == "very_easy") else 9
+            if difficulty == "hard": max_sector = min(max_sector, 5)
+            
+            board.generate_topology(density=density, max_sector_length=max_sector)
+            
+            # Validate board has enough white cells
+            if not validate_board(board, min_white):
+                logger.debug(f"Attempt {attempt + 1}: Too few white cells ({len(board.white_cells)}). Retrying.")
                 continue  # Retry
-            solver.calculate_clues()
-        
-        # Serialize
-        grid_data = []
-        for r in range(height):
-            row_data = []
-            for c in range(width):
-                cell = board.get_cell(r, c)
-                row_data.append(cell.to_dict())
-            grid_data.append(row_data)
+            
+            # 2. Fill and ensure uniqueness (using iterative refinement)
+            solver = CSPSolver(board)
+            
+            if verify_unique:
+                # New smart generation with iterative tightening
+                success, msg = solver.generate_with_uniqueness(
+                    max_iterations=5, 
+                    prefer_small_numbers=(difficulty == "very_easy")
+                )
+                if not success:
+                    logger.debug(f"Attempt {attempt + 1}: Uniqueness generation failed: {msg}. Retrying.")
+                    continue  # Full retry with new topology
+            else:
+                # Standard fill without uniqueness check (with node limit for safety)
+                success = solver.solve_fill(
+                    max_nodes=10000, 
+                    prefer_small_numbers=(difficulty == "very_easy")
+                )
+                if not success:
+                    logger.debug(f"Attempt {attempt + 1}: Standard fill failed. Retrying.")
+                    continue  # Retry
+                solver.calculate_clues()
+            
+            # Serialize
+            grid_data = []
+            for r in range(height):
+                row_data = []
+                for c in range(width):
+                    cell = board.get_cell(r, c)
+                    row_data.append(cell.to_dict())
+                grid_data.append(row_data)
 
-        puzzle_id = str(uuid.uuid4())
-        return {
-            "id": puzzle_id,
-            "width": width,
-            "height": height,
-            "difficulty": difficulty,
-            "grid": grid_data,
-            "status": "started",
-            "timestamp": datetime.datetime.now().isoformat()
-        }
+            puzzle_id = str(uuid.uuid4())
+            logger.info(f"Successfully generated puzzle {puzzle_id} on attempt {attempt + 1}")
+            return {
+                "id": puzzle_id,
+                "width": width,
+                "height": height,
+                "difficulty": difficulty,
+                "grid": grid_data,
+                "status": "started",
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+    except Exception as e:
+        logger.error(f"Unexpected error in generation: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error during generation: {str(e)}")
     
     # All retries failed
     raise HTTPException(status_code=500, detail="Failed to generate valid puzzle after multiple attempts. Try a different difficulty or size.")

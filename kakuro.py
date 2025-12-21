@@ -2,6 +2,9 @@ import random
 from enum import Enum
 from typing import List, Tuple, Optional, Set
 from collections import deque
+import logging
+
+logger = logging.getLogger("kakuro_board")
 
 class CellType(str, Enum):
     BLOCK = "BLOCK"
@@ -94,7 +97,8 @@ class KakuroBoard:
 
     def set_block(self, r: int, c: int):
         cell = self.get_cell(r, c)
-        if cell:
+        if cell and cell.type != CellType.BLOCK:
+            logger.debug(f"Blocking cell ({r}, {c})")
             cell.type = CellType.BLOCK
 
     def _fix_single_runs(self) -> bool:
