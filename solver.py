@@ -1,3 +1,4 @@
+from collections import deque
 from typing import List, Dict, Set, Optional, Tuple
 from kakuro import KakuroBoard, Cell, CellType
 import copy
@@ -7,389 +8,331 @@ class CSPSolver:
     def __init__(self, board: KakuroBoard):
         self.board = board
 
-    def solve_fill(self, max_nodes: int = 20000, prefer_small_numbers: bool = False) -> bool:
-        """Phase 3: Populate grid with numbers (1-9) ensuring uniqueness in sectors."""
-        # Variables: self.board.white_cells
-        # Domains: {1..9}
-        assignment = {} # Cell -> int
-        node_count = [0]
-        return self._backtrack_fill_optimized(assignment, node_count, max_nodes, prefer_small_numbers)
+    def generate_puzzle(self, difficulty: str = "medium") -> bool:
+        """
+        Main Pipeline:
+        1. Generate Topology
+        2. Solve Fill (create numbers)
+        3. Check Uniqueness
+        4. If not unique, fix ambiguous area and repeat.
+        """
+        max_retries = 80
+        
+        for attempt in range(max_retries):
+            # 1. Generate Topology 
+            # We regenerate topology frequently if filling fails, 
+            # because some intricate shapes are mathematically impossible to fill
+            if attempt % 5 == 0: 
+                d = 0.50 if difficulty == "very_easy" else (0.55 if difficulty == "easy" else 0.60)
+                # For hard, we want more density (longer runs)
+                if difficulty == "hard": d = 0.65
+                
+                self.board.generate_topology(density=d)
+            
+            # Safety check: Is board empty?
+            if len(self.board.white_cells) < 4:
+                continue
 
-    def _backtrack_fill_optimized(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int, prefer_small_numbers: bool = False) -> bool:
-        if node_count[0] >= max_nodes:
+            # 2. Fill grid with numbers
+            self.board.reset_values()
+
+            if not self.solve_fill(difficulty=difficulty):
+                continue # Bad topology, retry
+            
+            # 3. Calculate Clues based on the fill
+            self.calculate_clues()
+            
+            # 4. Verify Uniqueness
+            # Find an alternate solution
+            unique, alt_solution = self.check_uniqueness()
+            
+            if unique:
+                print(f"Success! Unique puzzle generated on attempt {attempt}.")
+                return True
+            
+            # 5. Fix Uniqueness (Targeted Repair)
+            # If we are here, we have Solution A (in board) and Solution B (in alt_solution)
+            # Find a cell where they differ and block it.
+            # 5. Fix Uniqueness (Targeted Repair)
+            # Try to block a cell to remove ambiguity WITHOUT breaking the board
+            repaired = self._repair_ambiguity_safely(alt_solution)
+            
+            if not repaired:
+                # If we couldn't repair it safely (e.g. any block disconnects the graph),
+                # we must regenerate the topology.
+                # Force regeneration in next loop by manipulating loop counter or just continue
+                # (The 'continue' will hit the solve_fill, fail or succeed, and eventually 
+                # hit the 'attempt % 5' check to regen topology if we get stuck)
+                d = 0.50 if difficulty == "very easy" else (0.55 if difficulty == "easy" else 0.60)
+                # For hard, we want more density (longer runs)
+                if difficulty == "hard": d = 0.65
+                
+                self.board.generate_topology(density=d)
+                
+            
+        return False
+
+
+    def solve_fill(self, difficulty: str = "medium", max_nodes: int = 30000) -> bool:
+        """Backtracking to fill the grid with valid numbers 1-9."""
+        assignment = {}
+        node_count = [0]
+        
+        # Difficulty Weighting for numbers 1 through 9
+        # format: [weight_for_1, weight_for_2, ..., weight_for_9]
+        
+        if difficulty == "very_easy":
+            # Extreme bias towards 1, 2, 8, 9
+            # Creates sums with unique partitions (e.g., 3, 4, 17)
+            domain_weights = [20, 15, 5, 1, 1, 1, 5, 15, 20]
+            
+        elif difficulty == "easy":
+            # Strong bias towards edges, but allows some variety
+            domain_weights = [10, 8, 6, 2, 1, 2, 6, 8, 10]
+            
+        elif difficulty == "medium":
+            # Flat distribution - Pure randomness
+            # Creates a balanced mix of open and closed sums
+            domain_weights = [5, 5, 5, 5, 5, 5, 5, 5, 5]
+            
+        elif difficulty == "hard":
+            # Bias towards the middle (4, 5, 6)
+            # Creates sums with maximum freedom (e.g., 12, 13, 14, 15)
+            # These are the hardest to deduce logically
+            domain_weights = [1, 2, 5, 10, 10, 10, 5, 2, 1]
+            
+        else:
+            # Fallback to medium
+            domain_weights = [5, 5, 5, 5, 5, 5, 5, 5, 5]
+            
+        return self._backtrack_fill(assignment, node_count, max_nodes, domain_weights)
+    
+    def _backtrack_fill(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int, weights: List[int]) -> bool:
+        if node_count[0] > max_nodes: 
             return False
         node_count[0] += 1
 
-        if len(assignment) == len(self.board.white_cells):
-            # Apply to board
+        # MRV Heuristic
+        unassigned = [c for c in self.board.white_cells if c not in assignment]
+        if not unassigned:
+            # Apply assignment to board
             for cell, val in assignment.items():
                 cell.value = val
             return True
-
-        # MRV Heuristic
-        var = None
-        min_options = 11
-        for cell in self.board.white_cells:
-            if cell not in assignment:
-                # Use a simplified domain size check for initial fill (just sector uniqueness)
-                options = self._get_fill_domain_size(cell, assignment)
-                if options == 0: return False # Prune
-                if options < min_options:
-                    min_options = options
-                    var = cell
-                    if options == 1: break
+            
+        # Sort by most constrained (approximate by sector neighbors filled)
+        var = max(unassigned, key=lambda c: self._count_neighbors_filled(c, assignment))
         
-        if var is None: return False
+        # Domain selection
+        nums = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # Weighted shuffle based on difficulty
+        # python's random.choices returns with replacement, so we use it to sort
+        weighted_pairs = list(zip(nums, weights))
+        random.shuffle(weighted_pairs)
+        # Sort based on weight + random noise
+        weighted_pairs.sort(key=lambda x: x[1] * random.random(), reverse=True)
+        ordered_domain = [x[0] for x in weighted_pairs]
 
-        # Randomize domain order to get different puzzles
-        domain = list(range(1, 10))
-        if prefer_small_numbers:
-            # Favor 1-5 more heavily. We still want some variety, so we'll 
-            # shuffle them but keep them mostly at the front of the list.
-            smalls = [1, 2, 3, 4, 5]
-            larges = [6, 7, 8, 9]
-            random.shuffle(smalls)
-            random.shuffle(larges)
-            domain = smalls + larges
-        else:
-            random.shuffle(domain)
-
-        for value in domain:
-            if self._is_consistent_fill(var, value, assignment):
-                assignment[var] = value
-                if self._backtrack_fill_optimized(assignment, node_count, max_nodes, prefer_small_numbers):
+        for val in ordered_domain:
+            if self._is_consistent_number(var, val, assignment):
+                assignment[var] = val
+                if self._backtrack_fill(assignment, node_count, max_nodes, weights):
                     return True
                 del assignment[var]
         
         return False
 
-    def _get_fill_domain_size(self, cell: Cell, assignment: Dict[Cell, int]) -> int:
+    def _count_neighbors_filled(self, cell: Cell, assignment: Dict[Cell, int]) -> int:
         count = 0
-        for val in range(1, 10):
-            if self._is_consistent_fill(cell, val, assignment):
-                count += 1
+        if cell.sector_h:
+            for n in cell.sector_h:
+                if n in assignment: count += 1
+        if cell.sector_v:
+            for n in cell.sector_v:
+                if n in assignment: count += 1
         return count
 
-    def _is_consistent_fill(self, var: Cell, value: int, assignment: Dict[Cell, int]) -> bool:
-        # Check Horizontal Sector (using direct references if available)
-        h_sector = var.sector_h
-        if h_sector:
-            for peer in h_sector:
-                if peer in assignment and assignment[peer] == value:
-                    return False
-        else:
-            # Fallback for during construction/stabilization if needed
-            for sector in self.board.sectors_h:
-                if var in sector:
-                    for peer in sector:
-                        if peer in assignment and assignment[peer] == value:
-                            return False
-        
-        # Check Vertical Sector
-        v_sector = var.sector_v
-        if v_sector:
-            for peer in v_sector:
-                if peer in assignment and assignment[peer] == value:
-                    return False
-        else:
-            for sector in self.board.sectors_v:
-                if var in sector:
-                    for peer in sector:
-                        if peer in assignment and assignment[peer] == value:
-                            return False
+    def _is_consistent_number(self, var: Cell, value: int, assignment: Dict[Cell, int]) -> bool:
+        # Check Row
+        if var.sector_h:
+            for cell in var.sector_h:
+                if cell in assignment and assignment[cell] == value: return False
+        # Check Col
+        if var.sector_v:
+            for cell in var.sector_v:
+                if cell in assignment and assignment[cell] == value: return False
         return True
 
     def calculate_clues(self):
-        """Phase 4: Calculate clues based on filled values."""
-        # Horizontal Clues
+        """Calculates clues based on current filled values."""
         for sector in self.board.sectors_h:
-            s_sum = sum(c.value for c in sector)
-            # The clue goes to the block immediately to the left of the first cell
-            first_cell = sector[0]
-            if first_cell.c > 0:
-                clue_cell = self.board.grid[first_cell.r][first_cell.c - 1]
-                if clue_cell.type == CellType.BLOCK:
-                    clue_cell.clue_h = s_sum
+            s_sum = sum(c.value for c in sector if c.value)
+            first = sector[0]
+            if first.c > 0:
+                self.board.grid[first.r][first.c - 1].clue_h = s_sum
         
-        # Vertical Clues
         for sector in self.board.sectors_v:
-            s_sum = sum(c.value for c in sector)
-            # The clue goes to the block immediately above the first cell
-            first_cell = sector[0]
-            if first_cell.r > 0:
-                clue_cell = self.board.grid[first_cell.r - 1][first_cell.c]
-                if clue_cell.type == CellType.BLOCK:
-                    clue_cell.clue_v = s_sum
+            s_sum = sum(c.value for c in sector if c.value)
+            first = sector[0]
+            if first.r > 0:
+                self.board.grid[first.r - 1][first.c].clue_v = s_sum
 
-    def verify_unique_solution(self, max_nodes: int = 50000) -> bool:
-        """
-        Verify uniqueness by checking if there's a solution different from the known one.
-        Uses node limit for practicality - assumes unique if limit reached without finding alternate.
-        """
-        # Store the known solution
-        known_solution = {cell: cell.value for cell in self.board.white_cells}
-        
-        # Reset values for verification
-        for cell in self.board.white_cells:
-            cell.value = None
-        
-        # Try to find ANY solution (should find the known one or an alternate)
-        node_count = [0]
-        found_different = [False]
-        
-        self._find_alternate_solution(known_solution, node_count, max_nodes, found_different)
-        
-        # Restore values
-        for cell, val in known_solution.items():
-            cell.value = val
-        
-        # If we found a different solution, puzzle is NOT unique
-        return not found_different[0]
 
-    def _find_alternate_solution(self, known: Dict[Cell, int], node_count: List[int], 
-                                  max_nodes: int, found_different: List[bool]):
-        """Search for a solution different from the known solution using MRV."""
-        if found_different[0] or node_count[0] >= max_nodes:
-            return
+    def check_uniqueness(self, max_nodes: int = 10000) -> Tuple[bool, Optional[Dict[Tuple[int, int], int]]]:
+        """
+        Returns (True, None) if unique.
+        Returns (False, Alternative_Assignment) if not unique.
+        """
+        current_solution = { (c.r, c.c): c.value for c in self.board.white_cells }
         
+        # Clear board to prepare for solving
+        for c in self.board.white_cells:
+            c.value = None
+            
+        found_solutions = []
+        self._solve_for_uniqueness(found_solutions, current_solution, [0], max_nodes)
+        
+        # Restore original solution
+        for c in self.board.white_cells:
+            c.value = current_solution[(c.r, c.c)]
+            
+        if not found_solutions:
+            # This shouldn't happen if the puzzle was valid, but acts as a fallback
+            return True, None 
+            
+        # found_solutions contains the ALTERNATIVE solution
+        return False, found_solutions[0]
+
+    def _solve_for_uniqueness(self, found_solutions: List[Dict], avoid_sol: Dict, node_count: List[int], max_nodes: int):
+        if found_solutions: return # Found an alternative, stop
+        if node_count[0] > max_nodes: return
         node_count[0] += 1
         
-        # MRV Heuristic: Choose variable with fewest remaining legal values
-        var = None
-        min_options = 11
-        for cell in self.board.white_cells:
-            if cell.value is None:
-                options = self._get_domain_size(cell)
-                if options == 0: return # Prune
-                if options < min_options:
-                    min_options = options
-                    var = cell
-                    if options == 1: break # Short-circuit
-        
-        if var is None:
-            # Found a complete assignment - check if different from known
-            for cell in self.board.white_cells:
-                if cell.value != known[cell]:
-                    found_different[0] = True
-                    return
+        # Find unassigned
+        unassigned = [c for c in self.board.white_cells if c.value is None]
+        if not unassigned:
+            # Check if this solution is different from the original
+            is_diff = False
+            current_sol = {}
+            for c in self.board.white_cells:
+                current_sol[(c.r, c.c)] = c.value
+                if avoid_sol[(c.r, c.c)] != c.value:
+                    is_diff = True
+            
+            if is_diff:
+                found_solutions.append(current_sol)
             return
+
+        # MRV
+        var = min(unassigned, key=lambda c: self._get_domain_size(c))
         
-        # Try each value 1-9
-        for value in range(1, 10):
-            if self._is_consistent_clues(var, value):
-                var.value = value
-                self._find_alternate_solution(known, node_count, max_nodes, found_different)
-                if found_different[0]:
-                    return
+        for val in range(1, 10):
+            if self._is_valid_move(var, val):
+                var.value = val
+                self._solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes)
+                if found_solutions: return
                 var.value = None
 
     def _get_domain_size(self, cell: Cell) -> int:
-        """Count how many values from 1-9 are currently legal for this cell."""
-        count = 0
-        for val in range(1, 10):
-            if self._is_consistent_clues(cell, val):
-                count += 1
-        return count
+        c = 0
+        for v in range(1, 10):
+            if self._is_valid_move(cell, v): c += 1
+        return c
 
-    def _is_consistent_clues(self, var: Cell, value: int) -> bool:
-        # 1. Unique in sectors
-        # 2. Sum does not exceed clue
-        # 3. If sector full, sum MUST equal clue
+    def _is_valid_move(self, cell: Cell, val: int) -> bool:
+        # 1. Unique in row/col
+        # 2. Sum constraint not violated
         
-        # Check Horizontal
-        h_sector = var.sector_h
-        if h_sector:
-            current_sum = 0
-            count = 0
-            filled_count = 0
-            for cell in h_sector:
-                val = cell.value if cell != var else value
-                if val is not None:
-                    if val == value and cell != var: return False # Duplicate
-                    current_sum += val
-                    filled_count += 1
-                count += 1
+        # Horizontal
+        if cell.sector_h:
+            curr_sum = val
+            filled = 1
+            for peer in cell.sector_h:
+                if peer.value is not None:
+                    if peer.value == val: return False
+                    curr_sum += peer.value
+                    filled += 1
             
-            # Find clue
-            clue = 0
-            if h_sector[0].c > 0:
-                clue_cell = self.board.grid[h_sector[0].r][h_sector[0].c - 1]
-                clue = clue_cell.clue_h
-            
-            if clue:
-                if current_sum > clue: return False
-                if filled_count == count and current_sum != clue: return False
+            clue = self.board.grid[cell.sector_h[0].r][cell.sector_h[0].c - 1].clue_h
+            if curr_sum > clue: return False
+            if filled == len(cell.sector_h) and curr_sum != clue: return False
 
-        # Check Vertical
-        v_sector = var.sector_v
-        if v_sector:
-            current_sum = 0
-            count = 0
-            filled_count = 0
-            for cell in v_sector:
-                val = cell.value if cell != var else value
-                if val is not None:
-                    if val == value and cell != var: return False # Duplicate
-                    current_sum += val
-                    filled_count += 1
-                count += 1
+        # Vertical
+        if cell.sector_v:
+            curr_sum = val
+            filled = 1
+            for peer in cell.sector_v:
+                if peer.value is not None:
+                    if peer.value == val: return False
+                    curr_sum += peer.value
+                    filled += 1
             
-            # Find clue
-            clue = 0
-            if v_sector[0].r > 0:
-                clue_cell = self.board.grid[v_sector[0].r - 1][v_sector[0].c]
-                clue = clue_cell.clue_v
+            clue = self.board.grid[cell.sector_v[0].r - 1][cell.sector_v[0].c].clue_v
+            if curr_sum > clue: return False
+            if filled == len(cell.sector_v) and curr_sum != clue: return False
             
-            if clue:
-                if current_sum > clue: return False
-                if filled_count == count and current_sum != clue: return False
+        return True
+
+    def _repair_ambiguity_safely(self, alt_sol: Dict[Tuple[int, int], int]) -> bool:
+        """
+        Finds difference between current board and alt_sol.
+        Tries to place a block to break the ambiguity.
+        CRITICAL: Checks if placing the block would disconnect the graph.
+        Returns True if successful, False if no safe block could be placed.
+        """
+        diff_cells = []
+        for c in self.board.white_cells:
+            if c.value != alt_sol.get((c.r, c.c)):
+                diff_cells.append(c)
+        
+        if not diff_cells: return False
+
+        # Sort candidates to try middle first (usually best for breaking loops)
+        # but if that fails, try others.
+        diff_cells.sort(key=lambda c: abs(c.r - self.board.height//2) + abs(c.c - self.board.width//2))
+        
+        # Current set of white coordinates
+        white_coords = set((c.r, c.c) for c in self.board.white_cells)
+        
+        for target in diff_cells:
+            # Simulate: What happens if we remove 'target' and its symmetric partner?
+            removed = {(target.r, target.c)}
+            sym_r, sym_c = self.board.height - 1 - target.r, self.board.width - 1 - target.c
+            if (sym_r, sym_c) in white_coords:
+                removed.add((sym_r, sym_c))
+            
+            # Remaining white cells count
+            remaining_coords = white_coords - removed
+            
+            # If we remove too much (shouldn't happen with 1 cell, but good to check)
+            if len(remaining_coords) < 0.8 * len(white_coords): 
+                continue
+
+            # Connectivity Check on remaining_coords
+            if self._is_connected(remaining_coords):
+                # SUCCESS: We can block this cell safely
+                self.board.set_block(target.r, target.c)
+                self.board.set_block(sym_r, sym_c)
                 
-        return True
-
-    def generate_with_uniqueness(self, max_iterations: int = 10, prefer_small_numbers: bool = False) -> Tuple[bool, Optional[str]]:
-        """
-        Generate a puzzle with guaranteed unique solution.
-        Uses iterative constraint tightening if initial puzzle isn't unique.
-        
-        Returns: (success: bool, message: str)
-        """
-        for iteration in range(max_iterations):
-            # Step 1: Fill the board with numbers
-            success = self.solve_fill(prefer_small_numbers=prefer_small_numbers)
-            if not success:
-                return False, "Failed to fill board"
-            
-            # Step 2: Calculate clues
-            self.calculate_clues()
-            
-            # Step 3: Check uniqueness (with node limit)
-            is_unique = self.verify_unique_solution(max_nodes=10000)
-            if is_unique:
-                return True, f"Unique puzzle generated (iteration {iteration + 1})"
-            
-            # Step 4: Puzzle is NOT unique - apply constraint tightening
-            tightened = self._tighten_constraints()
-            if not tightened:
-                # Could not tighten further, this topology may not support unique puzzles
-                return False, "Could not tighten constraints further"
-            
-            # After tightening, we need to re-identify sectors and clear values
-            self.board._collect_white_cells()
-            self.board._identify_sectors()
-            for cell in self.board.white_cells:
-                cell.value = None
-            
-            # Clear existing clues
-            for r in range(self.board.height):
-                for c in range(self.board.width):
-                    cell = self.board.grid[r][c]
-                    cell.clue_h = None
-                    cell.clue_v = None
-        
-        return False, f"Failed to generate unique puzzle after {max_iterations} iterations"
-
-    def _tighten_constraints(self) -> bool:
-        """
-        Apply constraint tightening to make the puzzle more likely to have a unique solution.
-        Returns True if a tightening was applied, False if no tightening possible.
-        """
-        # Strategy 1: Find and split long sectors (6+ cells)
-        if self._split_long_sector():
-            return True
-        
-        # Strategy 2: Find cells at intersection of two long sectors (4+ each) and block them
-        if self._block_intersection_cell():
-            return True
-        
-        # Strategy 3: Remove a cell from the longest sector
-        if self._shrink_longest_sector():
-            return True
-        
-        return False
-
-    def _split_long_sector(self) -> bool:
-        """Find a sector with 6+ cells and split it by adding a block in the middle."""
-        # Check horizontal sectors
-        for sector in self.board.sectors_h:
-            if len(sector) >= 6:
-                # Split in the middle
-                mid_idx = len(sector) // 2
-                cell_to_block = sector[mid_idx]
-                self._convert_to_block(cell_to_block)
+                # Re-stabilize to fix any run lengths (this might delete a few more cells, 
+                # but we know the main graph is connected)
+                self.board._stabilize_grid()
                 return True
-        
-        # Check vertical sectors
-        for sector in self.board.sectors_v:
-            if len(sector) >= 6:
-                mid_idx = len(sector) // 2
-                cell_to_block = sector[mid_idx]
-                self._convert_to_block(cell_to_block)
-                return True
-        
-        return False
 
-    def _block_intersection_cell(self) -> bool:
-        """Find a cell at the intersection of two moderately long sectors and convert to block."""
-        # Build a map of cell -> (h_sector_len, v_sector_len)
-        cell_sector_lens = {}
-        
-        for sector in self.board.sectors_h:
-            for cell in sector:
-                if cell not in cell_sector_lens:
-                    cell_sector_lens[cell] = [0, 0]
-                cell_sector_lens[cell][0] = len(sector)
-        
-        for sector in self.board.sectors_v:
-            for cell in sector:
-                if cell not in cell_sector_lens:
-                    cell_sector_lens[cell] = [0, 0]
-                cell_sector_lens[cell][1] = len(sector)
-        
-        # Find cells where both sectors have length >= 4
-        candidates = []
-        for cell, (h_len, v_len) in cell_sector_lens.items():
-            if h_len >= 4 and v_len >= 4:
-                candidates.append((cell, h_len + v_len))
-        
-        if candidates:
-            # Pick the one with highest combined sector length
-            candidates.sort(key=lambda x: x[1], reverse=True)
-            cell_to_block = candidates[0][0]
-            self._convert_to_block(cell_to_block)
-            return True
-        
-        return False
+        return False # Could not find any safe cell to block
 
-    def _shrink_longest_sector(self) -> bool:
-        """Remove a cell from the end of the longest sector."""
-        all_sectors = self.board.sectors_h + self.board.sectors_v
-        if not all_sectors:
-            return False
-        
-        # Find longest sector with at least 3 cells (so we can shrink to 2)
-        longest = max((s for s in all_sectors if len(s) >= 3), key=len, default=None)
-        if longest is None:
-            return False
-        
-        # Remove last or first cell (whichever is safer)
-        # Prefer end cells as they're less likely to break connectivity
-        cell_to_block = longest[-1]
-        self._convert_to_block(cell_to_block)
-        return True
-
-    def _convert_to_block(self, cell: Cell):
-        """Convert a white cell to a block, maintaining symmetry."""
-        cell.type = CellType.BLOCK
-        cell.value = None
-        
-        # Apply symmetry
-        sym_r = self.board.height - 1 - cell.r
-        sym_c = self.board.width - 1 - cell.c
-        sym_cell = self.board.get_cell(sym_r, sym_c)
-        if sym_cell and sym_cell.type == CellType.WHITE:
-            sym_cell.type = CellType.BLOCK
-            sym_cell.value = None
-        
-        # Fix any resulting single-cell runs
-        self.board._fix_single_runs()
-
+    def _is_connected(self, coords: Set[Tuple[int, int]]) -> bool:
+        if not coords: return False
+        start = next(iter(coords))
+        q = deque([start])
+        visited = {start}
+        count = 0
+        while q:
+            r, c = q.popleft()
+            count += 1
+            for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
+                nr, nc = r+dr, c+dc
+                if (nr, nc) in coords and (nr, nc) not in visited:
+                    visited.add((nr, nc))
+                    q.append((nr, nc))
+        return count == len(coords)
