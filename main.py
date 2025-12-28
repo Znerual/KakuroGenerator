@@ -64,21 +64,22 @@ app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 async def read_index():
     return FileResponse(os.path.join(STATIC_PATH, "index.html"))
 
-DIFFICULTY_MAP = {
-    "very_easy": 0.15,
-    "easy": 0.08,
-    "medium": 0.15,
-    "hard": 0.22
+# Minimum white cells required to accept a puzzle
+# verification fails if the puzzle is "too empty"
+MIN_CELLS_MAP = {
+    "very_easy": 6,   # Allow small puzzles
+    "easy": 10,
+    "medium": 15,
+    "hard": 20
 }
 
 DIFFICULTY_SIZE_RANGES = {
-    "very_easy": (6, 8),
+    "very_easy": (6, 9),
     "easy": (8, 10),
     "medium": (10, 12),
     "hard": (12, 14)
 }
 
-MIN_WHITE_CELLS = 15  # Minimum white cells for a valid puzzle
 MAX_RETRIES = 20  # More retries for reliability
 
 def validate_board(board, min_white_cells: int) -> bool:
@@ -88,11 +89,12 @@ def validate_board(board, min_white_cells: int) -> bool:
 import random
 
 @app.get("/generate")
-def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, difficulty: str = "medium", verify_unique: bool = True):
-    logger.info(f"Received generate request: width={width}, height={height}, difficulty={difficulty}, verify_unique={verify_unique}")
-    density = DIFFICULTY_MAP.get(difficulty, 0.15)
+def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, difficulty: str = "medium"):
+    """
+    Generates a Kakuro puzzle using the improved CSPSolver with uniqueness guarantees.
+    """
     
-    # Randomize size if not specified
+    # 1. Randomize size if not specified
     if width is None or height is None:
         min_s, max_s = DIFFICULTY_SIZE_RANGES.get(difficulty, (10, 10))
         if width is None:
@@ -100,52 +102,28 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
         if height is None:
             height = random.randint(min_s, max_s)
 
-    logger.info(f"Generated puzzle with width={width}, height={height}")
 
     # Adjust minimum white cells and sector length for very easy
-    min_white = MIN_WHITE_CELLS
-    if difficulty == "very_easy" or width < 8 or height < 8:
-        min_white = 8  # Allow smaller puzzles for very easy
+    min_white_cells = MIN_CELLS_MAP.get(difficulty, 12)
+
+    # 2. Generation Loop
+    # The solver.generate_puzzle method has its own internal retry loop for topology/uniqueness,
+    # but we add a small outer loop just in case the board geometry itself is invalid (too small).
+    max_outer_retries = MAX_RETRIES
     
-    try:
-        for attempt in range(MAX_RETRIES):
-            logger.info(f"Generation attempt {attempt + 1}/{MAX_RETRIES} for difficulty {difficulty}")
-            # 1. Topology (with smaller sectors when uniqueness is requested)
-            board = KakuroBoard(width, height)
-            # Even stricter sector limiting for higher difficulties to aid uniqueness
-            max_sector = 4 if (verify_unique or difficulty == "very_easy") else 9
-            if difficulty == "hard": max_sector = min(max_sector, 5)
-            
-            board.generate_topology(density=density, max_sector_length=max_sector)
-            
-            # Validate board has enough white cells
-            if not validate_board(board, min_white):
-                logger.debug(f"Attempt {attempt + 1}: Too few white cells ({len(board.white_cells)}). Retrying.")
-                continue  # Retry
-            
-            # 2. Fill and ensure uniqueness (using iterative refinement)
-            solver = CSPSolver(board)
-            
-            if verify_unique:
-                # New smart generation with iterative tightening
-                success, msg = solver.generate_with_uniqueness(
-                    max_iterations=5, 
-                    prefer_small_numbers=(difficulty == "very_easy")
-                )
-                if not success:
-                    logger.debug(f"Attempt {attempt + 1}: Uniqueness generation failed: {msg}. Retrying.")
-                    continue  # Full retry with new topology
-            else:
-                # Standard fill without uniqueness check (with node limit for safety)
-                success = solver.solve_fill(
-                    max_nodes=10000, 
-                    prefer_small_numbers=(difficulty == "very_easy")
-                )
-                if not success:
-                    logger.debug(f"Attempt {attempt + 1}: Standard fill failed. Retrying.")
-                    continue  # Retry
-                solver.calculate_clues()
-            
+    for attempt in range(max_outer_retries):
+        board = KakuroBoard(width, height)
+        solver = CSPSolver(board)
+        
+        # This function now handles Topology -> Fill -> Verify -> Repair -> Repeat
+        success = solver.generate_puzzle(difficulty=difficulty)
+        
+        if success:
+            # Final validation check to ensure the puzzle isn't too trivial
+            if len(board.white_cells) < min_white_cells:
+                print("Too trivial, retrying...")
+                #continue # Retry to get a meatier puzzle
+
             # Serialize
             grid_data = []
             for r in range(height):
@@ -156,7 +134,6 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
                 grid_data.append(row_data)
 
             puzzle_id = str(uuid.uuid4())
-            logger.info(f"Successfully generated puzzle {puzzle_id} on attempt {attempt + 1}")
             return {
                 "id": puzzle_id,
                 "width": width,
@@ -166,10 +143,6 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
                 "status": "started",
                 "timestamp": datetime.datetime.now().isoformat()
             }
-    except Exception as e:
-        logger.error(f"Unexpected error in generation: {e}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Internal server error during generation: {str(e)}")
     
     # All retries failed
     raise HTTPException(status_code=500, detail="Failed to generate valid puzzle after multiple attempts. Try a different difficulty or size.")
@@ -184,11 +157,15 @@ class SaveRequest(BaseModel):
     status: str
     rowNotes: List[str]
     colNotes: List[str]
+    cellNotes: Dict[str, str]
+    notebook: str
+    rating: int
+    userComment: str
     timestamp: Optional[str] = None
 
 @app.post("/save")
 def save_puzzle_endpoint(request: SaveRequest):
-    data = request.dict()
+    data = request.model_dump()
     if not data.get("timestamp"):
         data["timestamp"] = datetime.datetime.now().isoformat()
     storage.save_puzzle(request.id, data)

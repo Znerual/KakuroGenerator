@@ -15,25 +15,103 @@
     <div id="root">
         <div class="app-container">
             <header class="header">
-                <h1>Kakuro Generator</h1>
-                <p>Premium Puzzle Experience</p>
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1>🎲 Kakuro Generator</h1>
+                        <p class="subtitle">Premium Puzzle Experience</p>
+                    </div>
+                    <button id="btn-theme-toggle" class="btn-theme-toggle">
+                        <span class="tool-icon">☀️</span>
+                        <span class="tool-label">Light Mode</span>
+                    </button>
+                </div>
             </header>
 
-            <div class="controls">
-                <select id="difficulty-select">
-                    <option value="very_easy">Very Easy</option>
-                    <option value="easy">Easy</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="hard">Hard</option>
-                </select>
-                <button id="btn-generate">New Puzzle</button>
-                <button id="btn-save">Save Progress</button>
-                <button id="btn-library">My Library</button>
-                <button id="btn-check" class="primary">Check</button>
-            </div>
+            <div class="main-layout">
+                <!-- Left Sidebar: Puzzle Settings -->
+                <aside class="sidebar-left">
+                    <div class="control-card">
+                        <h3 class="card-title">⚙️ Puzzle Settings</h3>
+                        <div class="control-group">
+                            <label for="difficulty-select">Difficulty Level</label>
+                            <select id="difficulty-select" class="styled-select">
+                                <option value="very_easy">🌱 Very Easy</option>
+                                <option value="easy">🟢 Easy</option>
+                                <option value="medium" selected>🟡 Medium</option>
+                                <option value="hard">🔴 Hard</option>
+                            </select>
+                        </div>
+                        <button id="btn-generate" class="btn-large btn-primary">
+                            <span class="btn-icon">🎲</span>
+                            <span>New Puzzle</span>
+                        </button>
+                    </div>
+                </aside>
 
-            <div class="board-container">
-                <div id="kakuro-board" class="kakuro-grid"></div>
+                <!-- Center: Game Board -->
+                <main class="game-area">
+                    <div id="note-help" class="note-help" style="display: none;">
+                        📝 <strong>Note Mode</strong> (press <kbd>N</kbd> to toggle) • Click cells (Ctrl+click for multiple) • Type to add notes • Backspace to delete • Select 2 adjacent cells for boundary notes • <kbd>Esc</kbd> to exit
+                    </div>
+
+                    <div class="board-container">
+                        <div id="kakuro-board" class="kakuro-grid"></div>
+                    </div>
+
+                    <!-- Action Bar Below Grid -->
+                    <div class="action-bar">
+                        <button id="btn-library" class="btn-action btn-secondary">
+                            <span class="btn-icon">📚</span>
+                            <span>My Library</span>
+                        </button>
+                        <button id="btn-check" class="btn-action btn-success">
+                            <span class="btn-icon">✓</span>
+                            <span>Check Solution</span>
+                        </button>
+                    </div>
+                </main>
+
+                <!-- Right Sidebar: Tools -->
+                <aside class="sidebar-right">
+                    <div class="control-card tools-panel">
+                        <h3 class="card-title">🛠️ Tools</h3>
+                        <button id="btn-note-mode" class="btn-tool">
+                            <span class="tool-icon">📝</span>
+                            <span class="tool-label">Note Mode</span>
+                            <span class="tool-status">OFF</span>
+                        </button>
+                        <button id="btn-notebook" class="btn-tool">
+                            <span class="tool-icon">📓</span>
+                            <span class="tool-label">Notebook</span>
+                        </button>
+                        <button id="btn-save" class="btn-tool btn-save">
+                            <span class="tool-icon">💾</span>
+                            <span class="tool-label">Save Progress</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Notebook Panel (expands below tools) -->
+                    <div id="notebook-panel" class="notebook-panel-inline">
+                        <div class="notebook-header">
+                            <h3>📓 My Notes</h3>
+                        </div>
+                        <textarea id="notebook-textarea" class="notebook-textarea" placeholder="Write your solving strategies, observations, or any notes here..."></textarea>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div id="rating-modal" class="modal rating-modal">
+        <div class="modal-content rating-content">
+            <h2>🎉 Puzzle Complete!</h2>
+            <p>How would you rate this puzzle?</p>
+            <div id="stars-container" class="stars-container"></div>
+            <textarea id="rating-comment" class="rating-comment-box" placeholder="Share your thoughts about this puzzle (optional)..."></textarea>
+            <div class="rating-actions">
+                <button onclick="closeRatingModal()" class="btn-secondary">Skip</button>
+                <button onclick="submitRating()" class="btn-primary">Submit</button>
             </div>
         </div>
     </div>
