@@ -2,11 +2,19 @@ const state = {
     puzzle: null,
     userGrid: [],
     selected: null,
+    selectedCells: new Set(), // Set of "r,c" strings for multi-select
     rowNotes: [],    // Notes for each row (displayed on the left)
     colNotes: [],    // Notes for each column (displayed on top)
-    editingNote: null, // { type: 'row'|'col', index: number }
+    cellNotes: {},   // Notes for cells: key = "r,c" or "r,c:r2,c2" for boundary notes
+    editingNote: null, // { type: 'row'|'col'|'cell'|'boundary', key: string }
     showErrors: false,
-    currentTab: 'started' // 'started' or 'solved'
+    currentTab: 'started', // 'started' or 'solved'
+    noteMode: false, // Toggle for note-taking mode
+    gridBounds: null, // {minRow, maxRow, minCol, maxCol}
+    notebook: '', // User's personal notes for this puzzle
+    notebookOpen: false, // Whether notebook panel is visible
+    rating: 0, // User's rating (0-5 stars)
+    userComment: '' // User's comment about the puzzle
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -20,10 +28,29 @@ const libraryList = document.getElementById('library-list');
 const tabButtons = document.querySelectorAll('.tab-btn');
 
 function init() {
+    console.log('Init function called');
+    const btnNoteMode = document.getElementById('btn-note-mode');
+    const btnNotebook = document.getElementById('btn-notebook');
+    console.log('btnNoteMode:', btnNoteMode);
+    
     btnGenerate.addEventListener('click', fetchPuzzle);
     btnCheck.addEventListener('click', checkPuzzle);
     btnSave.addEventListener('click', saveCurrentState);
     btnLibrary.addEventListener('click', openLibrary);
+    
+    if (btnNoteMode) {
+        console.log('Adding event listener to note mode button');
+        btnNoteMode.addEventListener('click', function() {
+            console.log('Note mode button clicked!');
+            toggleNoteMode();
+        });
+    } else {
+        console.log('Note mode button not found!');
+    }
+    
+    if (btnNotebook) {
+        btnNotebook.addEventListener('click', toggleNotebook);
+    }
     closeModal.addEventListener('click', () => libraryModal.style.display = 'none');
     window.addEventListener('click', (e) => {
         if (e.target === libraryModal) libraryModal.style.display = 'none';
@@ -40,6 +67,39 @@ function init() {
 
     window.addEventListener('keydown', handleGlobalKey);
     fetchPuzzle();
+}
+
+function toggleNotebook() {
+    state.notebookOpen = !state.notebookOpen;
+    const notebookPanel = document.getElementById('notebook-panel');
+    const btnNotebook = document.getElementById('btn-notebook');
+    
+    if (notebookPanel) {
+        notebookPanel.classList.toggle('open', state.notebookOpen);
+    }
+    if (btnNotebook) {
+        btnNotebook.classList.toggle('active', state.notebookOpen);
+    }
+}
+
+function toggleNoteMode() {
+    console.log('toggleNoteMode called, current state:', state.noteMode);
+    const btnNoteMode = document.getElementById('btn-note-mode');
+    const noteHelp = document.getElementById('note-help');
+    state.noteMode = !state.noteMode;
+    console.log('New note mode state:', state.noteMode);
+    if (btnNoteMode) {
+        btnNoteMode.classList.toggle('active', state.noteMode);
+        btnNoteMode.textContent = state.noteMode ? 'Note Mode: ON' : 'Note Mode: OFF';
+        console.log('Button text updated to:', btnNoteMode.textContent);
+    }
+    if (noteHelp) {
+        noteHelp.style.display = state.noteMode ? 'block' : 'none';
+    }
+    if (!state.noteMode) {
+        state.selectedCells.clear();
+    }
+    renderBoard();
 }
 
 async function fetchPuzzle() {
@@ -77,17 +137,68 @@ function loadPuzzleIntoState(data) {
     }
 
     state.selected = null;
+    state.selectedCells.clear();
     state.rowNotes = data.rowNotes || Array(data.height).fill('');
     state.colNotes = data.colNotes || Array(data.width).fill('');
+    state.cellNotes = data.cellNotes || {};
+    state.notebook = data.notebook || '';
+    state.rating = data.rating || 0;
+    state.userComment = data.userComment || '';
     state.editingNote = null;
     state.showErrors = false;
+    state.noteMode = false;
+    const btnNoteMode = document.getElementById('btn-note-mode');
+    if (btnNoteMode) {
+        btnNoteMode.classList.remove('active');
+        btnNoteMode.textContent = 'Note Mode: OFF';
+    }
+
+    // Update notebook textarea if it exists
+    const notebookTextarea = document.getElementById('notebook-textarea');
+    if (notebookTextarea) {
+        notebookTextarea.value = state.notebook;
+    }
+
+    // Calculate grid bounds
+    calculateGridBounds();
 
     console.log("State updated, rendering board...");
     renderBoard();
 }
 
+function calculateGridBounds() {
+    const { width, height, grid } = state.puzzle;
+    let minRow = height, maxRow = -1, minCol = width, maxCol = -1;
+
+    // Find all white cells
+    for (let r = 0; r < height; r++) {
+        for (let c = 0; c < width; c++) {
+            if (grid[r][c].type === 'WHITE') {
+                minRow = Math.min(minRow, r);
+                maxRow = Math.max(maxRow, r);
+                minCol = Math.min(minCol, c);
+                maxCol = Math.max(maxCol, c);
+            }
+        }
+    }
+
+    // Expand by 1 to include clue cells
+    minRow = Math.max(0, minRow - 1);
+    minCol = Math.max(0, minCol - 1);
+    maxRow = Math.min(height - 1, maxRow);
+    maxCol = Math.min(width - 1, maxCol);
+
+    state.gridBounds = { minRow, maxRow, minCol, maxCol };
+}
+
 async function saveCurrentState() {
     if (!state.puzzle) return;
+
+    // Save current notebook content
+    const notebookTextarea = document.getElementById('notebook-textarea');
+    if (notebookTextarea) {
+        state.notebook = notebookTextarea.value;
+    }
 
     const data = {
         id: state.puzzle.id,
@@ -98,7 +209,11 @@ async function saveCurrentState() {
         userGrid: state.userGrid,
         status: state.puzzle.status || "started",
         rowNotes: state.rowNotes,
-        colNotes: state.colNotes
+        colNotes: state.colNotes,
+        cellNotes: state.cellNotes,
+        notebook: state.notebook,
+        rating: state.rating,
+        userComment: state.userComment
     };
 
     try {
@@ -214,12 +329,14 @@ function renderBoard() {
     const wrapper = document.createElement('div');
     wrapper.className = 'board-wrapper';
 
-    const { width, height } = state.puzzle;
+    const { minRow, maxRow, minCol, maxCol } = state.gridBounds;
+    const visibleHeight = maxRow - minRow + 1;
+    const visibleWidth = maxCol - minCol + 1;
 
     // Create column notes row (top margin)
     const colNotesRow = document.createElement('div');
     colNotesRow.className = 'col-notes-row';
-    colNotesRow.style.gridTemplateColumns = `40px repeat(${width}, 60px)`;
+    colNotesRow.style.gridTemplateColumns = `40px repeat(${visibleWidth}, 60px)`;
 
     // Empty corner cell
     const cornerCell = document.createElement('div');
@@ -227,36 +344,94 @@ function renderBoard() {
     colNotesRow.appendChild(cornerCell);
 
     // Column note cells
-    for (let c = 0; c < width; c++) {
+    for (let c = minCol; c <= maxCol; c++) {
         const noteCell = createNoteCell('col', c, state.colNotes[c]);
         colNotesRow.appendChild(noteCell);
     }
     wrapper.appendChild(colNotesRow);
 
-    // Create main content area (row notes + grid)
+    // Create main content area with grid gaps for boundary notes
     const mainArea = document.createElement('div');
-    mainArea.className = 'main-grid-area';
-    mainArea.style.gridTemplateColumns = `40px repeat(${width}, 60px)`;
-    mainArea.style.gridTemplateRows = `repeat(${height}, 60px)`;
+    mainArea.className = 'main-grid-area-with-gaps';
+    // Use 60px for cells, 20px for gaps (note areas)
+    const colTemplate = `40px repeat(${visibleWidth}, 60px)`;
+    const rowTemplate = `repeat(${visibleHeight}, 60px)`;
+    mainArea.style.gridTemplateColumns = colTemplate;
+    mainArea.style.gridTemplateRows = rowTemplate;
+    mainArea.style.gap = '1px';
+    mainArea.style.position = 'relative';
 
-    for (let r = 0; r < height; r++) {
+    for (let r = minRow; r <= maxRow; r++) {
         // Row note cell
         const rowNoteCell = createNoteCell('row', r, state.rowNotes[r]);
         mainArea.appendChild(rowNoteCell);
 
         // Grid cells for this row
-        for (let c = 0; c < width; c++) {
+        for (let c = minCol; c <= maxCol; c++) {
             const cellData = state.userGrid[r][c];
             const el = createGridCell(cellData, r, c);
             mainArea.appendChild(el);
         }
     }
+
+    // Add boundary notes as overlays
+    addBoundaryNotesOverlay(mainArea, minRow, maxRow, minCol, maxCol);
+
     wrapper.appendChild(mainArea);
 
     boardContainer.insertBefore(wrapper, boardEl);
 
     // Keep the original grid hidden but maintain reference
     boardEl.style.display = 'none';
+}
+
+function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
+    // Add all boundary notes as absolutely positioned elements
+    for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+            // Right boundary (between this cell and next)
+            if (c < maxCol) {
+                const rightKey = `${r},${c}:${r},${c+1}`;
+                if (state.cellNotes[rightKey]) {
+                    const note = document.createElement('div');
+                    note.className = 'boundary-note-overlay boundary-vertical';
+                    note.textContent = state.cellNotes[rightKey];
+                    
+                    // Position between columns
+                    const colIndex = c - minCol;
+                    const rowIndex = r - minRow;
+                    // 40px for row labels, then colIndex * 60px to get to the cell, +60px to get to right edge
+                    const left = 40 + (colIndex + 1) * 60;
+                    const top = rowIndex * 60 + 30; // Center vertically in the cell
+                    
+                    note.style.left = `${left}px`;
+                    note.style.top = `${top}px`;
+                    container.appendChild(note);
+                }
+            }
+            
+            // Bottom boundary (between this cell and below)
+            if (r < maxRow) {
+                const bottomKey = `${r},${c}:${r+1},${c}`;
+                if (state.cellNotes[bottomKey]) {
+                    const note = document.createElement('div');
+                    note.className = 'boundary-note-overlay boundary-horizontal';
+                    note.textContent = state.cellNotes[bottomKey];
+                    
+                    // Position between rows
+                    const colIndex = c - minCol;
+                    const rowIndex = r - minRow;
+                    // 40px for row labels, then colIndex * 60px, +30px to center horizontally
+                    const left = 40 + colIndex * 60 + 30;
+                    const top = (rowIndex + 1) * 60; // Bottom edge of current cell
+                    
+                    note.style.left = `${left}px`;
+                    note.style.top = `${top}px`;
+                    container.appendChild(note);
+                }
+            }
+        }
+    }
 }
 
 function createNoteCell(type, index, value) {
@@ -301,8 +476,10 @@ function createNoteCell(type, index, value) {
 function saveNote(type, index, value) {
     if (type === 'row') {
         state.rowNotes[index] = value;
-    } else {
+    } else if (type === 'col') {
         state.colNotes[index] = value;
+    } else if (type === 'cell') {
+        state.cellNotes[index] = value;
     }
     state.editingNote = null;
     renderBoard();
@@ -313,6 +490,7 @@ function createGridCell(cellData, r, c) {
     el.className = 'cell';
 
     const isSelected = state.selected && state.selected.r === r && state.selected.c === c;
+    const isMultiSelected = state.selectedCells.has(`${r},${c}`);
 
     if (cellData.type === 'BLOCK') {
         el.classList.add('block');
@@ -330,73 +508,261 @@ function createGridCell(cellData, r, c) {
         if (isSelected) {
             el.classList.add('selected');
         }
+        if (isMultiSelected) {
+            el.classList.add('multi-selected');
+        }
+
+        // Create content wrapper
+        const wrapper = document.createElement('div');
+        wrapper.className = 'cell-content-wrapper';
 
         if (cellData.userValue) {
-            el.textContent = cellData.userValue;
+            const valueEl = document.createElement('div');
+            valueEl.className = 'cell-value';
+            valueEl.textContent = cellData.userValue;
             if (state.showErrors) {
                 if (cellData.userValue === cellData.value) {
-                    el.classList.add('correct');
+                    valueEl.classList.add('correct');
                 } else {
-                    el.classList.add('incorrect');
+                    valueEl.classList.add('incorrect');
                 }
             }
+            wrapper.appendChild(valueEl);
         } else if (state.showErrors) {
             // Highlight empty white cells as incorrect if checking
             el.classList.add('incorrect');
         }
 
-        el.addEventListener('click', () => selectCell(r, c));
+        // Add cell notes
+        addCellNotes(wrapper, r, c);
+
+        el.appendChild(wrapper);
+        el.addEventListener('click', (e) => selectCell(r, c, e));
     }
 
     return el;
-
 }
 
-function selectCell(r, c) {
+function addCellNotes(wrapper, r, c) {
+    const cellKey = `${r},${c}`;
+    
+    // Corner note (for single cell)
+    if (state.cellNotes[cellKey]) {
+        const cornerNote = document.createElement('div');
+        cornerNote.className = 'cell-corner-note';
+        cornerNote.textContent = state.cellNotes[cellKey];
+        wrapper.appendChild(cornerNote);
+    }
+    
+    // Boundary notes are now handled by addBoundaryNotesOverlay
+}
+
+function selectCell(r, c, event) {
     // Only allow selecting white cells via click
     if (state.userGrid[r][c].type === 'WHITE') {
-        state.selected = { r, c };
-        renderBoard();
+        if (state.noteMode) {
+            // Multi-select mode with Ctrl/Cmd key
+            const key = `${r},${c}`;
+            if (event && (event.ctrlKey || event.metaKey)) {
+                // Add/remove from multi-selection
+                if (state.selectedCells.has(key)) {
+                    state.selectedCells.delete(key);
+                } else {
+                    state.selectedCells.add(key);
+                }
+            } else {
+                // Single selection (clear previous)
+                state.selectedCells.clear();
+                state.selectedCells.add(key);
+                state.selected = { r, c };
+            }
+            renderBoard();
+        } else {
+            // Normal selection mode
+            state.selected = { r, c };
+            state.selectedCells.clear();
+            renderBoard();
+        }
     }
 }
 
 function handleGlobalKey(e) {
-    if (!state.selected) return;
+    // Don't handle if typing in an input field
+    if (e.target.tagName === 'INPUT') return;
 
-    const { r, c } = state.selected;
-    const { width, height } = state.puzzle;
-
-    // Numbers 1-9
-    if (e.key >= '1' && e.key <= '9') {
-        // Only if current cell is white
-        if (state.userGrid[r][c].type === 'WHITE') {
-            state.userGrid[r][c].userValue = parseInt(e.key);
-            state.showErrors = false; // Hide errors when user types
-            renderBoard();
-        }
+    // Toggle note mode with 'n' key
+    if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        toggleNoteMode();
         return;
     }
 
-    // Delete / Backspace
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-        if (state.userGrid[r][c].type === 'WHITE') {
-            state.userGrid[r][c].userValue = null;
-            state.showErrors = false; // Hide errors when user deletes
-            renderBoard();
+    const { minRow, maxRow, minCol, maxCol } = state.gridBounds;
+
+    // Handle note mode typing
+    if (state.noteMode && state.selectedCells.size > 0) {
+        // Allow alphanumeric input for notes
+        if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+            e.preventDefault();
+            handleNoteInput(e.key);
+            return;
         }
-        return;
+        
+        // Backspace to delete notes
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault();
+            deleteSelectedNotes();
+            return;
+        }
+        
+        // Space to clear selection
+        if (e.key === ' ') {
+            e.preventDefault();
+            state.selectedCells.clear();
+            renderBoard();
+            return;
+        }
+        
+        // Escape to exit note mode
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            state.selectedCells.clear();
+            state.noteMode = false;
+            const btnNoteMode = document.getElementById('btn-note-mode');
+            const noteHelp = document.getElementById('note-help');
+            if (btnNoteMode) {
+                btnNoteMode.classList.remove('active');
+                btnNoteMode.textContent = 'Note Mode: OFF';
+            }
+            if (noteHelp) {
+                noteHelp.style.display = 'none';
+            }
+            renderBoard();
+            return;
+        }
     }
 
-    // Arrows
-    let nr = r, nc = c;
-    if (e.key === 'ArrowUp') nr = Math.max(0, r - 1);
-    else if (e.key === 'ArrowDown') nr = Math.min(height - 1, r + 1);
-    else if (e.key === 'ArrowLeft') nc = Math.max(0, c - 1);
-    else if (e.key === 'ArrowRight') nc = Math.min(width - 1, c + 1);
-    else return; // Not handled
+    // Normal mode - handle cell value input
+    if (!state.noteMode && state.selected) {
+        const { r, c } = state.selected;
+        
+        // Numbers 1-9
+        if (e.key >= '1' && e.key <= '9') {
+            if (state.userGrid[r][c].type === 'WHITE') {
+                state.userGrid[r][c].userValue = parseInt(e.key);
+                state.showErrors = false;
+                renderBoard();
+            }
+            return;
+        }
 
-    e.preventDefault();
-    state.selected = { r: nr, c: nc };
+        // Delete / Backspace
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            if (state.userGrid[r][c].type === 'WHITE') {
+                state.userGrid[r][c].userValue = null;
+                state.showErrors = false;
+                renderBoard();
+            }
+            return;
+        }
+
+        // Arrows - navigate within visible bounds
+        let nr = r, nc = c;
+        if (e.key === 'ArrowUp') {
+            nr = Math.max(minRow, r - 1);
+        } else if (e.key === 'ArrowDown') {
+            nr = Math.min(maxRow, r + 1);
+        } else if (e.key === 'ArrowLeft') {
+            nc = Math.max(minCol, c - 1);
+        } else if (e.key === 'ArrowRight') {
+            nc = Math.min(maxCol, c + 1);
+        } else {
+            return; // Not handled
+        }
+
+        e.preventDefault();
+        state.selected = { r: nr, c: nc };
+        renderBoard();
+    }
+}
+
+function handleNoteInput(char) {
+    if (state.selectedCells.size === 0) return;
+    
+    // If exactly 2 adjacent cells selected, create boundary note
+    if (state.selectedCells.size === 2) {
+        const cells = Array.from(state.selectedCells).map(k => {
+            const [row, col] = k.split(',').map(Number);
+            return { r: row, c: col };
+        });
+        
+        const [c1, c2] = cells;
+        const isAdjacent = 
+            (Math.abs(c1.r - c2.r) === 1 && c1.c === c2.c) ||
+            (Math.abs(c1.c - c2.c) === 1 && c1.r === c2.r);
+        
+        if (isAdjacent) {
+            const [first, second] = cells.sort((a, b) => 
+                a.r !== b.r ? a.r - b.r : a.c - b.c
+            );
+            const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
+            const currentValue = state.cellNotes[boundaryKey] || '';
+            state.cellNotes[boundaryKey] = currentValue + char;
+            renderBoard();
+            return;
+        }
+    }
+    
+    // Otherwise, add to corner notes of all selected cells
+    state.selectedCells.forEach(key => {
+        const currentValue = state.cellNotes[key] || '';
+        state.cellNotes[key] = currentValue + char;
+    });
+    renderBoard();
+}
+
+function deleteSelectedNotes() {
+    if (state.selectedCells.size === 0) return;
+    
+    // If exactly 2 adjacent cells, delete boundary note
+    if (state.selectedCells.size === 2) {
+        const cells = Array.from(state.selectedCells).map(k => {
+            const [row, col] = k.split(',').map(Number);
+            return { r: row, c: col };
+        });
+        
+        const [c1, c2] = cells;
+        const isAdjacent = 
+            (Math.abs(c1.r - c2.r) === 1 && c1.c === c2.c) ||
+            (Math.abs(c1.c - c2.c) === 1 && c1.r === c2.r);
+        
+        if (isAdjacent) {
+            const [first, second] = cells.sort((a, b) => 
+                a.r !== b.r ? a.r - b.r : a.c - b.c
+            );
+            const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
+            const currentValue = state.cellNotes[boundaryKey] || '';
+            if (currentValue.length > 0) {
+                state.cellNotes[boundaryKey] = currentValue.slice(0, -1);
+                if (state.cellNotes[boundaryKey] === '') {
+                    delete state.cellNotes[boundaryKey];
+                }
+            }
+            renderBoard();
+            return;
+        }
+    }
+    
+    // Delete last character from corner notes
+    state.selectedCells.forEach(key => {
+        const currentValue = state.cellNotes[key] || '';
+        if (currentValue.length > 0) {
+            state.cellNotes[key] = currentValue.slice(0, -1);
+            if (state.cellNotes[key] === '') {
+                delete state.cellNotes[key];
+            }
+        }
+    });
     renderBoard();
 }
 
@@ -426,11 +792,80 @@ function checkPuzzle() {
     if (allCorrect) {
         showToast("Perfect! Puzzle Solved!");
         state.puzzle.status = "solved";
-        saveCurrentState();
+        // Show rating modal
+        showRatingModal();
     } else if (allFilled) {
         showToast("Almost there, but some numbers are wrong.");
     } else {
         showToast("Keep going! Some cells are missing or incorrect.");
+    }
+}
+
+function showRatingModal() {
+    const modal = document.getElementById('rating-modal');
+    if (modal) {
+        modal.style.display = 'block';
+        renderStars();
+    }
+}
+
+function renderStars() {
+    const starsContainer = document.getElementById('stars-container');
+    if (!starsContainer) return;
+    
+    starsContainer.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+        const star = document.createElement('span');
+        star.className = 'star';
+        star.textContent = '★';
+        star.dataset.rating = i;
+        if (i <= state.rating) {
+            star.classList.add('filled');
+        }
+        star.addEventListener('click', () => setRating(i));
+        star.addEventListener('mouseenter', () => highlightStars(i));
+        star.addEventListener('mouseleave', () => highlightStars(state.rating));
+        starsContainer.appendChild(star);
+    }
+}
+
+function setRating(rating) {
+    state.rating = rating;
+    renderStars();
+}
+
+function highlightStars(count) {
+    const stars = document.querySelectorAll('.star');
+    stars.forEach((star, index) => {
+        if (index < count) {
+            star.classList.add('filled');
+        } else {
+            star.classList.remove('filled');
+        }
+    });
+}
+
+function submitRating() {
+    const commentTextarea = document.getElementById('rating-comment');
+    if (commentTextarea) {
+        state.userComment = commentTextarea.value;
+    }
+    
+    // Close modal
+    const modal = document.getElementById('rating-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Save with rating
+    saveCurrentState();
+    showToast("Thank you for your feedback!");
+}
+
+function closeRatingModal() {
+    const modal = document.getElementById('rating-modal');
+    if (modal) {
+        modal.style.display = 'none';
     }
 }
 
@@ -450,4 +885,9 @@ function showToast(message) {
     }, 10);
 }
 
-init();
+// Wait for DOM to be fully loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
