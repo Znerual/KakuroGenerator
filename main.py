@@ -1,7 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.orm import Session
 import os
 import sys
 import webbrowser
@@ -17,6 +19,13 @@ import logging
 import traceback
 from pydantic import BaseModel
 from typing import List, Optional, Dict
+
+# Import auth and database modules
+from database import init_db, get_db
+from models import User, Puzzle
+from auth import get_current_user, get_required_user
+from routes.auth_routes import router as auth_router
+import config
 
 # Configure logging
 root_logger = logging.getLogger()
@@ -37,7 +46,10 @@ root_logger.addHandler(stream_handler)
 logger = logging.getLogger("kakuro_main")
 logger.info("Logging initialized or re-initialized")
 
-app = FastAPI()
+app = FastAPI(title="Kakuro Generator", version="1.0.0")
+
+# Session middleware for OAuth (required by Authlib)
+app.add_middleware(SessionMiddleware, secret_key=config.JWT_SECRET_KEY)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +58,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include authentication routes
+app.include_router(auth_router)
+
+
+@app.on_event("startup")
+def startup_event():
+    """Initialize database on startup."""
+    init_db()
+    logger.info("Database initialized")
 
 def get_base_path():
     if getattr(sys, 'frozen', False):
@@ -164,26 +186,117 @@ class SaveRequest(BaseModel):
     timestamp: Optional[str] = None
 
 @app.post("/save")
-def save_puzzle_endpoint(request: SaveRequest):
-    data = request.model_dump()
-    if not data.get("timestamp"):
-        data["timestamp"] = datetime.datetime.now().isoformat()
-    storage.save_puzzle(request.id, data)
+def save_puzzle_endpoint(
+    request: SaveRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """Save a puzzle. If user is authenticated, associates with their account."""
+    if current_user:
+        # Database storage for authenticated users
+        puzzle = db.query(Puzzle).filter(Puzzle.id == request.id).first()
+        if puzzle:
+            # Update existing
+            puzzle.grid = request.grid
+            puzzle.user_grid = request.userGrid
+            puzzle.status = request.status
+            puzzle.row_notes = request.rowNotes
+            puzzle.col_notes = request.colNotes
+            puzzle.cell_notes = request.cellNotes
+            puzzle.notebook = request.notebook
+            puzzle.rating = request.rating
+            puzzle.user_comment = request.userComment
+            
+            # Update solved count if status changed to solved
+            if request.status == "solved" and puzzle.status != "solved":
+                current_user.kakuros_solved += 1
+        else:
+            # Create new
+            puzzle = Puzzle(
+                id=request.id,
+                user_id=current_user.id,
+                width=request.width,
+                height=request.height,
+                difficulty=request.difficulty,
+                grid=request.grid,
+                user_grid=request.userGrid,
+                status=request.status,
+                row_notes=request.rowNotes,
+                col_notes=request.colNotes,
+                cell_notes=request.cellNotes,
+                notebook=request.notebook,
+                rating=request.rating,
+                user_comment=request.userComment
+            )
+            db.add(puzzle)
+            
+            if request.status == "solved":
+                current_user.kakuros_solved += 1
+        
+        db.commit()
+    else:
+        # Fall back to file storage for anonymous users
+        data = request.model_dump()
+        if not data.get("timestamp"):
+            data["timestamp"] = datetime.datetime.now().isoformat()
+        storage.save_puzzle(request.id, data)
+    
     return {"status": "success"}
 
+
 @app.get("/list_saved")
-def list_saved_puzzles():
-    return storage.list_puzzles()
+def list_saved_puzzles(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """List saved puzzles. If authenticated, returns user's puzzles from DB."""
+    if current_user:
+        puzzles = db.query(Puzzle).filter(Puzzle.user_id == current_user.id).all()
+        return [p.to_dict() for p in puzzles]
+    else:
+        return storage.list_puzzles()
+
 
 @app.get("/load/{puzzle_id}")
-def load_puzzle_endpoint(puzzle_id: str):
+def load_puzzle_endpoint(
+    puzzle_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """Load a puzzle by ID."""
+    if current_user:
+        puzzle = db.query(Puzzle).filter(
+            Puzzle.id == puzzle_id,
+            Puzzle.user_id == current_user.id
+        ).first()
+        if puzzle:
+            return puzzle.to_dict()
+    
+    # Fall back to file storage
     data = storage.load_puzzle(puzzle_id)
     if not data:
         raise HTTPException(status_code=404, detail="Puzzle not found")
     return data
 
+
 @app.delete("/delete/{puzzle_id}")
-def delete_puzzle_endpoint(puzzle_id: str):
+def delete_puzzle_endpoint(
+    puzzle_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """Delete a puzzle by ID."""
+    if current_user:
+        puzzle = db.query(Puzzle).filter(
+            Puzzle.id == puzzle_id,
+            Puzzle.user_id == current_user.id
+        ).first()
+        if puzzle:
+            db.delete(puzzle)
+            db.commit()
+            return {"status": "success"}
+    
+    # Fall back to file storage
     if storage.delete_puzzle(puzzle_id):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Puzzle not found")

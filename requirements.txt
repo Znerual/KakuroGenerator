@@ -2,3 +2,10 @@ fastapi
 uvicorn
 numpy
 pydantic
+sqlalchemy
+python-jose[cryptography]
+passlib[bcrypt]
+authlib
+httpx
+python-multipart
+itsdangerous

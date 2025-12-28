@@ -20,10 +20,38 @@
                         <h1>🎲 Kakuro Generator</h1>
                         <p class="subtitle">Premium Puzzle Experience</p>
                     </div>
-                    <button id="btn-theme-toggle" class="btn-theme-toggle">
-                        <span class="tool-icon">☀️</span>
-                        <span class="tool-label">Light Mode</span>
-                    </button>
+                    <div class="header-right">
+                        <!-- Auth buttons (shown when logged out) -->
+                        <div id="auth-buttons" class="auth-buttons">
+                            <button id="btn-login" class="btn-auth">
+                                <span class="tool-icon">👤</span>
+                                <span class="tool-label">Login</span>
+                            </button>
+                            <button id="btn-register" class="btn-auth btn-auth-primary">
+                                <span class="tool-icon">✨</span>
+                                <span class="tool-label">Register</span>
+                            </button>
+                        </div>
+                        <!-- User menu (shown when logged in) -->
+                        <div id="user-menu" class="user-menu" style="display: none;">
+                            <button id="btn-user" class="btn-user">
+                                <span class="user-avatar">👤</span>
+                                <span id="user-name" class="user-name">User</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </button>
+                            <div id="user-dropdown" class="user-dropdown">
+                                <div class="user-stats">
+                                    <span id="user-email" class="user-email"></span>
+                                    <span id="user-solved" class="user-solved">0 puzzles solved</span>
+                                </div>
+                                <button id="btn-logout" class="dropdown-item">🚪 Logout</button>
+                            </div>
+                        </div>
+                        <button id="btn-theme-toggle" class="btn-theme-toggle">
+                            <span class="tool-icon">☀️</span>
+                            <span class="tool-label">Light Mode</span>
+                        </button>
+                    </div>
                 </div>
             </header>
 
@@ -51,7 +79,9 @@
                 <!-- Center: Game Board -->
                 <main class="game-area">
                     <div id="note-help" class="note-help" style="display: none;">
-                        📝 <strong>Note Mode</strong> (press <kbd>N</kbd> to toggle) • Click cells (Ctrl+click for multiple) • Type to add notes • Backspace to delete • Select 2 adjacent cells for boundary notes • <kbd>Esc</kbd> to exit
+                        📝 <strong>Note Mode</strong> (press <kbd>N</kbd> to toggle) • Click cells (Ctrl+click for
+                        multiple) • Type to add notes • Backspace to delete • Select 2 adjacent cells for boundary notes
+                        • <kbd>Esc</kbd> to exit
                     </div>
 
                     <div class="board-container">
@@ -89,13 +119,14 @@
                             <span class="tool-label">Save Progress</span>
                         </button>
                     </div>
-                    
+
                     <!-- Notebook Panel (expands below tools) -->
                     <div id="notebook-panel" class="notebook-panel-inline">
                         <div class="notebook-header">
                             <h3>📓 My Notes</h3>
                         </div>
-                        <textarea id="notebook-textarea" class="notebook-textarea" placeholder="Write your solving strategies, observations, or any notes here..."></textarea>
+                        <textarea id="notebook-textarea" class="notebook-textarea"
+                            placeholder="Write your solving strategies, observations, or any notes here..."></textarea>
                     </div>
                 </aside>
             </div>
@@ -108,7 +139,8 @@
             <h2>🎉 Puzzle Complete!</h2>
             <p>How would you rate this puzzle?</p>
             <div id="stars-container" class="stars-container"></div>
-            <textarea id="rating-comment" class="rating-comment-box" placeholder="Share your thoughts about this puzzle (optional)..."></textarea>
+            <textarea id="rating-comment" class="rating-comment-box"
+                placeholder="Share your thoughts about this puzzle (optional)..."></textarea>
             <div class="rating-actions">
                 <button onclick="closeRatingModal()" class="btn-secondary">Skip</button>
                 <button onclick="submitRating()" class="btn-primary">Submit</button>
@@ -127,6 +159,91 @@
             </div>
             <div id="library-list" class="library-list">
                 <!-- Puzzles will be listed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content auth-modal-content">
+            <span class="close" id="auth-close">&times;</span>
+
+            <!-- Login Form -->
+            <div id="login-form" class="auth-form">
+                <h2>👋 Welcome Back!</h2>
+                <p class="auth-subtitle">Sign in to sync your puzzles</p>
+
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" class="form-input" placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" class="form-input" placeholder="••••••••">
+                </div>
+                <div id="login-error" class="auth-error"></div>
+                <button id="btn-login-submit" class="btn-large btn-primary">Login</button>
+
+                <div class="auth-divider">
+                    <span>or continue with</span>
+                </div>
+
+                <div class="oauth-buttons">
+                    <button id="btn-oauth-google" class="btn-oauth" data-provider="google">
+                        <span>🔵</span> Google
+                    </button>
+                    <button id="btn-oauth-facebook" class="btn-oauth" data-provider="facebook">
+                        <span>🔷</span> Facebook
+                    </button>
+                    <button id="btn-oauth-apple" class="btn-oauth" data-provider="apple">
+                        <span>🍎</span> Apple
+                    </button>
+                </div>
+
+                <p class="auth-switch">
+                    Don't have an account? <a href="#" id="switch-to-register">Register</a>
+                </p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="auth-form" style="display: none;">
+                <h2>✨ Create Account</h2>
+                <p class="auth-subtitle">Join to save your progress</p>
+
+                <div class="form-group">
+                    <label for="register-username">Username</label>
+                    <input type="text" id="register-username" class="form-input" placeholder="puzzlemaster">
+                </div>
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" class="form-input" placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" class="form-input" placeholder="••••••••">
+                </div>
+                <div id="register-error" class="auth-error"></div>
+                <button id="btn-register-submit" class="btn-large btn-primary">Create Account</button>
+
+                <div class="auth-divider">
+                    <span>or continue with</span>
+                </div>
+
+                <div class="oauth-buttons">
+                    <button class="btn-oauth" data-provider="google">
+                        <span>🔵</span> Google
+                    </button>
+                    <button class="btn-oauth" data-provider="facebook">
+                        <span>🔷</span> Facebook
+                    </button>
+                    <button class="btn-oauth" data-provider="apple">
+                        <span>🍎</span> Apple
+                    </button>
+                </div>
+
+                <p class="auth-switch">
+                    Already have an account? <a href="#" id="switch-to-login">Login</a>
+                </p>
             </div>
         </div>
     </div>

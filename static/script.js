@@ -15,7 +15,11 @@ const state = {
     notebookOpen: false, // Whether notebook panel is visible
     rating: 0, // User's rating (0-5 stars)
     userComment: '', // User's comment about the puzzle
-    theme: 'dark' // 'dark' or 'light'
+    theme: 'dark', // 'dark' or 'light'
+    // Auth state
+    user: null, // Current logged in user
+    accessToken: null,
+    refreshToken: null
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -34,30 +38,30 @@ function init() {
     const btnNotebook = document.getElementById('btn-notebook');
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
     console.log('btnNoteMode:', btnNoteMode);
-    
+
     btnGenerate.addEventListener('click', fetchPuzzle);
     btnCheck.addEventListener('click', checkPuzzle);
     btnSave.addEventListener('click', saveCurrentState);
     btnLibrary.addEventListener('click', openLibrary);
-    
+
     if (btnNoteMode) {
         console.log('Adding event listener to note mode button');
-        btnNoteMode.addEventListener('click', function() {
+        btnNoteMode.addEventListener('click', function () {
             console.log('Note mode button clicked!');
             toggleNoteMode();
         });
     } else {
         console.log('Note mode button not found!');
     }
-    
+
     if (btnNotebook) {
         btnNotebook.addEventListener('click', toggleNotebook);
     }
-    
+
     if (btnThemeToggle) {
         btnThemeToggle.addEventListener('click', toggleTheme);
     }
-    
+
     // Load theme from localStorage
     const savedTheme = localStorage.getItem('kakuro-theme');
     if (savedTheme) {
@@ -79,6 +83,10 @@ function init() {
     });
 
     window.addEventListener('keydown', handleGlobalKey);
+
+    // Initialize authentication
+    initAuth();
+
     fetchPuzzle();
 }
 
@@ -110,7 +118,7 @@ function toggleNotebook() {
     state.notebookOpen = !state.notebookOpen;
     const notebookPanel = document.getElementById('notebook-panel');
     const btnNotebook = document.getElementById('btn-notebook');
-    
+
     if (notebookPanel) {
         if (state.notebookOpen) {
             notebookPanel.classList.add('open');
@@ -266,7 +274,10 @@ async function saveCurrentState() {
     try {
         const res = await fetch('/save', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
             body: JSON.stringify(data)
         });
         if (res.ok) {
@@ -288,7 +299,9 @@ async function openLibrary() {
 async function renderLibrary() {
     libraryList.innerHTML = '<p>Loading puzzles...</p>';
     try {
-        const res = await fetch('/list_saved');
+        const res = await fetch('/list_saved', {
+            headers: getAuthHeaders()
+        });
         const puzzles = await res.json();
 
         const filtered = puzzles.filter(p => p.status === state.currentTab);
@@ -337,7 +350,9 @@ async function renderLibrary() {
 
 async function loadSavedPuzzle(id) {
     try {
-        const res = await fetch(`/load/${id}`);
+        const res = await fetch(`/load/${id}`, {
+            headers: getAuthHeaders()
+        });
         if (!res.ok) throw new Error("Failed to load");
         const data = await res.json();
         loadPuzzleIntoState(data);
@@ -353,7 +368,10 @@ async function deletePuzzle(event, id) {
     if (!confirm("Delete this puzzle?")) return;
 
     try {
-        const res = await fetch(`/delete/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/delete/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
         if (res.ok) {
             renderLibrary();
         }
@@ -438,40 +456,40 @@ function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
         for (let c = minCol; c <= maxCol; c++) {
             // Right boundary (between this cell and next)
             if (c < maxCol) {
-                const rightKey = `${r},${c}:${r},${c+1}`;
+                const rightKey = `${r},${c}:${r},${c + 1}`;
                 if (state.cellNotes[rightKey]) {
                     const note = document.createElement('div');
                     note.className = 'boundary-note-overlay boundary-vertical';
                     note.textContent = state.cellNotes[rightKey];
-                    
+
                     // Position between columns
                     const colIndex = c - minCol;
                     const rowIndex = r - minRow;
                     // 40px for row labels, then colIndex * 60px to get to the cell, +60px to get to right edge
                     const left = 40 + (colIndex + 1) * 60;
                     const top = rowIndex * 60 + 30; // Center vertically in the cell
-                    
+
                     note.style.left = `${left}px`;
                     note.style.top = `${top}px`;
                     container.appendChild(note);
                 }
             }
-            
+
             // Bottom boundary (between this cell and below)
             if (r < maxRow) {
-                const bottomKey = `${r},${c}:${r+1},${c}`;
+                const bottomKey = `${r},${c}:${r + 1},${c}`;
                 if (state.cellNotes[bottomKey]) {
                     const note = document.createElement('div');
                     note.className = 'boundary-note-overlay boundary-horizontal';
                     note.textContent = state.cellNotes[bottomKey];
-                    
+
                     // Position between rows
                     const colIndex = c - minCol;
                     const rowIndex = r - minRow;
                     // 40px for row labels, then colIndex * 60px, +30px to center horizontally
                     const left = 40 + colIndex * 60 + 30;
                     const top = (rowIndex + 1) * 60; // Bottom edge of current cell
-                    
+
                     note.style.left = `${left}px`;
                     note.style.top = `${top}px`;
                     container.appendChild(note);
@@ -592,7 +610,7 @@ function createGridCell(cellData, r, c) {
 
 function addCellNotes(wrapper, r, c) {
     const cellKey = `${r},${c}`;
-    
+
     // Corner note (for single cell)
     if (state.cellNotes[cellKey]) {
         const cornerNote = document.createElement('div');
@@ -600,7 +618,7 @@ function addCellNotes(wrapper, r, c) {
         cornerNote.textContent = state.cellNotes[cellKey];
         wrapper.appendChild(cornerNote);
     }
-    
+
     // Boundary notes are now handled by addBoundaryNotesOverlay
 }
 
@@ -654,14 +672,14 @@ function handleGlobalKey(e) {
             handleNoteInput(e.key);
             return;
         }
-        
+
         // Backspace to delete notes
         if (e.key === 'Backspace' || e.key === 'Delete') {
             e.preventDefault();
             deleteSelectedNotes();
             return;
         }
-        
+
         // Space to clear selection
         if (e.key === ' ') {
             e.preventDefault();
@@ -669,7 +687,7 @@ function handleGlobalKey(e) {
             renderBoard();
             return;
         }
-        
+
         // Escape to exit note mode
         if (e.key === 'Escape') {
             e.preventDefault();
@@ -695,7 +713,7 @@ function handleGlobalKey(e) {
     // Normal mode - handle cell value input
     if (!state.noteMode && state.selected) {
         const { r, c } = state.selected;
-        
+
         // Numbers 1-9
         if (e.key >= '1' && e.key <= '9') {
             if (state.userGrid[r][c].type === 'WHITE') {
@@ -738,21 +756,21 @@ function handleGlobalKey(e) {
 
 function handleNoteInput(char) {
     if (state.selectedCells.size === 0) return;
-    
+
     // If exactly 2 adjacent cells selected, create boundary note
     if (state.selectedCells.size === 2) {
         const cells = Array.from(state.selectedCells).map(k => {
             const [row, col] = k.split(',').map(Number);
             return { r: row, c: col };
         });
-        
+
         const [c1, c2] = cells;
-        const isAdjacent = 
+        const isAdjacent =
             (Math.abs(c1.r - c2.r) === 1 && c1.c === c2.c) ||
             (Math.abs(c1.c - c2.c) === 1 && c1.r === c2.r);
-        
+
         if (isAdjacent) {
-            const [first, second] = cells.sort((a, b) => 
+            const [first, second] = cells.sort((a, b) =>
                 a.r !== b.r ? a.r - b.r : a.c - b.c
             );
             const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
@@ -762,7 +780,7 @@ function handleNoteInput(char) {
             return;
         }
     }
-    
+
     // Otherwise, add to corner notes of all selected cells
     state.selectedCells.forEach(key => {
         const currentValue = state.cellNotes[key] || '';
@@ -773,21 +791,21 @@ function handleNoteInput(char) {
 
 function deleteSelectedNotes() {
     if (state.selectedCells.size === 0) return;
-    
+
     // If exactly 2 adjacent cells, delete boundary note
     if (state.selectedCells.size === 2) {
         const cells = Array.from(state.selectedCells).map(k => {
             const [row, col] = k.split(',').map(Number);
             return { r: row, c: col };
         });
-        
+
         const [c1, c2] = cells;
-        const isAdjacent = 
+        const isAdjacent =
             (Math.abs(c1.r - c2.r) === 1 && c1.c === c2.c) ||
             (Math.abs(c1.c - c2.c) === 1 && c1.r === c2.r);
-        
+
         if (isAdjacent) {
-            const [first, second] = cells.sort((a, b) => 
+            const [first, second] = cells.sort((a, b) =>
                 a.r !== b.r ? a.r - b.r : a.c - b.c
             );
             const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
@@ -802,7 +820,7 @@ function deleteSelectedNotes() {
             return;
         }
     }
-    
+
     // Delete last character from corner notes
     state.selectedCells.forEach(key => {
         const currentValue = state.cellNotes[key] || '';
@@ -862,7 +880,7 @@ function showRatingModal() {
 function renderStars() {
     const starsContainer = document.getElementById('stars-container');
     if (!starsContainer) return;
-    
+
     starsContainer.innerHTML = '';
     for (let i = 1; i <= 5; i++) {
         const star = document.createElement('span');
@@ -900,13 +918,13 @@ function submitRating() {
     if (commentTextarea) {
         state.userComment = commentTextarea.value;
     }
-    
+
     // Close modal
     const modal = document.getElementById('rating-modal');
     if (modal) {
         modal.style.display = 'none';
     }
-    
+
     // Save with rating
     saveCurrentState();
     showToast("Thank you for your feedback!");
@@ -940,4 +958,348 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
+}
+
+// =====================
+// Authentication Module
+// =====================
+
+function initAuth() {
+    // Load tokens from localStorage
+    state.accessToken = localStorage.getItem('kakuro-access-token');
+    state.refreshToken = localStorage.getItem('kakuro-refresh-token');
+
+    // Check for tokens in URL (from OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const accessToken = urlParams.get('access_token');
+    const refreshToken = urlParams.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+        setTokens(accessToken, refreshToken);
+        // Clear URL params
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Setup event listeners
+    setupAuthEventListeners();
+
+    // If we have tokens, fetch user profile
+    if (state.accessToken) {
+        fetchUserProfile();
+    } else {
+        updateAuthUI();
+    }
+}
+
+function setupAuthEventListeners() {
+    const btnLogin = document.getElementById('btn-login');
+    const btnRegister = document.getElementById('btn-register');
+    const authModal = document.getElementById('auth-modal');
+    const authClose = document.getElementById('auth-close');
+    const btnLoginSubmit = document.getElementById('btn-login-submit');
+    const btnRegisterSubmit = document.getElementById('btn-register-submit');
+    const switchToRegister = document.getElementById('switch-to-register');
+    const switchToLogin = document.getElementById('switch-to-login');
+    const btnUser = document.getElementById('btn-user');
+    const btnLogout = document.getElementById('btn-logout');
+    const userMenu = document.getElementById('user-menu');
+
+    if (btnLogin) {
+        btnLogin.addEventListener('click', () => openAuthModal('login'));
+    }
+    if (btnRegister) {
+        btnRegister.addEventListener('click', () => openAuthModal('register'));
+    }
+    if (authClose) {
+        authClose.addEventListener('click', closeAuthModal);
+    }
+    if (authModal) {
+        authModal.addEventListener('click', (e) => {
+            if (e.target === authModal) closeAuthModal();
+        });
+    }
+    if (btnLoginSubmit) {
+        btnLoginSubmit.addEventListener('click', handleLogin);
+    }
+    if (btnRegisterSubmit) {
+        btnRegisterSubmit.addEventListener('click', handleRegister);
+    }
+    if (switchToRegister) {
+        switchToRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('register');
+        });
+    }
+    if (switchToLogin) {
+        switchToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('login');
+        });
+    }
+    if (btnUser) {
+        btnUser.addEventListener('click', () => {
+            userMenu.classList.toggle('open');
+        });
+    }
+    if (btnLogout) {
+        btnLogout.addEventListener('click', handleLogout);
+    }
+
+    // Close user dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (userMenu && !userMenu.contains(e.target)) {
+            userMenu.classList.remove('open');
+        }
+    });
+
+    // Setup OAuth buttons
+    document.querySelectorAll('.btn-oauth').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const provider = btn.dataset.provider;
+            handleOAuth(provider);
+        });
+    });
+
+    // Handle Enter key in forms
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const registerUsername = document.getElementById('register-username');
+    const registerEmail = document.getElementById('register-email');
+    const registerPassword = document.getElementById('register-password');
+
+    [loginEmail, loginPassword].forEach(input => {
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        }
+    });
+
+    [registerUsername, registerEmail, registerPassword].forEach(input => {
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleRegister();
+            });
+        }
+    });
+}
+
+function openAuthModal(form = 'login') {
+    const authModal = document.getElementById('auth-modal');
+    if (authModal) {
+        authModal.style.display = 'block';
+        showAuthForm(form);
+    }
+}
+
+function closeAuthModal() {
+    const authModal = document.getElementById('auth-modal');
+    if (authModal) {
+        authModal.style.display = 'none';
+        clearAuthErrors();
+    }
+}
+
+function showAuthForm(form) {
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+
+    if (form === 'login') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+    }
+    clearAuthErrors();
+}
+
+function clearAuthErrors() {
+    const loginError = document.getElementById('login-error');
+    const registerError = document.getElementById('register-error');
+    if (loginError) {
+        loginError.textContent = '';
+        loginError.classList.remove('show');
+    }
+    if (registerError) {
+        registerError.textContent = '';
+        registerError.classList.remove('show');
+    }
+}
+
+function showAuthError(form, message) {
+    const errorEl = document.getElementById(`${form}-error`);
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.add('show');
+    }
+}
+
+async function handleLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+        showAuthError('login', 'Please enter email and password');
+        return;
+    }
+
+    try {
+        const res = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            setTokens(data.access_token, data.refresh_token);
+            await fetchUserProfile();
+            closeAuthModal();
+            showToast('Welcome back!');
+        } else {
+            showAuthError('login', data.detail || 'Login failed');
+        }
+    } catch (e) {
+        showAuthError('login', 'Network error. Please try again.');
+    }
+}
+
+async function handleRegister() {
+    const username = document.getElementById('register-username').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+
+    if (!username || !email || !password) {
+        showAuthError('register', 'Please fill in all fields');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAuthError('register', 'Password must be at least 6 characters');
+        return;
+    }
+
+    try {
+        const res = await fetch('/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            setTokens(data.access_token, data.refresh_token);
+            await fetchUserProfile();
+            closeAuthModal();
+            showToast('Account created! Welcome!');
+        } else {
+            showAuthError('register', data.detail || 'Registration failed');
+        }
+    } catch (e) {
+        showAuthError('register', 'Network error. Please try again.');
+    }
+}
+
+function handleLogout() {
+    state.user = null;
+    state.accessToken = null;
+    state.refreshToken = null;
+    localStorage.removeItem('kakuro-access-token');
+    localStorage.removeItem('kakuro-refresh-token');
+    updateAuthUI();
+    showToast('Logged out');
+
+    // Close user dropdown
+    const userMenu = document.getElementById('user-menu');
+    if (userMenu) userMenu.classList.remove('open');
+}
+
+function handleOAuth(provider) {
+    // Redirect to OAuth endpoint
+    window.location.href = `/auth/${provider}`;
+}
+
+function setTokens(accessToken, refreshToken) {
+    state.accessToken = accessToken;
+    state.refreshToken = refreshToken;
+    localStorage.setItem('kakuro-access-token', accessToken);
+    localStorage.setItem('kakuro-refresh-token', refreshToken);
+}
+
+async function fetchUserProfile() {
+    if (!state.accessToken) return;
+
+    try {
+        const res = await fetch('/auth/me', {
+            headers: getAuthHeaders()
+        });
+
+        if (res.ok) {
+            state.user = await res.json();
+            updateAuthUI();
+        } else if (res.status === 401) {
+            // Token expired, try to refresh
+            const refreshed = await refreshAccessToken();
+            if (refreshed) {
+                await fetchUserProfile();
+            } else {
+                handleLogout();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to fetch user profile:', e);
+    }
+}
+
+async function refreshAccessToken() {
+    if (!state.refreshToken) return false;
+
+    try {
+        const res = await fetch('/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: state.refreshToken })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            setTokens(data.access_token, data.refresh_token);
+            return true;
+        }
+    } catch (e) {
+        console.error('Token refresh failed:', e);
+    }
+    return false;
+}
+
+function getAuthHeaders() {
+    const headers = {};
+    if (state.accessToken) {
+        headers['Authorization'] = `Bearer ${state.accessToken}`;
+    }
+    return headers;
+}
+
+function updateAuthUI() {
+    const authButtons = document.getElementById('auth-buttons');
+    const userMenu = document.getElementById('user-menu');
+    const userName = document.getElementById('user-name');
+    const userEmail = document.getElementById('user-email');
+    const userSolved = document.getElementById('user-solved');
+
+    if (state.user) {
+        // Logged in
+        if (authButtons) authButtons.style.display = 'none';
+        if (userMenu) userMenu.style.display = 'block';
+        if (userName) userName.textContent = state.user.username;
+        if (userEmail) userEmail.textContent = state.user.email;
+        if (userSolved) userSolved.textContent = `${state.user.kakuros_solved} puzzles solved`;
+    } else {
+        // Logged out
+        if (authButtons) authButtons.style.display = 'flex';
+        if (userMenu) userMenu.style.display = 'none';
+    }
 }
