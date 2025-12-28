@@ -14,7 +14,8 @@ const state = {
     notebook: '', // User's personal notes for this puzzle
     notebookOpen: false, // Whether notebook panel is visible
     rating: 0, // User's rating (0-5 stars)
-    userComment: '' // User's comment about the puzzle
+    userComment: '', // User's comment about the puzzle
+    theme: 'dark' // 'dark' or 'light'
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -31,6 +32,7 @@ function init() {
     console.log('Init function called');
     const btnNoteMode = document.getElementById('btn-note-mode');
     const btnNotebook = document.getElementById('btn-notebook');
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
     console.log('btnNoteMode:', btnNoteMode);
     
     btnGenerate.addEventListener('click', fetchPuzzle);
@@ -51,6 +53,17 @@ function init() {
     if (btnNotebook) {
         btnNotebook.addEventListener('click', toggleNotebook);
     }
+    
+    if (btnThemeToggle) {
+        btnThemeToggle.addEventListener('click', toggleTheme);
+    }
+    
+    // Load theme from localStorage
+    const savedTheme = localStorage.getItem('kakuro-theme');
+    if (savedTheme) {
+        state.theme = savedTheme;
+        applyTheme(savedTheme);
+    }
     closeModal.addEventListener('click', () => libraryModal.style.display = 'none');
     window.addEventListener('click', (e) => {
         if (e.target === libraryModal) libraryModal.style.display = 'none';
@@ -69,13 +82,41 @@ function init() {
     fetchPuzzle();
 }
 
+function toggleTheme() {
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(state.theme);
+    localStorage.setItem('kakuro-theme', state.theme);
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    if (btnThemeToggle) {
+        const icon = btnThemeToggle.querySelector('.tool-icon');
+        const label = btnThemeToggle.querySelector('.tool-label');
+        if (icon && label) {
+            if (theme === 'light') {
+                icon.textContent = '🌙';
+                label.textContent = 'Dark Mode';
+            } else {
+                icon.textContent = '☀️';
+                label.textContent = 'Light Mode';
+            }
+        }
+    }
+}
+
 function toggleNotebook() {
     state.notebookOpen = !state.notebookOpen;
     const notebookPanel = document.getElementById('notebook-panel');
     const btnNotebook = document.getElementById('btn-notebook');
     
     if (notebookPanel) {
-        notebookPanel.classList.toggle('open', state.notebookOpen);
+        if (state.notebookOpen) {
+            notebookPanel.classList.add('open');
+        } else {
+            notebookPanel.classList.remove('open');
+        }
     }
     if (btnNotebook) {
         btnNotebook.classList.toggle('active', state.notebookOpen);
@@ -90,8 +131,11 @@ function toggleNoteMode() {
     console.log('New note mode state:', state.noteMode);
     if (btnNoteMode) {
         btnNoteMode.classList.toggle('active', state.noteMode);
-        btnNoteMode.textContent = state.noteMode ? 'Note Mode: ON' : 'Note Mode: OFF';
-        console.log('Button text updated to:', btnNoteMode.textContent);
+        const statusSpan = btnNoteMode.querySelector('.tool-status');
+        if (statusSpan) {
+            statusSpan.textContent = state.noteMode ? 'ON' : 'OFF';
+        }
+        console.log('Button status updated');
     }
     if (noteHelp) {
         noteHelp.style.display = state.noteMode ? 'block' : 'none';
@@ -150,7 +194,10 @@ function loadPuzzleIntoState(data) {
     const btnNoteMode = document.getElementById('btn-note-mode');
     if (btnNoteMode) {
         btnNoteMode.classList.remove('active');
-        btnNoteMode.textContent = 'Note Mode: OFF';
+        const statusSpan = btnNoteMode.querySelector('.tool-status');
+        if (statusSpan) {
+            statusSpan.textContent = 'OFF';
+        }
     }
 
     // Update notebook textarea if it exists
@@ -632,7 +679,10 @@ function handleGlobalKey(e) {
             const noteHelp = document.getElementById('note-help');
             if (btnNoteMode) {
                 btnNoteMode.classList.remove('active');
-                btnNoteMode.textContent = 'Note Mode: OFF';
+                const statusSpan = btnNoteMode.querySelector('.tool-status');
+                if (statusSpan) {
+                    statusSpan.textContent = 'OFF';
+                }
             }
             if (noteHelp) {
                 noteHelp.style.display = 'none';
