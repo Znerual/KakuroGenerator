@@ -539,17 +539,27 @@ kbd {
 /* Boundary notes as overlays between cells */
 .boundary-note-overlay {
     position: absolute;
-    font-size: 0.6rem;
-    color: #000;
-    background: rgba(3, 218, 198, 0.85);
-    padding: 3px 6px;
-    border-radius: 4px;
+    font-size: 0.65rem;
+    color: #ffffff;
+    background: rgba(6, 182, 212, 0.95);
+    padding: 4px 8px;
+    border-radius: 6px;
     z-index: 10;
-    font-weight: 700;
+    font-weight: 800;
     white-space: nowrap;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
     transform: translate(-50%, -50%);
     pointer-events: none;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.02em;
+}
+
+.boundary-note-overlay.boundary-vertical {
+    /* Between columns (vertical line) */
+}
+
+.boundary-note-overlay.boundary-horizontal {
+    /* Between rows (horizontal line) */
 }
 
 .boundary-note-overlay.boundary-vertical {
@@ -1151,8 +1161,10 @@ kbd {
 }
 
 [data-theme="light"] .boundary-note-overlay {
-    color: #0e7490;
-    background: rgba(8, 145, 178, 0.85);
+    color: #ffffff;
+    background: rgba(8, 145, 178, 0.95);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 [data-theme="light"] .clue-h {
