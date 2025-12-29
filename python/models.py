@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 
-from database import Base
+from python.database import Base
 
 
 def generate_uuid():

@@ -1,6 +1,6 @@
 import unittest
-from kakuro import KakuroBoard, CellType
-from solver import CSPSolver
+from python.kakuro import KakuroBoard, CellType
+from python.solver import CSPSolver
 
 class TestKakuro(unittest.TestCase):
     def test_topology(self):

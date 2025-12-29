@@ -3,8 +3,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from kakuro import KakuroBoard, CellType
-from solver import CSPSolver
+from python.kakuro import KakuroBoard, CellType
+from python.solver import CSPSolver
 import random
 
 def test_repro():

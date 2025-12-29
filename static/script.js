@@ -136,6 +136,14 @@ function toggleNoteMode() {
     const btnNoteMode = document.getElementById('btn-note-mode');
     const noteHelp = document.getElementById('note-help');
     state.noteMode = !state.noteMode;
+
+    const board = document.getElementById('kakuro-grid');
+    if (state.noteMode) {
+        board.classList.add('mode-notes');
+    } else {
+        board.classList.remove('mode-notes');
+    }
+
     console.log('New note mode state:', state.noteMode);
     if (btnNoteMode) {
         btnNoteMode.classList.toggle('active', state.noteMode);

@@ -9,23 +9,23 @@ import sys
 import webbrowser
 import threading
 import time
-from kakuro import KakuroBoard
-from solver import CSPSolver
+from python.kakuro_wrapper import KakuroBoard
+from python.kakuro_wrapper import CSPSolver
 import uvicorn
 import uuid
 import datetime
-import storage
+import python.storage as storage
 import logging
 import traceback
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 
 # Import auth and database modules
-from database import init_db, get_db
-from models import User, Puzzle
-from auth import get_current_user, get_required_user
+from python.database import init_db, get_db
+from python.models import User, Puzzle
+from python.auth import get_current_user, get_required_user
 from routes.auth_routes import router as auth_router
-import config
+import python.config as config
 
 # Configure logging
 root_logger = logging.getLogger()

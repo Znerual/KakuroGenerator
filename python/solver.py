@@ -1,6 +1,6 @@
 from collections import deque
 from typing import List, Dict, Set, Optional, Tuple
-from kakuro import KakuroBoard, Cell, CellType
+from python.kakuro import KakuroBoard, Cell, CellType
 import copy
 import random
 import logging

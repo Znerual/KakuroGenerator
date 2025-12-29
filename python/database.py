@@ -55,5 +55,5 @@ def init_db():
     Should be called once at application startup.
     """
     # Import models to ensure they're registered with Base
-    import models  # noqa: F401
+    import python.models as models  # noqa: F401
     Base.metadata.create_all(bind=engine)

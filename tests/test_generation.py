@@ -1,4 +1,4 @@
-from kakuro import KakuroBoard, CellType
+from python.kakuro import KakuroBoard, CellType
 import sys
 
 try:

@@ -1,5 +1,5 @@
-from kakuro import KakuroBoard
-from solver import CSPSolver
+from python.kakuro import KakuroBoard
+from python.solver import CSPSolver
 
 def test_very_easy_topology():
     print("Testing 'Very Easy' topology...")

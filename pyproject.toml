@@ -1,7 +1,7 @@
 [project]
-name = "backend"
+name = "kakuro"
 version = "0.1.0"
-description = "Add your description here"
+description = "High-performance Kakuro puzzle generator with C++ acceleration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -21,4 +21,21 @@ dependencies = [
     "PyJWT>=2.8.0",
     "email-validator>=2.1.0",
     "requests>=2.32.5",
+    "pybind11>=3.0.1",
+    "pytest>=9.0.2",
 ]
+
+[build-system]
+requires = [
+    "setuptools>=45",
+    "wheel",
+    "pybind11>=2.11.0",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["python", "routes"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ["*.so", "*.pyd", "*.dll"]

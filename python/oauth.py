@@ -10,7 +10,7 @@ import httpx
 import jwt as pyjwt  # For Apple JWT verification
 from datetime import datetime, timedelta
 
-import config
+import python.config as config
 
 # Initialize OAuth client
 oauth = OAuth()

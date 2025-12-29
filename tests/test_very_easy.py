@@ -1,5 +1,5 @@
-from kakuro import KakuroBoard, CellType
-from solver import CSPSolver
+from python.kakuro import KakuroBoard, CellType
+from python.solver import CSPSolver
 import statistics
 
 def test_very_easy():
