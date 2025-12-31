@@ -79,14 +79,13 @@
 
                 <!-- Center: Game Board -->
                 <main class="game-area">
-                    <div id="note-help" class="note-help" style="display: none;">
-                        📝 <strong>Note Mode</strong> (press <kbd>N</kbd> to toggle) • Click cells (Ctrl+click for
-                        multiple) • Type to add notes • Backspace to delete • Select 2 adjacent cells for boundary notes
-                        • <kbd>Esc</kbd> to exit
-                    </div>
 
                     <div class="board-container">
                         <div id="kakuro-board" class="kakuro-grid"></div>
+                    </div>
+
+                    <div id="note-help" class="note-help" style="display: none;">
+                        <!-- Content will be set by JS -->
                     </div>
 
                     <!-- Action Bar Below Grid -->
@@ -273,6 +272,73 @@
                 </p>
             </div>
         </div>
+    </div>
+    <!-- MOBILE: Settings Modal (Since Sidebar is hidden) -->
+    <div id="mobile-settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('mobile-settings-modal').style.display='none'">&times;</span>
+            <h2>🎮 New Game</h2>
+            <div class="control-group">
+                <label for="mobile-difficulty-select">Difficulty Level</label>
+                <select id="mobile-difficulty-select" class="styled-select">
+                    <option value="very_easy">🌱 Very Easy</option>
+                    <option value="easy">🟢 Easy</option>
+                    <option value="medium" selected>🟡 Medium</option>
+                    <option value="hard">🔴 Hard</option>
+                </select>
+            </div>
+            <button id="btn-mobile-generate" class="btn-large btn-primary" style="margin-top: 20px;">
+                Generate Puzzle
+            </button>
+        </div>
+    </div>
+
+    <div id="mobile-notebook-modal" class="modal">
+        <div class="modal-content" style="height: 70vh; display: flex; flex-direction: column;">
+            <span class="close" onclick="document.getElementById('mobile-notebook-modal').style.display='none'">&times;</span>
+            <h2>📓 My Notes</h2>
+            <textarea id="mobile-notebook-textarea" class="notebook-textarea" 
+                style="flex: 1; resize: none; margin-top: 10px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-color); font-size: 1rem;"
+                placeholder="Write your thoughts here..."></textarea>
+        </div>
+    </div>
+
+    <!-- MOBILE: Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+        <button class="nav-item" id="nav-play">
+            <span class="nav-icon">🎮</span>
+            <span class="nav-label">Play</span>
+        </button>
+        <button class="nav-item" id="nav-notebook">
+            <span class="nav-icon">📓</span>
+            <span class="nav-label">Notebook</span>
+        </button>
+        <button class="nav-item" id="nav-notes">
+            <span class="nav-icon">📝</span>
+            <span class="nav-label">Notes</span>
+        </button>
+        <button class="nav-item" id="nav-library">
+            <span class="nav-icon">📚</span>
+            <span class="nav-label">Library</span>
+        </button>
+        <button class="nav-item" id="nav-profile">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Profile</span>
+        </button>
+    </nav>
+
+    <!-- MOBILE: Floating Numpad -->
+    <div id="mobile-numpad" class="mobile-numpad">
+        <button class="num-btn" data-val="1">1</button>
+        <button class="num-btn" data-val="2">2</button>
+        <button class="num-btn" data-val="3">3</button>
+        <button class="num-btn" data-val="4">4</button>
+        <button class="num-btn" data-val="5">5</button>
+        <button class="num-btn" data-val="6">6</button>
+        <button class="num-btn" data-val="7">7</button>
+        <button class="num-btn" data-val="8">8</button>
+        <button class="num-btn" data-val="9">9</button>
+        <button class="num-btn delete-btn" data-val="del">⌫</button>
     </div>
     <script src="/static/script.js"></script>
 </body>

@@ -16,6 +16,16 @@ const state = {
     rating: 0, // User's rating (0-5 stars)
     userComment: '', // User's comment about the puzzle
     theme: 'dark', // 'dark' or 'light'
+    longPressTimer: null,
+    isLongPressTriggered: false, // Tracks if timer finished
+    isDragSelecting: false,      // Tracks if we are currently painting cells
+    longPressDuration: 500,
+    lastTouchedRC: null,        // To position numpad at the end
+    lastTapTime: 0,
+    lastTapRC: null,
+    lastTouchTime: 0,
+    touchStartX: 0,
+    touchStartY: 0,
     // Auth state
     user: null, // Current logged in user
     accessToken: null,
@@ -84,10 +94,48 @@ function init() {
 
     window.addEventListener('keydown', handleGlobalKey);
 
+    setupMobile();
+
     // Initialize authentication
     initAuth();
 
     fetchPuzzle();
+
+        
+    window.addEventListener('contextmenu', (e) => {
+        // If we are currently doing a long press action, block the menu
+        if (state.isDragSelecting || state.isLongPressTriggered) {
+            e.preventDefault();
+            return false;
+        }
+    }, { capture: true }); // Capture phase ensures we catch it first
+
+  
+}
+
+function getCellFromPoint(x, y) {
+    const numpad = document.getElementById('mobile-numpad');
+    let prevDisplay = '';
+
+    if (numpad) {
+        // Save current inline display style
+        prevDisplay = numpad.style.display;
+        // Force hide so elementFromPoint sees through it
+        numpad.style.display = 'none';
+    }
+
+    const el = document.elementFromPoint(x, y);
+
+    // Restore the display style immediately
+    if (numpad) {
+        numpad.style.display = prevDisplay;
+    }
+    
+    // If we hit a child element, find the parent cell
+    if (el) {
+        return el.closest('.cell');
+    }
+    return null;
 }
 
 function toggleTheme() {
@@ -131,19 +179,18 @@ function toggleNotebook() {
     }
 }
 
-function toggleNoteMode() {
-    console.log('toggleNoteMode called, current state:', state.noteMode);
-    const btnNoteMode = document.getElementById('btn-note-mode');
-    const noteHelp = document.getElementById('note-help');
+function toggleNoteMode(skipRender = false) {
     state.noteMode = !state.noteMode;
-
+    console.log('toggleNoteMode called, current state:', state.noteMode);
+    
     const board = document.getElementById('kakuro-board');
     if (state.noteMode) {
         board.classList.add('mode-notes');
     } else {
         board.classList.remove('mode-notes');
     }
-
+    
+    const btnNoteMode = document.getElementById('btn-note-mode');
     console.log('New note mode state:', state.noteMode);
     if (btnNoteMode) {
         btnNoteMode.classList.toggle('active', state.noteMode);
@@ -153,13 +200,49 @@ function toggleNoteMode() {
         }
         console.log('Button status updated');
     }
+
+    const noteHelp = document.getElementById('note-help');
     if (noteHelp) {
-        noteHelp.style.display = state.noteMode ? 'block' : 'none';
+        if (state.noteMode) {
+            // Set text based on device width
+            if (window.innerWidth <= 768) {
+                // Mobile Text
+                noteHelp.innerHTML = `
+                    📝 <strong>Note Mode Active</strong><br>
+                    • Long-press & drag to select multiple<br>
+                    • Use keypad to add/remove notes
+                `;
+            } else {
+                // Desktop Text
+                noteHelp.innerHTML = `
+                    📝 <strong>Note Mode</strong> (press <kbd>N</kbd> to toggle) • Click cells (Ctrl+click for multiple) • Type to add notes • Backspace to delete • Select 2 adjacent cells for boundary notes • <kbd>Esc</kbd> to exit
+                `;
+            }
+            noteHelp.style.display = 'block';
+        } else {
+            noteHelp.style.display = 'none';
+        }
     }
+
+    const navTools = document.getElementById('nav-tools');
+    if(navTools) {
+        navTools.style.color = state.noteMode ? 'var(--success-color)' : '';
+    }
+
     if (!state.noteMode) {
         state.selectedCells.clear();
     }
-    renderBoard();
+
+    // If entering note mode and we have a single selection but no 'selectedCells', 
+    // add it so the user can type notes immediately.
+    if (state.noteMode && state.selected && state.selectedCells.size === 0) {
+        const key = `${state.selected.r},${state.selected.c}`;
+        state.selectedCells.add(key);
+    }
+
+    if (!skipRender) {
+        renderBoard();
+    }
 }
 
 async function fetchPuzzle() {
@@ -356,6 +439,204 @@ async function renderLibrary() {
     }
 }
 
+function setupCellInteractions(element, r, c) {
+    const handleStart = (e) => {
+        // Only allow left click (0) or touch
+        if (e.type === 'mousedown') {
+            if (Date.now() - state.lastTouchTime < 800) return;
+            // Also ignore non-left clicks
+            if (e.button !== 0) return;
+        }
+
+        // Record Touch Time
+        if (e.type === 'touchstart') {
+            state.lastTouchTime = Date.now();
+        }
+
+        hideNumpad();
+
+        state.isLongPressTriggered = false;
+        state.isDragSelecting = false;
+        state.lastTouchedRC = null; 
+
+        // ============================================
+        // 1. DOUBLE TAP DETECTION
+        // ============================================
+        const now = Date.now();
+        const currentRC = `${r},${c}`;
+        
+        // Check if same cell tapped within 300ms
+        if (state.lastTapRC === currentRC && (now - state.lastTapTime) < 300) {
+            
+            // If in Note Mode, Exit it!
+            if (state.noteMode) {
+                toggleNoteMode(); 
+                if (navigator.vibrate) navigator.vibrate([50, 50]); // Double buzz feedback
+                showToast("Exited Note Mode");
+            }
+            
+            // IMPORTANT: Return early to prevent Long Press timer from starting.
+            // The browser will fire a 'click' event immediately after this.
+            // That 'click' will call selectCell(), which will see that Note Mode 
+            // is now OFF, and perform a standard exclusive selection.
+            return; 
+        }
+        
+        // Save tap info for next time
+        state.lastTapTime = now;
+        state.lastTapRC = currentRC;
+        // ============================================
+        
+        // Record Start Position (Critical for movement calculation)
+        if (e.type === 'touchstart') {
+            state.touchStartX = e.touches[0].clientX;
+            state.touchStartY = e.touches[0].clientY;
+        } else {
+            state.touchStartX = e.clientX;
+            state.touchStartY = e.clientY;
+        }
+
+        // Start the timer
+        state.longPressTimer = setTimeout(() => {
+            // TIMER FINISHED: Enter Drag/Note Mode
+            state.isLongPressTriggered = true;
+            state.isDragSelecting = true;
+
+            // Store Origin
+            const currentRC = `${r},${c}`;
+            state.lastTouchedRC = currentRC;
+            
+
+            // 1. Enable Note Mode if off
+            if (!state.noteMode) {
+                // Pass true to skip renderBoard(), preventing DOM destruction
+                toggleNoteMode(true); 
+                if (navigator.vibrate) navigator.vibrate(50);
+            }
+
+            // 2. Select Origin Cell
+            state.selectedCells.add(currentRC);
+            state.selected = { r, c };
+            
+            const cell = document.querySelector(`.cell[data-rc="${currentRC}"]`);
+            if (cell) {
+                cell.classList.add('selected');
+                // Ensure Note Mode styling is applied
+                cell.classList.add('multi-selected');
+                // Also ensure grid knows we are in note mode
+                document.getElementById('kakuro-board').classList.add('mode-notes');
+            }
+
+            
+        }, state.longPressDuration);
+    };
+
+    const handleMove = (e) => {
+        // Get current coordinates
+        let clientX, clientY;
+        if (e.type === 'touchmove') {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        // SCENARIO 1: Timer is running (Waiting to see if it's a hold or a scroll)
+        if (state.longPressTimer && !state.isDragSelecting) {
+            const dx = clientX - state.touchStartX;
+            const dy = clientY - state.touchStartY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Tolerance: 10 pixels. 
+            // If moved > 10px, user is trying to scroll/pan.
+            if (distance > 10) {
+                clearTimeout(state.longPressTimer);
+                state.longPressTimer = null;
+                // We return here and let the browser scroll naturally
+                return;
+            }
+            // If distance < 10px, we DO NOTHING. We assume it's just a shaky finger.
+        }
+
+        // SCENARIO 2: Timer Finished (We are locked in Drag Mode)
+        if (state.isDragSelecting) {
+            // CRITICAL: Stop browser scrolling now that we are selecting
+            if (e.cancelable) e.preventDefault();
+
+            const targetCell = getCellFromPoint(clientX, clientY);
+            
+            if (targetCell && targetCell.classList.contains('white')) {
+                const rc = targetCell.dataset.rc;
+                if (rc) {
+                    state.lastTouchedRC = rc;
+                    if (!state.selectedCells.has(rc)) {
+                        state.selectedCells.add(rc);
+                        if (navigator.vibrate) navigator.vibrate(10);
+                        renderBoard();
+                    }
+                }
+            }
+        }
+    };
+
+    const handleEnd = (e) => {
+        // Clean up timer
+        if (state.longPressTimer) {
+            clearTimeout(state.longPressTimer);
+            state.longPressTimer = null;
+        }
+
+        // If we were dragging, finish up
+        if (state.isDragSelecting) {
+            state.isDragSelecting = false;
+            
+            // Show numpad
+            if (window.innerWidth <= 768 && state.lastTouchedRC) {
+                const targetEl = document.querySelector(`.cell[data-rc="${state.lastTouchedRC}"]`);
+                if (targetEl) {
+                    showNumpad(targetEl);
+                }
+            }
+            
+            if (e.cancelable) e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    };
+
+    // --- Event Listeners ---
+    
+    // 1. Context Menu: Strictly Block It (Fixes the menu appearing)
+    element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    });
+
+    // 2. Touch Events
+    // passive: false is REQUIRED to use e.preventDefault() in touchmove
+    element.addEventListener('touchstart', handleStart, { passive: true });
+    element.addEventListener('touchmove', handleMove, { passive: false }); 
+    element.addEventListener('touchend', handleEnd);
+
+    // 3. Mouse Events (Desktop)
+    element.addEventListener('mousedown', handleStart);
+    element.addEventListener('mousemove', (e) => {
+        if (e.buttons === 1) handleMove(e);
+    });
+    element.addEventListener('mouseup', handleEnd);
+
+    // 4. Click (Short Press)
+    element.addEventListener('click', (e) => {
+        if (state.isLongPressTriggered) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            return;
+        }
+        selectCell(r, c, e);
+    });
+}
+
 async function loadSavedPuzzle(id) {
     try {
         const res = await fetch(`/load/${id}`, {
@@ -369,6 +650,47 @@ async function loadSavedPuzzle(id) {
     } catch (e) {
         alert("Error loading puzzle: " + e.message);
     }
+}
+
+function handleLongPress(r, c, element) {
+    state.isLongPressTriggered = true;
+    state.longPressTimer = null;
+
+    // 1. Enable Note Mode
+    if (!state.noteMode) {
+        toggleNoteMode(); // Use existing toggle to update UI buttons/banners
+        showToast("Note Mode Active");
+        
+        // Haptic Feedback (Vibration) - works on Android/Modern iOS
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+    }
+
+    // 2. Select the cell exclusively (clear others) for the start of the note
+    state.selectedCells.clear();
+    state.selectedCells.add(`${r},${c}`);
+    state.selected = { r, c };
+
+    // 3. Force Render to update styles (pink highlight for notes)
+    renderBoard();
+
+    // 4. Show Numpad (Must re-find element after render)
+    // We wait 0ms to let render finish
+    setTimeout(() => {
+        // Re-calculate element position because renderBoard destroys DOM
+        // This relies on the fact that renderBoard builds cells in order
+        const allCells = document.querySelectorAll('.cell');
+        const index = (r - state.gridBounds.minRow) * (state.gridBounds.maxCol - state.gridBounds.minCol + 1) + (c - state.gridBounds.minCol);
+        
+        // Find the cell in the DOM based on flattened index is risky but usually works
+        // Better approach: Add data-rc to cells in renderBoard
+        const targetCell = document.querySelector(`.cell[data-rc="${r},${c}"]`);
+        
+        if (targetCell && window.innerWidth <= 768) {
+            showNumpad(targetCell);
+        }
+    }, 0);
 }
 
 async function deletePuzzle(event, id) {
@@ -405,6 +727,9 @@ function renderBoard() {
     const { minRow, maxRow, minCol, maxCol } = state.gridBounds;
     const visibleHeight = maxRow - minRow + 1;
     const visibleWidth = maxCol - minCol + 1;
+
+    boardContainer.style.setProperty('--cols', visibleWidth);
+    boardContainer.style.setProperty('--rows', visibleHeight);
 
     // Create column notes row (top margin)
     const colNotesRow = document.createElement('div');
@@ -561,6 +886,7 @@ function saveNote(type, index, value) {
 function createGridCell(cellData, r, c) {
     const el = document.createElement('div');
     el.className = 'cell';
+    el.dataset.rc = `${r},${c}`;
 
     const isSelected = state.selected && state.selected.r === r && state.selected.c === c;
     const isMultiSelected = state.selectedCells.has(`${r},${c}`);
@@ -610,7 +936,7 @@ function createGridCell(cellData, r, c) {
         addCellNotes(wrapper, r, c);
 
         el.appendChild(wrapper);
-        el.addEventListener('click', (e) => selectCell(r, c, e));
+        setupCellInteractions(el, r, c);
     }
 
     return el;
@@ -649,19 +975,89 @@ function selectCell(r, c, event) {
                 state.selectedCells.add(key);
                 state.selected = { r, c };
             }
-            renderBoard();
         } else {
             // Normal selection mode
             state.selected = { r, c };
             state.selectedCells.clear();
-            renderBoard();
+        }
+        renderBoard();
+    }
+
+    if (window.innerWidth <= 768) {
+        // Find the cell using the data-rc attribute
+        const targetEl = document.querySelector(`.cell[data-rc="${r},${c}"]`);
+        
+        if (targetEl) {
+            showNumpad(targetEl);
         }
     }
 }
 
+function showNumpad(cellElement) {
+    const numpad = document.getElementById('mobile-numpad');
+    const rect = cellElement.getBoundingClientRect();
+    const scrollY = window.scrollY;
+
+    // Dimensions based on your CSS
+    const numpadWidth = 300; 
+    const numpadHeight = 132; // (10px pad * 2) + (50px btn * 2) + 8px gap + borders
+    const screenMargin = 10;  // Padding from screen edge
+    const cellGap = 8;        // Gap between cell and numpad
+
+    // 1. Horizontal Positioning (Clamped)
+    // Start with the center of the cell
+    let left = rect.left + (rect.width / 2);
+
+    // Calculate bounds. Since CSS uses transform: translateX(-50%), 
+    // the 'left' style coordinate represents the center of the numpad.
+    // So 'left' must be at least (width/2 + margin) and at most (screenWidth - width/2 - margin)
+    const minX = (numpadWidth / 2) + screenMargin;
+    const maxX = window.innerWidth - (numpadWidth / 2) - screenMargin;
+
+    // Clamp the value
+    left = Math.max(minX, Math.min(left, maxX));
+
+    // 2. Vertical Positioning (Smart Flip)
+    // Default: Position BELOW the cell
+    let top = rect.bottom + scrollY + cellGap;
+
+    // Check available space in the viewport below the cell
+    const spaceBelow = window.innerHeight - rect.bottom;
+
+    // If there isn't enough space below, AND there is space above...
+    if (spaceBelow < (numpadHeight + screenMargin) && rect.top > (numpadHeight + screenMargin)) {
+        // ...Position ABOVE the cell
+        // Calculation: Top of cell - Gap - Height of numpad
+        top = rect.top + scrollY - cellGap - numpadHeight;
+    }
+    
+    numpad.style.top = `${top}px`;
+    numpad.style.left = `${left}px`; // CSS transform handles the centering offset
+
+    numpad.style.display = ''; 
+    numpad.classList.add('active');
+}
+
+function hideNumpad() {
+    const numpad = document.getElementById('mobile-numpad');
+    if (numpad) {
+        numpad.classList.remove('active');
+        // FORCE hide immediately to prevent any visual lag or ghost touches
+        numpad.style.display = 'none';
+    }
+}
+
+// 6. Update global click listener to hide numpad
+window.addEventListener('click', (e) => {
+    // If clicking outside board and outside numpad
+    if (!e.target.closest('.mobile-numpad') && !e.target.closest('.cell')) {
+        hideNumpad();
+    }
+});
+
 function handleGlobalKey(e) {
     // Don't handle if typing in an input field
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     // Toggle note mode with 'n' key
     if (e.key === 'n' || e.key === 'N') {
@@ -724,21 +1120,14 @@ function handleGlobalKey(e) {
 
         // Numbers 1-9
         if (e.key >= '1' && e.key <= '9') {
-            if (state.userGrid[r][c].type === 'WHITE') {
-                state.userGrid[r][c].userValue = parseInt(e.key);
-                state.showErrors = false;
-                renderBoard();
-            }
+            handleInputNumber(e.key);
             return;
         }
 
         // Delete / Backspace
         if (e.key === 'Backspace' || e.key === 'Delete') {
-            if (state.userGrid[r][c].type === 'WHITE') {
-                state.userGrid[r][c].userValue = null;
-                state.showErrors = false;
-                renderBoard();
-            }
+            e.preventDefault(); // Prevent browser back navigation
+            handleInputDelete();
             return;
         }
 
@@ -1680,5 +2069,194 @@ async function handleResendCode() {
         }
     } catch (e) {
         showAuthError('verification', 'Failed to resend code. Please try again.');
+    }
+}
+
+function setupMobile() {
+    // 1. Generate Button in Mobile Modal
+    const btnMobileGenerate = document.getElementById('btn-mobile-generate');
+    const mobileDiffSelect = document.getElementById('mobile-difficulty-select');
+    const desktopDiffSelect = document.getElementById('difficulty-select');
+    const settingsModal = document.getElementById('mobile-settings-modal');
+
+    const closeOtherModals = (exceptId) => {
+        const modalIds = [
+            'mobile-settings-modal', 
+            'mobile-notebook-modal', 
+            'library-modal', 
+            'auth-modal'
+        ];
+        
+        modalIds.forEach(id => {
+            if (id !== exceptId) {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            }
+        });
+    };
+
+    if(btnMobileGenerate) {
+        btnMobileGenerate.addEventListener('click', () => {
+            // Sync value to desktop select (so fetchPuzzle uses it)
+            if(desktopDiffSelect) desktopDiffSelect.value = mobileDiffSelect.value;
+            
+            // Close modal
+            settingsModal.style.display = 'none';
+            
+            // Generate
+            fetchPuzzle();
+        });
+    }
+
+    // 2. Navigation Handlers
+    const navPlay = document.getElementById('nav-play');
+    if (navPlay && settingsModal) {
+        navPlay.addEventListener('click', () => {
+            if (settingsModal.style.display === 'block') {
+                settingsModal.style.display = 'none';
+            } else {
+                closeOtherModals('mobile-settings-modal');
+                settingsModal.style.display = 'block';
+            }
+        });
+    }
+
+    // 2. Notebook Button: Opens Notebook Modal
+    const navNotebook = document.getElementById('nav-notebook');
+    const notebookModal = document.getElementById('mobile-notebook-modal');
+    const mobileTextarea = document.getElementById('mobile-notebook-textarea');
+    const desktopTextarea = document.getElementById('notebook-textarea');
+
+    if (navNotebook && notebookModal && mobileTextarea) {
+        navNotebook.addEventListener('click', () => {
+            if (notebookModal.style.display === 'block') {
+                notebookModal.style.display = 'none';
+            } else {
+                closeOtherModals('mobile-notebook-modal');
+                // Sync state -> mobile textarea
+                mobileTextarea.value = state.notebook || '';
+                notebookModal.style.display = 'block';
+            }
+        });
+
+        // Save on input
+        mobileTextarea.addEventListener('input', (e) => {
+            state.notebook = e.target.value;
+            // Sync back to desktop textarea if it exists (for seamless switching)
+            if(desktopTextarea) desktopTextarea.value = state.notebook;
+        });
+    }
+
+    // 3. Notes Button (Tools): Toggles Note Mode
+    const navNotes = document.getElementById('nav-notes');
+    if (navNotes) {
+        navNotes.addEventListener('click', () => {
+            toggleNoteMode(); 
+            
+            // Visual feedback
+            const isActive = state.noteMode;
+            navNotes.style.color = isActive ? 'var(--success-color)' : '';
+            // Optional: Haptic feedback
+            if (navigator.vibrate) navigator.vibrate(20);
+            
+            showToast(isActive ? "Note Mode ON" : "Note Mode OFF");
+        });
+    }
+
+
+    const navLibrary = document.getElementById('nav-library');
+    const libraryModal = document.getElementById('library-modal');
+    
+    if (navLibrary && libraryModal) {
+        navLibrary.addEventListener('click', () => {
+            if (libraryModal.style.display === 'block') {
+                libraryModal.style.display = 'none';
+            } else {
+                closeOtherModals('library-modal');
+                openLibrary(); 
+            }
+        });
+    }
+    
+    const navProfile = document.getElementById('nav-profile');
+    const authModal = document.getElementById('auth-modal');
+
+    if (navProfile) {
+        navProfile.addEventListener('click', () => {
+            if(state.user) {
+                // If logged in, we use confirm (native dialog, cannot toggle)
+                if(confirm(`Logged in as ${state.user.username}. Logout?`)) {
+                    handleLogout();
+                }
+            } else {
+                // If logged out, toggle the Auth Modal
+                if (authModal && authModal.style.display === 'block') {
+                    closeAuthModal();
+                } else {
+                    closeOtherModals('auth-modal');
+                    openAuthModal('login');
+                }
+            }
+        });
+    }
+
+
+    setupNumpad();
+}
+
+function setupNumpad() {
+    const numpad = document.getElementById('mobile-numpad');
+    if (!numpad) return;
+
+    numpad.style.pointerEvents = 'none';
+
+    // Prevent clicking the numpad from closing it (propagation issue)
+    numpad.addEventListener('click', (e) => e.stopPropagation());
+
+    // Handle button clicks
+    numpad.querySelectorAll('button').forEach(btn => {
+        btn.style.pointerEvents = 'auto';
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Don't deselect cell
+            const val = btn.dataset.val;
+            
+            if (val === 'del') {
+                handleInputDelete();
+            } else {
+                handleInputNumber(val);
+            }
+        });
+    });
+    
+    // Hide numpad on scroll to prevent it floating awkwardly
+    window.addEventListener('scroll', () => {
+        if (window.innerWidth <= 768) hideNumpad();
+    });
+}
+
+function handleInputNumber(numStr) {
+    if (state.noteMode && state.selectedCells.size > 0) {
+        handleNoteInput(numStr);
+    } else if (!state.noteMode && state.selected) {
+        const { r, c } = state.selected;
+        if (state.userGrid[r][c].type === 'WHITE') {
+            state.userGrid[r][c].userValue = parseInt(numStr);
+            state.showErrors = false;
+            renderBoard();
+        }
+    }
+}
+
+function handleInputDelete() {
+    if (state.noteMode && state.selectedCells.size > 0) {
+        deleteSelectedNotes();
+    } else if (!state.noteMode && state.selected) {
+        const { r, c } = state.selected;
+        if (state.userGrid[r][c].type === 'WHITE') {
+            state.userGrid[r][c].userValue = null;
+            state.showErrors = false;
+            renderBoard();
+        }
     }
 }

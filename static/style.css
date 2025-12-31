@@ -470,6 +470,23 @@ kbd {
     cursor: crosshair; /* Visual indicator that you are in a different mode */
 }
 
+.kakuro-grid.mode-notes .cell.white.selected,
+.kakuro-grid.mode-notes .cell.white.multi-selected {
+    /* Pinkish tint for Note Mode */
+    background-color: rgba(236, 72, 153, 0.15); 
+    box-shadow: inset 0 0 0 2px var(--primary-color);
+}
+
+/* Add a transition so the color fade happens smoothly on Long Press */
+.cell.white {
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+/* Active state for immediate touch feedback */
+.cell.white:active {
+    transform: scale(0.95);
+}
+
 .cell {
     width: 60px;
     height: 60px;
@@ -1729,4 +1746,252 @@ kbd {
     .verification-code-container {
         gap: 0.5rem;
     }
+}
+
+/* =========================================
+   MOBILE EXPLICIT LAYOUT
+   ========================================= */
+
+/* Default: Hide Mobile Elements on Desktop */
+.mobile-bottom-nav {
+    display: none;
+}
+
+#mobile-settings-modal {
+    display: none; /* Managed by JS */
+}
+
+/* Mobile Media Query */
+@media (max-width: 768px) {
+    
+    /* 1. Reset Layout structure */
+    #root {
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .app-container {
+        width: 100%;
+        margin: 0;
+        padding-bottom: 70px; /* Space for bottom nav */
+    }
+
+    /* 2. Hide Desktop-Specific Elements */
+    .header {
+        display: none; /* Hide big header */
+    }
+
+    .sidebar-left, 
+    .sidebar-right {
+        display: none !important; /* Force hide sidebars */
+    }
+    
+    .action-bar {
+        display: none; /* Hide buttons below board, moved to nav */
+    }
+
+    /* 3. Adjust Main Layout */
+    .main-layout {
+        display: block; /* Remove grid */
+        padding: 10px;
+    }
+
+    .game-area {
+        margin-top: 20px;
+        width: 100%;
+    }
+
+    /* 4. Optimize Board for Touch */
+    .board-container {
+        padding: 10px; /* Reduce padding */
+        width: 100%;
+        overflow: auto; /* Allow scrolling if puzzle is huge */
+        display: flex;
+        justify-content: center;
+    }
+
+    /* Make cells slightly smaller if needed, or rely on scroll */
+    .cell {
+        width: 45px;
+        height: 45px;
+        font-size: 1.2rem;
+
+        touch-action:  manipulation;
+        -webkit-touch-callout: none;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    
+    /* Adjust grid template for smaller cells */
+    .main-grid-area-with-gaps {
+        grid-template-columns: 30px repeat(var(--cols), 45px) !important;
+        grid-template-rows: repeat(var(--rows), 45px) !important;
+    }
+    
+    .col-notes-row {
+        grid-template-columns: 30px repeat(var(--cols), 45px) !important;
+    }
+
+    /* 5. Mobile Top Bar (Optional mini header) */
+    .app-container::before {
+        content: "Kakuro";
+        display: block;
+        text-align: center;
+        padding: 15px;
+        font-weight: 800;
+        font-size: 1.2rem;
+        background: var(--surface-color);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--primary-color);
+    }
+
+    /* 6. Bottom Navigation Bar Styling */
+    .mobile-bottom-nav {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 65px;
+        background: var(--surface-color);
+        border-top: 1px solid var(--border-color);
+        z-index: 1000;
+        padding-bottom: env(safe-area-inset-bottom); /* iPhone Home bar support */
+        box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
+    }
+
+    .nav-item {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        gap: 4px;
+        flex: 1;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .nav-item.active {
+        color: var(--primary-color);
+    }
+
+    .nav-icon {
+        font-size: 1.4rem;
+    }
+}
+
+/* =========================================
+   MOBILE NUMPAD
+   ========================================= */
+
+.mobile-numpad {
+    display: none; /* Hidden by default */
+    position: absolute;
+    z-index: 2000;
+    
+    /* Layout */
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* 5 columns of equal width */
+    gap: 8px;
+    width: 300px; /* Fixed width ensures buttons don't get squashed */
+    
+    /* Appearance */
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    backdrop-filter: blur(10px);
+    
+    /* Centering logic (handled by JS setting Left/Top, this centers on that point) */
+    transform: translateX(-50%);
+}
+
+@media (max-width: 768px) {
+    .mobile-numpad.active {
+        display: grid !important; /* Switch to grid when active */
+        animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .board-container {
+        background: transparent !important; /* Remove white/dark surface background */
+        border: none !important;            /* Remove border around container */
+        box-shadow: none !important;        /* Remove shadow */
+        padding: 5px !important;            /* Minimal padding just to avoid edge clipping */
+        width: 100%;
+        overflow: auto;
+        display: flex;
+        justify-content: center;
+    }
+
+    /* 2. Fix Margin Note Sizes to match 45px Cells */
+    .margin-note-col {
+        width: 45px !important;  /* Match the mobile cell width */
+        font-size: 0.6rem;       /* Make text slightly smaller to fit */
+    }
+
+    .margin-note-row {
+        height: 45px !important; /* Match the mobile cell height */
+        width: 30px !important;  /* Match the mobile row header width */
+        font-size: 0.6rem;
+    }
+
+    .margin-corner {
+        width: 30px !important; /* Match the mobile row header width */
+    }
+
+    /* Optional: Ensure inputs inside notes also fit */
+    .note-input {
+        font-size: 0.6rem !important;
+    }
+}
+
+@keyframes popIn {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.num-btn {
+    height: 50px; /* Fixed height */
+    width: 100%;  /* Fill grid cell */
+    border: none;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    font-size: 1.3rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.1s;
+    
+    /* Center text */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.num-btn:active {
+    transform: scale(0.95);
+    background: var(--primary-color);
+    color: white;
+}
+
+.delete-btn {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+    position: static;
+}
+
+.delete-btn:active {
+    background: var(--danger-color);
+    color: white;
 }
