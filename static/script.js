@@ -209,8 +209,10 @@ function toggleNoteMode(skipRender = false) {
                 // Mobile Text
                 noteHelp.innerHTML = `
                     📝 <strong>Note Mode Active</strong><br>
-                    • Long-press & drag to select multiple<br>
-                    • Use keypad to add/remove notes
+                    • Long-press & drag to select<br>
+                    • Single tap to start new selection<br>
+                    • Select 2 adjacent cells for boundary notes<br>
+                    • Double-tap to exit
                 `;
             } else {
                 // Desktop Text
