@@ -16,3 +16,5 @@ build
 # Storage
 kakuro.db
 .env
+kakuro_debug.log
+generation_result.txt
