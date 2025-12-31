@@ -2308,3 +2308,49 @@ function triggerAutosave() {
         saveCurrentState(true); // true = silent mode
     }, 2000);
 }
+
+function initSidebarToggles() {
+    const toggleLeft = document.getElementById('toggle-left');
+    const toggleRight = document.getElementById('toggle-right');
+    const sidebarLeft = document.querySelector('.sidebar-left');
+    const sidebarRight = document.querySelector('.sidebar-right');
+    const mainLayout = document.querySelector('.main-layout');
+
+    if (toggleLeft && sidebarLeft) {
+        toggleLeft.addEventListener('click', () => {
+            sidebarLeft.classList.toggle('collapsed');
+            toggleLeft.textContent = sidebarLeft.classList.contains('collapsed') ? '▶' : '◀';
+            updateLayoutClasses();
+        });
+    }
+
+    if (toggleRight && sidebarRight) {
+        toggleRight.addEventListener('click', () => {
+            sidebarRight.classList.toggle('collapsed');
+            toggleRight.textContent = sidebarRight.classList.contains('collapsed') ? '◀' : '▶';
+            updateLayoutClasses();
+        });
+    }
+
+    function updateLayoutClasses() {
+        const leftCollapsed = sidebarLeft.classList.contains('collapsed');
+        const rightCollapsed = sidebarRight.classList.contains('collapsed');
+
+        mainLayout.classList.remove('left-collapsed', 'right-collapsed', 'both-collapsed');
+
+        if (leftCollapsed && rightCollapsed) {
+            mainLayout.classList.add('both-collapsed');
+        } else if (leftCollapsed) {
+            mainLayout.classList.add('left-collapsed');
+        } else if (rightCollapsed) {
+            mainLayout.classList.add('right-collapsed');
+        }
+    }
+}
+
+// Call initSidebarToggles after the DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSidebarToggles);
+} else {
+    initSidebarToggles();
+}
