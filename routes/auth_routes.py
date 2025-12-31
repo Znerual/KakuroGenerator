@@ -1,36 +1,51 @@
 """
 Authentication routes for Kakuro Generator.
-Handles user registration, login, OAuth, and profile management.
+Handles registration, login, OAuth, email verification, and password reset.
 """
 
-from datetime import datetime
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+import uuid
+from datetime import datetime, timezone, timedelta
 
 from python.database import get_db
 from python.models import User
 from python.auth import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token, decode_token,
-    get_required_user, get_current_user
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    generate_verification_code,
+    create_password_reset_token,
+    verify_password_reset_token,
+    get_current_user,
+    get_required_user
 )
-import python.oauth as oauth_module
+from python.oauth import (
+    get_oauth_authorize_redirect,
+    get_google_user_info,
+    get_facebook_user_info,
+    get_apple_user_info
+)
+from python.email_service import (
+    send_verification_email,
+    send_password_reset_email,
+    send_welcome_email
+)
 import python.config as config
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-# =====================
 # Request/Response Models
-# =====================
-
 class RegisterRequest(BaseModel):
-    username: str
     email: EmailStr
     password: str
+    username: Optional[str] = None
+    full_name: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -38,35 +53,47 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class AuthResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user: dict
 
 
-class UserResponse(BaseModel):
-    id: str
-    username: str
-    email: str
-    created_at: datetime
-    last_login: Optional[datetime]
-    kakuros_solved: int
-    oauth_provider: Optional[str]
+class MessageResponse(BaseModel):
+    message: str
 
 
-class RefreshRequest(BaseModel):
-    refresh_token: str
-
-
-# =====================
-# Registration & Login
-# =====================
-
-@router.post("/register", response_model=TokenResponse)
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user account."""
-    
-    # Check if email already exists
+# Registration Endpoints
+@router.post("/register", response_model=MessageResponse)
+async def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    """
+    Register a new user with email and password.
+    Sends verification code via email.
+    """
+    # Check if user already exists
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
         raise HTTPException(
@@ -74,82 +101,117 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
     
-    # Check if username already exists
-    existing_username = db.query(User).filter(User.username == request.username).first()
-    if existing_username:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
-        )
+    # Check username uniqueness if provided
+    if request.username:
+        existing_username = db.query(User).filter(User.username == request.username).first()
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
     
-    # Validate password
-    if len(request.password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 6 characters"
-        )
+    # Generate verification code
+    verification_code = generate_verification_code()
+    # Use config hours or default to 15 minutes if not set in config for codes
+    expire_hours = getattr(config, 'EMAIL_VERIFICATION_EXPIRE_HOURS', 0.25)
+    code_expires = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
     
-    # Create user
-    user = User(
-        username=request.username,
+    # Create new user
+    user_id = str(uuid.uuid4())
+    new_user = User(
+        id=user_id,
         email=request.email,
+        username=request.username,
         password_hash=hash_password(request.password),
-        last_login=datetime.utcnow()
+        full_name=request.full_name,
+        email_verified=False,
+        verification_code=verification_code,
+        verification_code_expires_at=code_expires
     )
-    db.add(user)
+    
+    db.add(new_user)
     db.commit()
-    db.refresh(user)
+    db.refresh(new_user)
     
-    # Generate tokens
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
-    
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    # Send verification email
+    if config.is_resend_configured():
+        send_verification_email(request.email, verification_code, request.full_name or request.username)
+        return {"message": "Registration successful! Please check your email for a verification code."}
+    else:
+        # If email not configured, print code to console for dev
+        print(f"DEV MODE: Verification code for {request.email} is {verification_code}")
+        return {"message": f"DEV MODE: Verification code is {verification_code}"}
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """Login with email and password."""
-    
+
+@router.post("/login", response_model=AuthResponse)
+async def login(request: LoginRequest, db: Session = Depends(get_db)):
+    """
+    Login with email and password.
+    Returns access and refresh tokens.
+    """
+    # Find user
     user = db.query(User).filter(User.email == request.email).first()
-    
     if not user or not user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
     
+    # Verify password
     if not verify_password(request.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
     
+    # Check if email is verified
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address before logging in. Check your inbox for the verification link."
+        )
+    
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     db.commit()
     
     # Generate tokens
     access_token = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
     
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user.to_dict()
+    }
 
 
-@router.post("/refresh", response_model=TokenResponse)
-def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
-    """Refresh an access token using a refresh token."""
+@router.post("/refresh", response_model=AuthResponse)
+async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    Refresh access token using refresh token.
+    """
+    from python.auth import decode_token
     
-    payload = decode_token(request.refresh_token)
-    if not payload or payload.get("type") != "refresh":
+    # Decode refresh token
+    payload = decode_token(request.refresh_token, expected_type="refresh")
+    if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            detail="Invalid or expired refresh token"
         )
     
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == user_id).first()
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
     
+    # Find user
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -157,255 +219,285 @@ def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
         )
     
     # Generate new tokens
-    access_token = create_access_token(user.id)
+    new_access_token = create_access_token(user.id)
     new_refresh_token = create_refresh_token(user.id)
     
-    return TokenResponse(access_token=access_token, refresh_token=new_refresh_token)
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "user": user.to_dict()
+    }
 
 
-# =====================
-# User Profile
-# =====================
-
-@router.get("/me", response_model=UserResponse)
-def get_profile(user: User = Depends(get_required_user)):
-    """Get the current user's profile."""
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        created_at=user.created_at,
-        last_login=user.last_login,
-        kakuros_solved=user.kakuros_solved,
-        oauth_provider=user.oauth_provider
-    )
-
-
-# =====================
-# OAuth Routes
-# =====================
-
-@router.get("/google")
-async def google_auth(request: Request):
-    """Redirect to Google OAuth."""
-    if not config.is_google_configured():
+# Email Verification Endpoints
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(request: VerifyEmailRequest, db: Session = Depends(get_db)):
+    """
+    Verify user's email address using the 6-digit code.
+    """
+    # 1. Find user by email
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Google OAuth not configured"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
         )
-    redirect = await oauth_module.get_oauth_authorize_redirect('google', request)
-    return redirect
+    
+    # 2. Check if already verified
+    if user.email_verified:
+        # If already verified, we can just log them in again
+        pass 
+    else:
+        # 3. Validate Code
+        if not user.verification_code or user.verification_code != request.code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification code"
+            )
+        
+        # 4. Check Expiration
+        now = datetime.now(timezone.utc)
+        expires_at = user.verification_code_expires_at
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at and expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new one."
+            )
+        
+        # 5. Success - Mark verified and clear code
+        user.email_verified = True
+        user.verification_code = None
+        user.verification_code_expires_at = None
+        db.commit()
+        
+        # Send welcome email
+        if config.is_resend_configured():
+            send_welcome_email(user.email, user.full_name or user.username)
+        
+    # 6. Generate Tokens (Auto-Login)
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
+    
+    # Update last login
+    user.last_login = datetime.now(timezone.utc)
+    db.commit()
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user.to_dict()
+    }
+
+@router.post("/resend-verification", response_model=MessageResponse)
+async def resend_verification(request: ResendVerificationRequest, db: Session = Depends(get_db)):
+    """
+    Resend verification code to user.
+    """
+    # Find user
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Don't reveal if email exists (security best practice)
+        return {"message": "If an account exists with this email, a verification code has been sent."}
+    
+    # Check if already verified
+    if user.email_verified:
+        return {"message": "This email is already verified. You can log in now."}
+    
+    # Generate new verification code
+    verification_code = generate_verification_code()
+    expire_hours = getattr(config, 'EMAIL_VERIFICATION_EXPIRE_HOURS', 0.25)
+    code_expires = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
+    
+    user.verification_code = verification_code
+    user.verification_code_expires_at = code_expires
+    db.commit()
+    
+    # Send verification email
+    if config.is_resend_configured():
+        send_verification_email(user.email, verification_code, user.full_name or user.username)
+    else:
+        print(f"DEV MODE: Resent verification code for {user.email}: {verification_code}")
+    
+    return {"message": "If an account exists with this email, a verification code has been sent."}
+
+# Password Reset Endpoints
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Request a password reset link.
+    """
+    # Find user
+    user = db.query(User).filter(User.email == request.email).first()
+    
+    # Always return success message (don't reveal if email exists)
+    if not user or not user.password_hash:  # OAuth users can't reset password this way
+        return {"message": "If an account exists with this email, a password reset link has been sent."}
+    
+    # Send password reset email
+    if config.is_resend_configured():
+        reset_token = create_password_reset_token(user.id, user.email)
+        send_password_reset_email(user.email, reset_token, user.full_name or user.username)
+    
+    return {"message": "If an account exists with this email, a password reset link has been sent."}
 
 
-@router.get("/google/callback")
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Reset password using the token from the reset email.
+    """
+    # Verify token
+    token_data = verify_password_reset_token(request.token)
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+    
+    # Find user
+    user = db.query(User).filter(User.id == token_data["user_id"]).first()
+    if not user or not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found or cannot reset password"
+        )
+    
+    # Update password
+    user.password_hash = hash_password(request.new_password)
+    db.commit()
+    
+    return {"message": "Password reset successful! You can now log in with your new password."}
+
+
+# OAuth Endpoints
+@router.get("/oauth/{provider}")
+async def oauth_login(provider: str, request: Request):
+    """
+    Initiate OAuth login flow for Google, Facebook, or Apple.
+    """
+    redirect_response = get_oauth_authorize_redirect(provider, request)
+    if not redirect_response:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"OAuth provider '{provider}' not configured or invalid"
+        )
+    return redirect_response
+
+
+@router.get("/google/callback", response_model=AuthResponse)
 async def google_callback(request: Request, db: Session = Depends(get_db)):
     """Handle Google OAuth callback."""
-    user_info = await oauth_module.get_google_user_info(request)
-    
+    user_info = await get_google_user_info(request)
     if not user_info:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Google authentication failed"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to get user info from Google"
         )
     
-    # Find or create user
-    user = db.query(User).filter(
-        User.oauth_provider == 'google',
-        User.oauth_id == user_info['oauth_id']
-    ).first()
-    
-    if not user:
-        # Check if email exists with different provider
-        existing_email = db.query(User).filter(User.email == user_info['email']).first()
-        if existing_email:
-            # Link accounts by updating existing user
-            existing_email.oauth_provider = 'google'
-            existing_email.oauth_id = user_info['oauth_id']
-            user = existing_email
-        else:
-            # Create new user
-            username = user_info['name'] or user_info['email'].split('@')[0]
-            # Ensure unique username
-            base_username = username
-            counter = 1
-            while db.query(User).filter(User.username == username).first():
-                username = f"{base_username}{counter}"
-                counter += 1
-            
-            user = User(
-                username=username,
-                email=user_info['email'],
-                oauth_provider='google',
-                oauth_id=user_info['oauth_id']
-            )
-            db.add(user)
-    
-    user.last_login = datetime.utcnow()
-    db.commit()
-    db.refresh(user)
-    
-    # Generate tokens and redirect to frontend with token
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
-    
-    # Redirect to frontend with tokens in URL fragment (more secure than query params)
-    return RedirectResponse(
-        url=f"/?access_token={access_token}&refresh_token={refresh_token}"
-    )
+    return await handle_oauth_user(user_info, db)
 
 
-@router.get("/facebook")
-async def facebook_auth(request: Request):
-    """Redirect to Facebook OAuth."""
-    if not config.is_facebook_configured():
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Facebook OAuth not configured"
-        )
-    redirect = await oauth_module.get_oauth_authorize_redirect('facebook', request)
-    return redirect
-
-
-@router.get("/facebook/callback")
+@router.get("/facebook/callback", response_model=AuthResponse)
 async def facebook_callback(request: Request, db: Session = Depends(get_db)):
     """Handle Facebook OAuth callback."""
-    user_info = await oauth_module.get_facebook_user_info(request)
-    
+    user_info = await get_facebook_user_info(request)
     if not user_info:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Facebook authentication failed"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to get user info from Facebook"
         )
     
-    # Find or create user (similar logic to Google)
-    user = db.query(User).filter(
-        User.oauth_provider == 'facebook',
-        User.oauth_id == user_info['oauth_id']
-    ).first()
-    
-    if not user:
-        existing_email = db.query(User).filter(User.email == user_info['email']).first()
-        if existing_email:
-            existing_email.oauth_provider = 'facebook'
-            existing_email.oauth_id = user_info['oauth_id']
-            user = existing_email
-        else:
-            username = user_info['name'] or user_info['email'].split('@')[0]
-            base_username = username
-            counter = 1
-            while db.query(User).filter(User.username == username).first():
-                username = f"{base_username}{counter}"
-                counter += 1
-            
-            user = User(
-                username=username,
-                email=user_info['email'],
-                oauth_provider='facebook',
-                oauth_id=user_info['oauth_id']
-            )
-            db.add(user)
-    
-    user.last_login = datetime.utcnow()
-    db.commit()
-    db.refresh(user)
-    
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
-    
-    return RedirectResponse(
-        url=f"/?access_token={access_token}&refresh_token={refresh_token}"
-    )
+    return await handle_oauth_user(user_info, db)
 
 
-@router.get("/apple")
-async def apple_auth(request: Request):
-    """Redirect to Apple OAuth."""
-    if not config.is_apple_configured():
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Apple OAuth not configured"
-        )
-    redirect = await oauth_module.get_oauth_authorize_redirect('apple', request)
-    return redirect
-
-
-@router.post("/apple/callback")
+@router.post("/apple/callback", response_model=AuthResponse)
 async def apple_callback(
-    request: Request,
+    id_token: str,
+    code: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Handle Apple OAuth callback.
-    Apple uses POST with form data.
-    """
-    form_data = await request.form()
-    id_token = form_data.get('id_token')
-    code = form_data.get('code')
-    
-    if not id_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No id_token received from Apple"
-        )
-    
-    user_info = await oauth_module.get_apple_user_info(id_token, code)
-    
+    """Handle Apple Sign In callback."""
+    user_info = await get_apple_user_info(id_token, code)
     if not user_info:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Apple authentication failed"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to get user info from Apple"
         )
     
-    # Find or create user
+    return await handle_oauth_user(user_info, db)
+
+
+async def handle_oauth_user(user_info: dict, db: Session) -> AuthResponse:
+    """
+    Handle OAuth user creation or login.
+    OAuth users are automatically verified.
+    """
+    provider = user_info['provider']
+    oauth_id = user_info['oauth_id']
+    email = user_info['email']
+    
+    # Try to find existing user by OAuth ID
     user = db.query(User).filter(
-        User.oauth_provider == 'apple',
-        User.oauth_id == user_info['oauth_id']
+        User.oauth_provider == provider,
+        User.oauth_id == oauth_id
     ).first()
     
     if not user:
-        existing_email = db.query(User).filter(User.email == user_info['email']).first()
-        if existing_email:
-            existing_email.oauth_provider = 'apple'
-            existing_email.oauth_id = user_info['oauth_id']
-            user = existing_email
+        # Try to find by email
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Link OAuth account to existing user
+            user.oauth_provider = provider
+            user.oauth_id = oauth_id
+            user.email_verified = True  # OAuth emails are pre-verified
         else:
-            # Apple might not provide name, use email prefix
-            username = user_info['email'].split('@')[0] if user_info['email'] else f"apple_user_{user_info['oauth_id'][:8]}"
-            base_username = username
-            counter = 1
-            while db.query(User).filter(User.username == username).first():
-                username = f"{base_username}{counter}"
-                counter += 1
-            
+            # Create new user
             user = User(
-                username=username,
-                email=user_info['email'],
-                oauth_provider='apple',
-                oauth_id=user_info['oauth_id']
+                id=str(uuid.uuid4()),
+                email=email,
+                username=None,  # Can be set later
+                full_name=user_info.get('name'),
+                oauth_provider=provider,
+                oauth_id=oauth_id,
+                email_verified=True  # OAuth emails are pre-verified
             )
             db.add(user)
     
-    user.last_login = datetime.utcnow()
+    # Update last login
+    user.last_login = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
     
+    # Generate tokens
     access_token = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
     
-    return RedirectResponse(
-        url=f"/?access_token={access_token}&refresh_token={refresh_token}"
-    )
-
-
-# =====================
-# OAuth Status
-# =====================
-
-@router.get("/providers")
-def get_oauth_providers():
-    """Get available OAuth providers status."""
     return {
-        "google": config.is_google_configured(),
-        "facebook": config.is_facebook_configured(),
-        "apple": config.is_apple_configured()
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user.to_dict()
     }
+
+
+# User Info Endpoints
+@router.get("/me")
+async def get_me(current_user: User = Depends(get_required_user)):
+    """Get current user's profile."""
+    return current_user.to_dict()
+
+
+@router.get("/check")
+async def check_auth(current_user: Optional[User] = Depends(get_current_user)):
+    """Check if user is authenticated (optional dependency)."""
+    if current_user:
+        return {
+            "authenticated": True,
+            "user": current_user.to_dict()
+        }
+    return {"authenticated": False}

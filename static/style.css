@@ -1363,6 +1363,8 @@ kbd {
 }
 
 .btn-auth-primary:hover {
+    background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
+    color: white;
     box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
 }
 
@@ -1635,5 +1637,96 @@ kbd {
 
     .btn-oauth {
         min-width: auto;
+    }
+}
+
+/* =====================
+   Email Verification Code Styles
+   ===================== */
+
+.verification-code-container {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin: 2rem 0;
+}
+
+.code-input {
+    width: 50px;
+    height: 60px;
+    text-align: center;
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    font-family: 'Courier New', monospace;
+}
+
+.code-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    transform: scale(1.05);
+}
+
+.code-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.code-input.error {
+    border-color: var(--danger-color);
+    animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.resend-text {
+    margin-top: 1.5rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.resend-text a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.resend-text a:hover {
+    text-decoration: underline;
+}
+
+#verify-email-display {
+    color: var(--primary-color);
+}
+
+/* Light theme overrides for code inputs */
+[data-theme="light"] .code-input {
+    background-color: var(--surface-color);
+}
+
+[data-theme="light"] .code-input:focus {
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+/* Mobile responsive code inputs */
+@media (max-width: 480px) {
+    .code-input {
+        width: 40px;
+        height: 50px;
+        font-size: 1.5rem;
+    }
+    
+    .verification-code-container {
+        gap: 0.5rem;
     }
 }

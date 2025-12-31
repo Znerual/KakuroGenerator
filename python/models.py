@@ -1,95 +1,114 @@
 """
-SQLAlchemy ORM models for Kakuro Generator.
-Defines User and Puzzle tables with relationships.
+Database models for Kakuro Generator.
+Defines User and Puzzle models with SQLAlchemy.
 """
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, JSON, Boolean
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
-from datetime import datetime
-import uuid
-
+from datetime import datetime, timezone
 from python.database import Base
 
 
-def generate_uuid():
-    """Generate a new UUID string."""
-    return str(uuid.uuid4())
-
-
 class User(Base):
-    """User account model."""
+    """User model for authentication and profile management."""
     __tablename__ = "users"
-
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=True)  # Nullable for OAuth-only users
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login = Column(DateTime, nullable=True)
-    kakuros_solved = Column(Integer, default=0, nullable=False)
+    id = Column(String, primary_key=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    username = Column(String, unique=True, nullable=True)
+    password_hash = Column(String, nullable=True)  # Null for OAuth users
+    
+    # Email verification
+    email_verified = Column(Boolean, default=False, nullable=False)
     
     # OAuth fields
-    oauth_provider = Column(String(20), nullable=True)  # 'google', 'facebook', 'apple'
-    oauth_id = Column(String(255), nullable=True)  # Provider's user ID
+    oauth_provider = Column(String, nullable=True)  # 'google', 'facebook', 'apple', or None
+    oauth_id = Column(String, nullable=True)  # Provider's user ID
+
+    verification_code = Column(String, nullable=True)
+    verification_code_expires_at = Column(DateTime, nullable=True)
+    
+    # Profile
+    full_name = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
+    
+    # Statistics
+    kakuros_solved = Column(Integer, default=0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_login = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     # Relationships
     puzzles = relationship("Puzzle", back_populates="user", cascade="all, delete-orphan")
-
-    def __repr__(self):
-        return f"<User {self.username}>"
+    
+    def to_dict(self):
+        """Convert user to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "email": self.email,
+            "username": self.username,
+            "email_verified": self.email_verified,
+            "oauth_provider": self.oauth_provider,
+            "full_name": self.full_name,
+            "avatar_url": self.avatar_url,
+            "kakuros_solved": self.kakuros_solved,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
 
 
 class Puzzle(Base):
-    """Saved puzzle model with user association."""
+    """Puzzle model for storing user's saved puzzles."""
     __tablename__ = "puzzles"
-
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     
-    # Puzzle metadata
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    
+    # Puzzle configuration
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
-    difficulty = Column(String(20), nullable=False)
-    status = Column(String(20), default="started", nullable=False)  # 'started' or 'solved'
+    difficulty = Column(String, nullable=False)
     
-    # Puzzle data stored as JSON
+    # Puzzle data (stored as JSON)
     grid = Column(JSON, nullable=False)
-    user_grid = Column(JSON, nullable=True)  # User's current progress
+    user_grid = Column(JSON, nullable=True)
+    
+    # User notes
     row_notes = Column(JSON, default=list)
     col_notes = Column(JSON, default=list)
     cell_notes = Column(JSON, default=dict)
     notebook = Column(Text, default="")
     
-    # Rating and feedback
+    # User feedback
     rating = Column(Integer, default=0)
     user_comment = Column(Text, default="")
     
+    # Status
+    status = Column(String, default="started")  # 'started', 'solved', 'given_up'
+    
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     user = relationship("User", back_populates="puzzles")
-
-    def __repr__(self):
-        return f"<Puzzle {self.id} ({self.difficulty})>"
-
+    
     def to_dict(self):
-        """Convert puzzle to dictionary for API response."""
+        """Convert puzzle to dictionary for API responses."""
         return {
             "id": self.id,
             "width": self.width,
             "height": self.height,
             "difficulty": self.difficulty,
-            "status": self.status,
             "grid": self.grid,
             "userGrid": self.user_grid,
-            "rowNotes": self.row_notes or [],
-            "colNotes": self.col_notes or [],
-            "cellNotes": self.cell_notes or {},
-            "notebook": self.notebook or "",
+            "rowNotes": self.row_notes,
+            "colNotes": self.col_notes,
+            "cellNotes": self.cell_notes,
+            "notebook": self.notebook,
             "rating": self.rating,
-            "userComment": self.user_comment or "",
-            "timestamp": self.created_at.isoformat() if self.created_at else None
+            "userComment": self.user_comment,
+            "status": self.status,
+            "timestamp": self.created_at.isoformat() if self.created_at else None,
         }

@@ -1311,3 +1311,374 @@ function updateAuthUI() {
         if (userMenu) userMenu.style.display = 'none';
     }
 }
+
+// Store the email for verification
+let pendingVerificationEmail = '';
+
+// Add to existing setupAuthEventListeners function
+function setupAuthEventListeners() {
+    const btnLogin = document.getElementById('btn-login');
+    const btnRegister = document.getElementById('btn-register');
+    const authModal = document.getElementById('auth-modal');
+    const authClose = document.getElementById('auth-close');
+    const btnLoginSubmit = document.getElementById('btn-login-submit');
+    const btnRegisterSubmit = document.getElementById('btn-register-submit');
+    const btnVerifySubmit = document.getElementById('btn-verify-submit');
+    const btnResendCode = document.getElementById('btn-resend-code');
+    const backToRegister = document.getElementById('back-to-register');
+    const switchToRegister = document.getElementById('switch-to-register');
+    const switchToLogin = document.getElementById('switch-to-login');
+    const btnUser = document.getElementById('btn-user');
+    const btnLogout = document.getElementById('btn-logout');
+    const userMenu = document.getElementById('user-menu');
+
+    if (btnLogin) {
+        btnLogin.addEventListener('click', () => openAuthModal('login'));
+    }
+    if (btnRegister) {
+        btnRegister.addEventListener('click', () => openAuthModal('register'));
+    }
+    if (authClose) {
+        authClose.addEventListener('click', closeAuthModal);
+    }
+    if (authModal) {
+        authModal.addEventListener('click', (e) => {
+            if (e.target === authModal) closeAuthModal();
+        });
+    }
+    if (btnLoginSubmit) {
+        btnLoginSubmit.addEventListener('click', handleLogin);
+    }
+    if (btnRegisterSubmit) {
+        btnRegisterSubmit.addEventListener('click', handleRegister);
+    }
+    if (btnVerifySubmit) {
+        btnVerifySubmit.addEventListener('click', handleVerifyEmail);
+    }
+    if (btnResendCode) {
+        btnResendCode.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleResendCode();
+        });
+    }
+    if (backToRegister) {
+        backToRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('register');
+        });
+    }
+    if (switchToRegister) {
+        switchToRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('register');
+        });
+    }
+    if (switchToLogin) {
+        switchToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('login');
+        });
+    }
+    if (btnUser) {
+        btnUser.addEventListener('click', () => {
+            userMenu.classList.toggle('open');
+        });
+    }
+    if (btnLogout) {
+        btnLogout.addEventListener('click', handleLogout);
+    }
+
+    // Close user dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (userMenu && !userMenu.contains(e.target)) {
+            userMenu.classList.remove('open');
+        }
+    });
+
+    // Setup OAuth buttons
+    document.querySelectorAll('.btn-oauth').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const provider = btn.dataset.provider;
+            handleOAuth(provider);
+        });
+    });
+
+    // Handle Enter key in forms
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const registerUsername = document.getElementById('register-username');
+    const registerEmail = document.getElementById('register-email');
+    const registerPassword = document.getElementById('register-password');
+
+    [loginEmail, loginPassword].forEach(input => {
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        }
+    });
+
+    [registerUsername, registerEmail, registerPassword].forEach(input => {
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleRegister();
+            });
+        }
+    });
+
+    // Setup verification code inputs
+    setupCodeInputs();
+}
+
+function setupCodeInputs() {
+    const codeInputs = document.querySelectorAll('.code-input');
+    
+    codeInputs.forEach((input, index) => {
+        // Auto-focus next input on digit entry
+        input.addEventListener('input', (e) => {
+            const value = e.target.value;
+            
+            // Only allow digits
+            if (!/^\d*$/.test(value)) {
+                e.target.value = '';
+                return;
+            }
+            
+            // Remove error class when typing
+            input.classList.remove('error');
+            
+            // Auto-focus next input
+            if (value.length === 1 && index < codeInputs.length - 1) {
+                codeInputs[index + 1].focus();
+            }
+            
+            // Auto-submit when all filled
+            if (index === codeInputs.length - 1 && value.length === 1) {
+                const allFilled = Array.from(codeInputs).every(inp => inp.value.length === 1);
+                if (allFilled) {
+                    setTimeout(() => handleVerifyEmail(), 100);
+                }
+            }
+        });
+        
+        // Handle backspace
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !input.value && index > 0) {
+                codeInputs[index - 1].focus();
+            }
+        });
+        
+        // Handle paste
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const paste = e.clipboardData.getData('text');
+            const digits = paste.replace(/\D/g, '').slice(0, 6);
+            
+            digits.split('').forEach((digit, i) => {
+                if (codeInputs[i]) {
+                    codeInputs[i].value = digit;
+                }
+            });
+            
+            if (digits.length === 6) {
+                setTimeout(() => handleVerifyEmail(), 100);
+            }
+        });
+    });
+}
+
+function showAuthForm(form) {
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const verificationForm = document.getElementById('verification-form');
+
+    if (form === 'login') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        verificationForm.style.display = 'none';
+    } else if (form === 'register') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        verificationForm.style.display = 'none';
+    } else if (form === 'verification') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'none';
+        verificationForm.style.display = 'block';
+        // Focus first code input
+        setTimeout(() => {
+            document.getElementById('code-1').focus();
+        }, 100);
+    }
+    clearAuthErrors();
+}
+
+function clearAuthErrors() {
+    const loginError = document.getElementById('login-error');
+    const registerError = document.getElementById('register-error');
+    const verificationError = document.getElementById('verification-error');
+    
+    if (loginError) {
+        loginError.textContent = '';
+        loginError.classList.remove('show');
+    }
+    if (registerError) {
+        registerError.textContent = '';
+        registerError.classList.remove('show');
+    }
+    if (verificationError) {
+        verificationError.textContent = '';
+        verificationError.classList.remove('show');
+    }
+    
+    // Clear code inputs
+    document.querySelectorAll('.code-input').forEach(input => {
+        input.classList.remove('error');
+    });
+}
+
+function showAuthError(form, message) {
+    const errorEl = document.getElementById(`${form}-error`);
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.add('show');
+    }
+    
+    // Shake code inputs on verification error
+    if (form === 'verification') {
+        document.querySelectorAll('.code-input').forEach(input => {
+            input.classList.add('error');
+        });
+    }
+}
+
+async function handleRegister() {
+    const username = document.getElementById('register-username').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+
+    if (!username || !email || !password) {
+        showAuthError('register', 'Please fill in all fields');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAuthError('register', 'Password must be at least 6 characters');
+        return;
+    }
+
+    try {
+        const res = await fetch('/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username, 
+                email, 
+                password,
+                full_name: username 
+            })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // Store email for verification
+            pendingVerificationEmail = email;
+            document.getElementById('verify-email-display').textContent = email;
+            
+            // Clear code inputs
+            document.querySelectorAll('.code-input').forEach(input => {
+                input.value = '';
+            });
+            
+            // Show verification form
+            showAuthForm('verification');
+            showToast('Check your email for the verification code!');
+        } else {
+            showAuthError('register', data.detail || 'Registration failed');
+        }
+    } catch (e) {
+        showAuthError('register', 'Network error. Please try again.');
+    }
+}
+
+async function handleVerifyEmail() {
+    // Get code from inputs
+    const codeInputs = document.querySelectorAll('.code-input');
+    const code = Array.from(codeInputs).map(input => input.value).join('');
+    
+    if (code.length !== 6) {
+        showAuthError('verification', 'Please enter the complete 6-digit code');
+        return;
+    }
+    
+    // Disable inputs during verification
+    codeInputs.forEach(input => input.disabled = true);
+    const btnVerify = document.getElementById('btn-verify-submit');
+    if(btnVerify) btnVerify.textContent = "Verifying...";
+    
+    try {
+        const res = await fetch('/auth/verify-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                email: pendingVerificationEmail, 
+                code 
+            })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('Email verified! You are now logged in.');
+            
+            // 1. Set tokens in localStorage and state
+            setTokens(data.access_token, data.refresh_token);
+            
+            // 2. Set user data in state
+            state.user = data.user;
+            
+            // 3. Update the UI buttons (Hide Login/Register, Show User Menu)
+            updateAuthUI();
+            
+            // 4. Close the modal
+            closeAuthModal();
+        } else {
+            codeInputs.forEach(input => input.disabled = false);
+            showAuthError('verification', data.detail || 'Invalid verification code');
+            
+            // Clear inputs and focus first one
+            codeInputs.forEach(input => input.value = '');
+            codeInputs[0].focus();
+        }
+    } catch (e) {
+        codeInputs.forEach(input => input.disabled = false);
+        showAuthError('verification', 'Network error. Please try again.');
+        console.error(e);
+    } finally {
+        if(btnVerify) btnVerify.textContent = "Verify Email";
+    }
+}
+
+async function handleResendCode() {
+    try {
+        const res = await fetch('/auth/resend-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: pendingVerificationEmail })
+        });
+
+        const data = await res.json();
+        
+        if (res.ok) {
+            showToast('New verification code sent!');
+            
+            // Clear inputs
+            document.querySelectorAll('.code-input').forEach(input => {
+                input.value = '';
+            });
+            document.getElementById('code-1').focus();
+        }
+    } catch (e) {
+        showAuthError('verification', 'Failed to resend code. Please try again.');
+    }
+}

@@ -23,7 +23,6 @@
                         </button>
                         <div class="brand-group">
                             <h1>🎲 Kakuro Generator</h1>
-                            <p class="subtitle">Premium Puzzle Experience</p>
                         </div>
                     </div>
                     <div class="header-right">
@@ -245,6 +244,32 @@
 
                 <p class="auth-switch">
                     Already have an account? <a href="#" id="switch-to-login">Login</a>
+                </p>
+            </div>
+
+            <!-- Verification Form -->
+            <div id="verification-form" class="auth-form" style="display: none;">
+                <h2>📧 Verify Your Email</h2>
+                <p class="auth-subtitle">We've sent a 6-digit code to <strong id="verify-email-display"></strong></p>
+
+                <div class="verification-code-container">
+                    <input type="text" maxlength="1" class="code-input" id="code-1" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="code-input" id="code-2" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="code-input" id="code-3" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="code-input" id="code-4" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="code-input" id="code-5" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="code-input" id="code-6" pattern="[0-9]" autocomplete="off">
+                </div>
+
+                <div id="verification-error" class="auth-error"></div>
+                <button id="btn-verify-submit" class="btn-large btn-primary">Verify Email</button>
+
+                <p class="resend-text">
+                    Didn't receive the code? <a href="#" id="btn-resend-code">Resend code</a>
+                </p>
+
+                <p class="auth-switch">
+                    <a href="#" id="back-to-register">← Back to registration</a>
                 </p>
             </div>
         </div>

@@ -6,6 +6,9 @@ Manages secrets, OAuth credentials, and application settings.
 import os
 import secrets
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # JWT Configuration
 # In production, set JWT_SECRET_KEY environment variable
@@ -39,6 +42,14 @@ GOOGLE_REDIRECT_URI = f"{APP_HOST}/auth/google/callback"
 FACEBOOK_REDIRECT_URI = f"{APP_HOST}/auth/facebook/callback"
 APPLE_REDIRECT_URI = f"{APP_HOST}/auth/apple/callback"
 
+# Email Configuration (Resend)
+RESEND_API_KEY: Optional[str] = os.getenv("RESEND_API_KEY")
+RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "Kakuro Generator <onboarding@kakurogenerator.com>")
+
+# Token expiration settings
+EMAIL_VERIFICATION_EXPIRE_HOURS = 24
+PASSWORD_RESET_EXPIRE_HOURS = 1
+
 
 def is_google_configured() -> bool:
     """Check if Google OAuth is properly configured."""
@@ -53,3 +64,8 @@ def is_facebook_configured() -> bool:
 def is_apple_configured() -> bool:
     """Check if Apple OAuth is properly configured."""
     return bool(APPLE_CLIENT_ID and APPLE_TEAM_ID and APPLE_KEY_ID and APPLE_PRIVATE_KEY)
+
+
+def is_resend_configured() -> bool:
+    """Check if Resend email service is properly configured."""
+    return bool(RESEND_API_KEY)

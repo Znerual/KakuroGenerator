@@ -9,3 +9,4 @@ authlib
 httpx
 python-multipart
 itsdangerous
+resend
