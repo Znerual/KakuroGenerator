@@ -110,7 +110,13 @@ function init() {
         }
     }, { capture: true }); // Capture phase ensures we catch it first
 
-  
+   // Add Autosave to Desktop Notebook
+    const notebookTextarea = document.getElementById('notebook-textarea');
+    if (notebookTextarea) {
+        notebookTextarea.addEventListener('input', () => {
+            triggerAutosave();
+        });
+    }
 }
 
 function getCellFromPoint(x, y) {
@@ -339,8 +345,20 @@ function calculateGridBounds() {
     state.gridBounds = { minRow, maxRow, minCol, maxCol };
 }
 
-async function saveCurrentState() {
+async function saveCurrentState(silent = false) {
+    if (typeof silent !== 'boolean') silent = false;
+    
     if (!state.puzzle) return;
+
+    if (!state.user) {
+        // If this was a manual click (not silent), prompt the user to login
+        if (!silent) {
+            showToast("Please log in to save progress.");
+            openAuthModal('login');
+        }
+        // If it was an autosave (silent), just abort quietly
+        return;
+    }
 
     // Save current notebook content
     const notebookTextarea = document.getElementById('notebook-textarea');
@@ -374,17 +392,24 @@ async function saveCurrentState() {
             body: JSON.stringify(data)
         });
         if (res.ok) {
-            showToast("Progress Saved!");
+            if (!silent) showToast("Progress Saved!");
+            console.log("Autosave successful");
         } else {
-            showToast("Failed to save progress.");
+            if (!silent) showToast("Failed to save progress.");
         }
     } catch (e) {
         console.error("Save error:", e);
-        showToast("Error saving progress.");
+        if (!silent) showToast("Error saving progress.");
     }
 }
 
 async function openLibrary() {
+    if (!state.user) {
+        showToast("Please log in to view your library.");
+        openAuthModal('login');
+        return;
+    }
+    
     libraryModal.style.display = 'block';
     renderLibrary();
 }
@@ -883,6 +908,7 @@ function saveNote(type, index, value) {
     }
     state.editingNote = null;
     renderBoard();
+    triggerAutosave();
 }
 
 function createGridCell(cellData, r, c) {
@@ -1176,6 +1202,7 @@ function handleNoteInput(char) {
             const currentValue = state.cellNotes[boundaryKey] || '';
             state.cellNotes[boundaryKey] = currentValue + char;
             renderBoard();
+            triggerAutosave();
             return;
         }
     }
@@ -1186,6 +1213,7 @@ function handleNoteInput(char) {
         state.cellNotes[key] = currentValue + char;
     });
     renderBoard();
+    triggerAutosave();
 }
 
 function deleteSelectedNotes() {
@@ -1216,6 +1244,7 @@ function deleteSelectedNotes() {
                 }
             }
             renderBoard();
+            triggerAutosave();
             return;
         }
     }
@@ -1231,6 +1260,7 @@ function deleteSelectedNotes() {
         }
     });
     renderBoard();
+    triggerAutosave();
 }
 
 function checkPuzzle() {
@@ -2146,6 +2176,7 @@ function setupMobile() {
             state.notebook = e.target.value;
             // Sync back to desktop textarea if it exists (for seamless switching)
             if(desktopTextarea) desktopTextarea.value = state.notebook;
+            triggerAutosave();
         });
     }
 
@@ -2246,6 +2277,7 @@ function handleInputNumber(numStr) {
             state.userGrid[r][c].userValue = parseInt(numStr);
             state.showErrors = false;
             renderBoard();
+            triggerAutosave();
         }
     }
 }
@@ -2259,6 +2291,19 @@ function handleInputDelete() {
             state.userGrid[r][c].userValue = null;
             state.showErrors = false;
             renderBoard();
+            triggerAutosave();
         }
     }
+}
+
+let autosaveTimer = null;
+
+function triggerAutosave() {
+    // Clear existing timer
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    
+    // Set new timer (save after 1 second of inactivity)
+    autosaveTimer = setTimeout(() => {
+        saveCurrentState(true); // true = silent mode
+    }, 2000);
 }
