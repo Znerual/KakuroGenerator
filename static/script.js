@@ -2241,6 +2241,7 @@ function setupNumpad() {
     const numpad = document.getElementById('mobile-numpad');
     if (!numpad) return;
 
+    numpad.style.display = 'none';
     numpad.style.pointerEvents = 'none';
 
     // Prevent clicking the numpad from closing it (propagation issue)
