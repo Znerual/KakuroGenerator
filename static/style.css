@@ -228,6 +228,18 @@ body {
     border-color: var(--primary-hover);
 }
 
+.btn-admin-nav {
+    background: rgba(20, 184, 166, 0.1) !important;
+    border-color: rgba(20, 184, 166, 0.3) !important;
+    color: var(--secondary-color) !important;
+    text-decoration: none;
+}
+
+.btn-admin-nav:hover {
+    background: rgba(20, 184, 166, 0.2) !important;
+    border-color: var(--secondary-color) !important;
+}
+
 /* User Menu */
 .user-menu {
     position: relative;
@@ -279,7 +291,7 @@ body {
     z-index: 1000;
 }
 
-.user-dropdown.show {
+.user-menu.open .user-dropdown {
     display: block;
     animation: fadeInScale 0.2s ease;
 }

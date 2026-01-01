@@ -36,6 +36,12 @@
                         </div>
                     </div>
                     <div class="header-right">
+                        <!-- Admin button (only for admins) -->
+                        <a href="/static/admin.html" id="btn-admin-nav" class="btn-auth btn-admin-nav"
+                            style="display: none;">
+                            <span class="tool-icon">🛠️</span>
+                            <span class="tool-label">Admin</span>
+                        </a>
                         <!-- Auth buttons (shown when logged out) -->
                         <div id="auth-buttons" class="auth-buttons">
                             <button id="btn-login" class="btn-auth">
@@ -59,7 +65,7 @@
                                     <span id="user-email" class="user-email"></span>
                                     <span id="user-solved" class="user-solved">0 puzzles solved</span>
                                 </div>
-                                <button id="btn-logout" class="dropdown-item">🚪 Logout</button>
+                                <button id="btn-logout" class="dropdown-item" onclick="logout()">🚪 Logout</button>
                             </div>
                         </div>
                     </div>

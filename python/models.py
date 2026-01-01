@@ -59,6 +59,7 @@ class User(Base):
             "full_name": self.full_name,
             "avatar_url": self.avatar_url,
             "kakuros_solved": self.kakuros_solved,
+            "is_admin": self.is_admin,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None,
         }

@@ -2,7 +2,8 @@
 let charts = {};
 
 async function adminFetch(url) {
-    const token = localStorage.getItem('kakuro_token');
+    const token = localStorage.getItem('kakuro-access-token');
+    console.log(`DEBUG: adminFetch to ${url} with token: ${token ? token.substring(0, 10) + '...' : 'MISSING'}`);
     const response = await fetch(url, {
         headers: {
             'Authorization': `Bearer ${token}`
@@ -60,7 +61,9 @@ async function refreshData(forceSection = null) {
             document.getElementById('critical-alert').style.display = 'none';
         }
 
-        updateOverviewCharts(data);
+        // Fetch performance data for trends
+        const perfData = await adminFetch('/admin/stats/performance?hours=2');
+        if (perfData) updateOverviewCharts(perfData);
     }
 
     if (activeSection.includes('performance')) {
@@ -95,9 +98,51 @@ async function refreshData(forceSection = null) {
 }
 
 function updateOverviewCharts(data) {
-    // We would need more historical data from the backend for a real trend,
-    // but here we'll just mock it or show the single point.
-    // For a real app, /admin/stats/performance returns the trend.
+    // CPU Trend Chart
+    const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+    if (charts.cpu) charts.cpu.destroy();
+
+    charts.cpu = new Chart(cpuCtx, {
+        type: 'line',
+        data: {
+            labels: data.cpu_trend.map(c => new Date(c.time).toLocaleTimeString()),
+            datasets: [{
+                label: 'CPU Usage (%)',
+                data: data.cpu_trend.map(c => c.value),
+                borderColor: '#4f9fff',
+                backgroundColor: 'rgba(79, 159, 255, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true, max: 100 } }
+        }
+    });
+
+    // Memory Trend Chart
+    const memCtx = document.getElementById('memoryChart').getContext('2d');
+    if (charts.mem) charts.mem.destroy();
+
+    charts.mem = new Chart(memCtx, {
+        type: 'line',
+        data: {
+            labels: data.memory_trend.map(m => new Date(m.time).toLocaleTimeString()),
+            datasets: [{
+                label: 'Memory Usage (%)',
+                data: data.memory_trend.map(m => m.value),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true, max: 100 } }
+        }
+    });
 }
 
 function updatePerformanceView(data) {

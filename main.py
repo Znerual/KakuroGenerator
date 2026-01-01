@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 import os
 import sys
 import webbrowser
@@ -490,10 +490,10 @@ def get_puzzle_feed(
 
     if current_user:
         # Subquery to find template_ids that the user has already interacted with
-        subquery = db.query(Puzzle.template_id).filter(
+        subquery = select(Puzzle.template_id).filter(
             Puzzle.user_id == current_user.id,
             Puzzle.template_id.isnot(None)
-        ).subquery()
+        )
         
         query = query.filter(~PuzzleTemplate.id.in_(subquery))
     

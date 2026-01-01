@@ -1710,7 +1710,8 @@ function setupAuthEventListeners() {
         });
     }
     if (btnUser) {
-        btnUser.addEventListener('click', () => {
+        btnUser.addEventListener('click', (e) => {
+            e.stopPropagation();
             userMenu.classList.toggle('open');
         });
     }
@@ -1867,6 +1868,30 @@ function setupCodeInputs() {
             if (e.key === 'Enter') {
                 if (digits.length === 6) {
                     handleVerifyEmail();
+                }
+            }
+        });
+
+        // Handle Paste
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+            const digits = pasteData.replace(/\D/g, '').split('').slice(0, 6);
+
+            if (digits.length > 0) {
+                digits.forEach((digit, i) => {
+                    if (inputs[i]) {
+                        inputs[i].value = digit;
+                    }
+                });
+
+                // Focus the next empty input or the last digit
+                const nextIndex = Math.min(digits.length, inputs.length - 1);
+                inputs[nextIndex].focus();
+
+                // Auto-submit if 6 digits pasted
+                if (digits.length === 6) {
+                    setTimeout(() => handleVerifyEmail(), 100);
                 }
             }
         });
@@ -2103,6 +2128,8 @@ function handleLogout() {
     if (userMenu) userMenu.classList.remove('open');
 }
 
+window.logout = handleLogout;
+
 function handleOAuth(provider) {
     // Redirect to OAuth endpoint
     window.location.href = `/auth/${provider}`;
@@ -2175,6 +2202,7 @@ function updateAuthUI() {
     const userName = document.getElementById('user-name');
     const userEmail = document.getElementById('user-email');
     const userSolved = document.getElementById('user-solved');
+    const btnAdmin = document.getElementById('btn-admin-nav');
 
     if (state.user) {
         // Logged in
@@ -2183,10 +2211,16 @@ function updateAuthUI() {
         if (userName) userName.textContent = state.user.username;
         if (userEmail) userEmail.textContent = state.user.email;
         if (userSolved) userSolved.textContent = `${state.user.kakuros_solved} puzzles solved`;
+
+        // Admin button
+        if (btnAdmin) {
+            btnAdmin.style.display = state.user.is_admin ? 'inline-flex' : 'none';
+        }
     } else {
         // Logged out
         if (authButtons) authButtons.style.display = 'flex';
         if (userMenu) userMenu.style.display = 'none';
+        if (btnAdmin) btnAdmin.style.display = 'none';
     }
 }
 

@@ -67,10 +67,19 @@ async def get_performance_stats(
         PerformanceMetric.metric_name == "system_cpu_percent",
         PerformanceMetric.timestamp >= since
     ).order_by(PerformanceMetric.timestamp).all()
+
+    mem_load = db.query(
+        PerformanceMetric.timestamp,
+        PerformanceMetric.value
+    ).filter(
+        PerformanceMetric.metric_name == "system_memory_percent",
+        PerformanceMetric.timestamp >= since
+    ).order_by(PerformanceMetric.timestamp).all()
     
     return {
         "requests": [{"path": r.path, "avg_ms": r.avg_ms, "count": r.count} for r in req_stats],
-        "cpu_trend": [{"time": c.timestamp.isoformat(), "value": c.value} for c in cpu_load]
+        "cpu_trend": [{"time": c.timestamp.isoformat(), "value": c.value} for c in cpu_load],
+        "memory_trend": [{"time": m.timestamp.isoformat(), "value": m.value} for m in mem_load]
     }
 
 @router.get("/stats/solving")
