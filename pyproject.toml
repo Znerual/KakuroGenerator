@@ -25,6 +25,7 @@ dependencies = [
     "pytest>=9.0.2",
     "resend>=2.19.0",
     "python-dotenv>=1.2.1",
+    "psutil>=7.2.1",
 ]
 
 [build-system]

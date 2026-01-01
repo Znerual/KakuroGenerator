@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from python.database import SessionLocal
 from python.models import PuzzleTemplate
 from python.kakuro_wrapper import KakuroBoard, CSPSolver
+from python.performance import Timer
 
 logger = logging.getLogger("kakuro_generator")
 
@@ -74,7 +75,8 @@ class GeneratorService:
                     
                     # Generate a small batch
                     generate_count = min(needed, BATCH_SIZE)
-                    self._generate_batch(db, difficulty, generate_count)
+                    with Timer(db, "queue_fill_batch_time", metadata={"difficulty": difficulty, "count": generate_count}):
+                        self._generate_batch(db, difficulty, generate_count)
 
     def _generate_batch(self, db: Session, difficulty: str, count: int):
         from main import MIN_CELLS_MAP, DIFFICULTY_SIZE_RANGES

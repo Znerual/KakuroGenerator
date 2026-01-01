@@ -37,6 +37,7 @@ from python.email_service import (
     send_welcome_email
 )
 from python.analytics import start_user_session, end_user_session
+from python.performance import log_auth_attempt, Timer
 import python.config as config
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -142,6 +143,9 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    # Log registration
+    log_auth_attempt(db, request.email, "REGISTER", "SUCCESS", request, user_id=user_id)
+    
     # Send verification email
     if config.is_resend_configured():
         send_verification_email(request.email, verification_code, request.full_name or request.username)
@@ -169,6 +173,7 @@ async def login(login_data: LoginRequest, request: Request, db: Session = Depend
     
     # Verify password
     if not verify_password(login_data.password, user.password_hash):
+        log_auth_attempt(db, login_data.email, "LOGIN", "FAILURE", request, user_id=user.id, reason="Invalid password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
@@ -176,6 +181,7 @@ async def login(login_data: LoginRequest, request: Request, db: Session = Depend
     
     # Check if email is verified
     if not user.email_verified:
+        log_auth_attempt(db, login_data.email, "LOGIN", "FAILURE", request, user_id=user.id, reason="Email not verified")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please verify your email address before logging in. Check your inbox for the verification link."
@@ -194,6 +200,9 @@ async def login(login_data: LoginRequest, request: Request, db: Session = Depend
     # --- ANALYTICS END ---
     
     db.commit()
+    
+    # Log successful login
+    log_auth_attempt(db, login_data.email, "LOGIN", "SUCCESS", request, user_id=user.id)
     
     # Generate tokens
     access_token = create_access_token(user.id, session.id)
@@ -322,6 +331,9 @@ async def verify_email(
     ua = request.headers.get("user-agent", "").lower()
     device_type = "mobile" if "mobile" in ua else "desktop"
     session = start_user_session(db, user.id, request, device_type)
+
+    # Log verification login
+    log_auth_attempt(db, user.email, "EMAIL_VERIFICATION_LOGIN", "SUCCESS", request, user_id=user.id)
 
     db.commit()
     # 6. Generate Tokens (Auto-Login)
@@ -520,6 +532,9 @@ async def handle_oauth_user(user_info: dict, db: Session, request: Request) -> A
     
     db.commit()
     db.refresh(user)
+
+    # Log successful OAuth login
+    log_auth_attempt(db, email, f"{provider.upper()}_LOGIN", "SUCCESS", request, user_id=user.id)
     
     # Generate tokens
     access_token = create_access_token(user.id, session.id)

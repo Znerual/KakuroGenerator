@@ -209,3 +209,54 @@ class PuzzleInteraction(Base):
     puzzle = relationship("Puzzle", back_populates="interactions")
     user = relationship("User", back_populates="interactions")
     session = relationship("UserSession", back_populates="interactions")
+
+class PerformanceMetric(Base):
+    """
+    Stores various performance metrics for the system and application.
+    """
+    __tablename__ = "performance_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    metric_name = Column(String, nullable=False, index=True) # e.g., 'queue_fill_time', 'request_duration'
+    value = Column(Float, nullable=False)
+    unit = Column(String, nullable=True) # e.g., 'ms', '%', 'bytes'
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    metadata_json = Column(JSON, nullable=True) # Extra context (route, difficulty, etc.)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "metric_name": self.metric_name,
+            "value": self.value,
+            "unit": self.unit,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "metadata": self.metadata_json
+        }
+
+class AuthLog(Base):
+    """
+    Logs login and registration attempts, including IP addresses and success status.
+    """
+    __tablename__ = "auth_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False) # 'LOGIN', 'REGISTER', 'GOOGLE_LOGIN', etc.
+    status = Column(String, nullable=False) # 'SUCCESS', 'FAILURE', 'LOCKED'
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    reason = Column(String, nullable=True) # e.g., 'Invalid password', 'User not found'
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "email": self.email,
+            "action": self.action,
+            "status": self.status,
+            "ip_address": self.ip_address,
+            "reason": self.reason,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None
+        }

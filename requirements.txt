@@ -10,3 +10,4 @@ httpx
 python-multipart
 itsdangerous
 resend
+psutil

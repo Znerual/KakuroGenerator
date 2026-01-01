@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +29,8 @@ from python.analytics import log_interaction
 from routes.auth_routes import router as auth_router
 from python.generator_service import generator_service
 import python.config as config
+from python.performance import Timer, log_system_performance, record_metric
+import python.performance as performance
 
 # Configure logging
 root_logger = logging.getLogger()
@@ -65,6 +67,52 @@ app.add_middleware(
 # Include authentication routes
 app.include_router(auth_router)
 
+@app.middleware("http")
+async def performance_middleware(request: Request, call_next):
+    """
+    Middleware to track request duration and active request count.
+    """
+    import time
+    from python.database import SessionLocal
+    
+    # Increment active requests
+    performance.ACTIVE_REQUESTS += 1
+    
+    start_time = time.perf_counter()
+    try:
+        response = await call_next(request)
+        duration = (time.perf_counter() - start_time) * 1000 # ms
+        
+        # Log metric (we do this in a background-ish way or just quickly)
+        # To avoid blocking the response, we could use BackgroundTasks, but here we'll just do it simply
+        # or skip if it's too much overhead. For now, let's log everything.
+        with SessionLocal() as db:
+            record_metric(
+                db, 
+                "api_request_duration_ms", 
+                duration, 
+                "ms", 
+                {
+                    "path": request.url.path, 
+                    "method": request.method,
+                    "status_code": response.status_code
+                }
+            )
+        
+        return response
+    finally:
+        performance.ACTIVE_REQUESTS -= 1
+
+def system_monitor_task():
+    """Background task to log system metrics every 60 seconds."""
+    from python.database import SessionLocal
+    while True:
+        try:
+            log_system_performance(SessionLocal)
+        except Exception as e:
+            logger.error(f"Error in system monitor task: {e}")
+        time.sleep(60)
+
 
 @app.on_event("startup")
 def startup_event():
@@ -89,6 +137,9 @@ def startup_event():
     
     # Start background generator
     generator_service.start()
+    
+    # Start system monitor
+    threading.Thread(target=system_monitor_task, daemon=True).start()
 
 @app.on_event("shutdown")
 def shutdown_event():
@@ -219,71 +270,72 @@ def save_puzzle_endpoint(
     current_user: Optional[User] = Depends(get_current_user)
 ):
     """Save a puzzle. If user is authenticated, associates with their account."""
-    if current_user:
-        # Database storage for authenticated users
-        puzzle = db.query(Puzzle).filter(Puzzle.id == request.id).first()
-        if puzzle:
-            # Update existing
-            puzzle.grid = request.grid
-            puzzle.user_grid = request.userGrid
-            puzzle.status = request.status
-            puzzle.row_notes = request.rowNotes
-            puzzle.col_notes = request.colNotes
-            puzzle.cell_notes = request.cellNotes
-            puzzle.notebook = request.notebook
-            puzzle.rating = request.rating
-            puzzle.user_comment = request.userComment
-            
-            # Update solved count if status changed to solved
-            if request.status == "solved" and puzzle.status != "solved":
-                current_user.kakuros_solved += 1
-        else:
-            # Create new
-            puzzle = Puzzle(
-                id=request.id,
-                user_id=current_user.id,
-                width=request.width,
-                height=request.height,
-                difficulty=request.difficulty,
-                grid=request.grid,
-                user_grid=request.userGrid,
-                status=request.status,
-                row_notes=request.rowNotes,
-                col_notes=request.colNotes,
-                cell_notes=request.cellNotes,
-                notebook=request.notebook,
-                rating=request.rating,
-                user_comment=request.userComment,
-                template_id=request.template_id
-            )
-            
-            # If no template_id was provided (legacy/standalone gen), we should arguably create one
-            # so this puzzle becomes shareable.
-            if not request.template_id and request.status != 'started':
-                # Only "publish" if they've made progress or solved it, to avoid spamming templates with abandoned starts?
-                # For now, let's auto-create a template if missing, so it can be shared.
-                new_template = PuzzleTemplate(
+    with Timer(db, "puzzle_save_duration_ms"):
+        if current_user:
+            # Database storage for authenticated users
+            puzzle = db.query(Puzzle).filter(Puzzle.id == request.id).first()
+            if puzzle:
+                # Update existing
+                puzzle.grid = request.grid
+                puzzle.user_grid = request.userGrid
+                puzzle.status = request.status
+                puzzle.row_notes = request.rowNotes
+                puzzle.col_notes = request.colNotes
+                puzzle.cell_notes = request.cellNotes
+                puzzle.notebook = request.notebook
+                puzzle.rating = request.rating
+                puzzle.user_comment = request.userComment
+                
+                # Update solved count if status changed to solved
+                if request.status == "solved" and puzzle.status != "solved":
+                    current_user.kakuros_solved += 1
+            else:
+                # Create new
+                puzzle = Puzzle(
+                    id=request.id,
+                    user_id=current_user.id,
                     width=request.width,
                     height=request.height,
                     difficulty=request.difficulty,
                     grid=request.grid,
+                    user_grid=request.userGrid,
+                    status=request.status,
+                    row_notes=request.rowNotes,
+                    col_notes=request.colNotes,
+                    cell_notes=request.cellNotes,
+                    notebook=request.notebook,
+                    rating=request.rating,
+                    user_comment=request.userComment,
+                    template_id=request.template_id
                 )
-                db.add(new_template)
-                db.flush() # get id
-                puzzle.template_id = new_template.id
+                
+                # If no template_id was provided (legacy/standalone gen), we should arguably create one
+                # so this puzzle becomes shareable.
+                if not request.template_id and request.status != 'started':
+                    # Only "publish" if they've made progress or solved it, to avoid spamming templates with abandoned starts?
+                    # For now, let's auto-create a template if missing, so it can be shared.
+                    new_template = PuzzleTemplate(
+                        width=request.width,
+                        height=request.height,
+                        difficulty=request.difficulty,
+                        grid=request.grid,
+                    )
+                    db.add(new_template)
+                    db.flush() # get id
+                    puzzle.template_id = new_template.id
+                
+                db.add(puzzle)
+                
+                if request.status == "solved":
+                    current_user.kakuros_solved += 1
             
-            db.add(puzzle)
-            
-            if request.status == "solved":
-                current_user.kakuros_solved += 1
-        
-        db.commit()
-    else:
-        # Fall back to file storage for anonymous users
-        data = request.model_dump()
-        if not data.get("timestamp"):
-            data["timestamp"] = datetime.datetime.now().isoformat()
-        storage.save_puzzle(request.id, data)
+            db.commit()
+        else:
+            # Fall back to file storage for anonymous users
+            data = request.model_dump()
+            if not data.get("timestamp"):
+                data["timestamp"] = datetime.datetime.now().isoformat()
+            storage.save_puzzle(request.id, data)
     
     return {"status": "success"}
 
@@ -371,13 +423,14 @@ def log_user_interaction(
         # We generally only track logged-in users, but could expand this to anonymous if needed
         return {"status": "ignored"}
 
-    log_interaction(
-        db=db,
-        user_id=user.id,
-        puzzle_id=log.puzzle_id,
-        session_id=session_id,
-        action_data=log.model_dump()
-    )
+    with Timer(db, "interaction_log_duration_ms"):
+        log_interaction(
+            db=db,
+            user_id=user.id,
+            puzzle_id=log.puzzle_id,
+            session_id=session_id,
+            action_data=log.model_dump()
+        )
     return {"status": "logged"}
 
 @app.post("/log/batch_interaction")
