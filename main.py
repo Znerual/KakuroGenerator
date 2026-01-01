@@ -27,6 +27,7 @@ from python.models import User, Puzzle, PuzzleTemplate
 from python.auth import get_current_user, get_required_user, get_current_user_and_session
 from python.analytics import log_interaction
 from routes.auth_routes import router as auth_router
+from python.generator_service import generator_service
 import python.config as config
 
 # Configure logging
@@ -85,6 +86,14 @@ def startup_event():
                 # conn.execute(text("CREATE INDEX ix_puzzles_template_id ON puzzles (template_id)"))
                 
     logger.info("Database initialized")
+    
+    # Start background generator
+    generator_service.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """Stop background services."""
+    generator_service.stop()
 
 def get_base_path():
     if getattr(sys, 'frozen', False):
@@ -402,14 +411,11 @@ def get_puzzle_feed(
     current_user: Optional[User] = Depends(get_current_user)
 ):
     """
-    Returns a feed of puzzles:
-    - Mix of existing PuzzleTemplates (social)
-    - Simple fresh generated puzzles (discovery)
+    Returns a feed of puzzles from the pre-generated pool.
     """
     puzzles_to_return = []
     
-    # 1. Fetch some existing templates (randomly for now)
-    # Filter by 'not solved or started by user' if logged in
+    # query pool
     query = db.query(PuzzleTemplate).filter(
         PuzzleTemplate.difficulty == difficulty
     )
@@ -423,7 +429,9 @@ def get_puzzle_feed(
         
         query = query.filter(~PuzzleTemplate.id.in_(subquery))
     
-    existing_templates = query.order_by(func.random()).limit(limit // 2).all()
+    # Fetch random templates from the pool
+    # We fetch slightly more to handle potential race conditions or just providing variety
+    existing_templates = query.order_by(func.random()).limit(limit).all()
     
     for tmpl in existing_templates:
         puzzles_to_return.append({
@@ -435,69 +443,61 @@ def get_puzzle_feed(
             "grid": tmpl.grid,
             "status": "started",
             "timestamp": datetime.datetime.now().isoformat(),
-            "source": "community" # Frontend hint
+            "source": "pool"
         })
-
-    # 2. Generate remaining needed
+    
+    # 2. GENERATE FALLBACK if pool is empty or user exhausted it
     needed = limit - len(puzzles_to_return)
-    for _ in range(needed):
-        # We use our existing generate logic, but we want to capture it as a template
-        # Re-use generate_puzzle logic but we need the internal data
-        # To avoid code duplication, I'll call the function (which returns a dict)
-        # and then wrap it.
-        # Ideally refactor `generate_puzzle` to return object, but dict is fine.
-        
-        # We need to call the internal logic, `generate_puzzle` is an endpoint wrapper.
-        # Let's clean this up by extracting the generation logic or just calling the endpoint function if it wasn't an endpoint.
-        # Since it's decorated, calling it directly is fine in FastAPI but slightly weird.
-        # Let's just duplicate the small logic or extract it. 
-        # Actually, let's just do the generation here inline since it's short.
+    if needed > 0:
+        logger.info(f"Feed pool exhausted for user (needed {needed}), generating fallback...")
+        from python.kakuro_wrapper import KakuroBoard, CSPSolver
         
         # Size logic
         min_s, max_s = DIFFICULTY_SIZE_RANGES.get(difficulty, (10, 10))
-        w = random.randint(min_s, max_s)
-        h = random.randint(min_s, max_s)
         min_white = MIN_CELLS_MAP.get(difficulty, 12)
         
-        # Retry loop
-        for attempt in range(5):
-            board = KakuroBoard(w, h)
-            solver = CSPSolver(board)
-            if solver.generate_puzzle(difficulty=difficulty):
-                if len(board.white_cells) >= min_white:
-                    # Success
-                    grid_data = []
-                    for r in range(h):
-                        row_data = []
-                        for c in range(w):
-                            cell = board.get_cell(r, c)
-                            row_data.append(cell.to_dict())
-                        grid_data.append(row_data)
-                    
-                    # Create Template
-                    tmpl = PuzzleTemplate(
-                        width=w, 
-                        height=h, 
-                        difficulty=difficulty, 
-                        grid=grid_data
-                    )
-                    db.add(tmpl)
-                    db.commit() # Commit to get ID
-                    
-                    puzzles_to_return.append({
-                        "id": str(uuid.uuid4()),
-                        "template_id": tmpl.id,
-                        "width": w,
-                        "height": h,
-                        "difficulty": difficulty,
-                        "grid": grid_data,
-                        "status": "started",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "source": "generated"
-                    })
-                    break
-    
-    random.shuffle(puzzles_to_return)
+        for _ in range(needed):
+            w = random.randint(min_s, max_s)
+            h = random.randint(min_s, max_s)
+            
+            # Retry loop
+            for attempt in range(10):
+                board = KakuroBoard(w, h)
+                solver = CSPSolver(board)
+                if solver.generate_puzzle(difficulty=difficulty):
+                    if len(board.white_cells) >= min_white:
+                        # Success
+                        grid_data = []
+                        for r in range(h):
+                            row_data = []
+                            for c in range(w):
+                                cell = board.get_cell(r, c)
+                                row_data.append(cell.to_dict())
+                            grid_data.append(row_data)
+                        
+                        # Create Template so it becomes part of the pool for others
+                        tmpl = PuzzleTemplate(
+                            width=w, 
+                            height=h, 
+                            difficulty=difficulty, 
+                            grid=grid_data
+                        )
+                        db.add(tmpl)
+                        db.commit() 
+                        
+                        puzzles_to_return.append({
+                            "id": str(uuid.uuid4()),
+                            "template_id": tmpl.id,
+                            "width": w,
+                            "height": h,
+                            "difficulty": difficulty,
+                            "grid": grid_data,
+                            "status": "started",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "source": "generated_fallback"
+                        })
+                        break
+
     return puzzles_to_return
 
 def open_browser(url: str):
