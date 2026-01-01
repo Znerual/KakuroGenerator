@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kakuro Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --admin-primary: #4f9fff;
+            --admin-secondary: #ff4f9f;
+            --admin-warning: #f59e0b;
+            --admin-danger: #ef4444;
+            --admin-success: #10b981;
+        }
+
+        .admin-sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .admin-nav-item {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .admin-nav-item:hover,
+        .admin-nav-item.active {
+            background: var(--surface-elevated);
+            color: var(--primary-color);
+        }
+
+        .admin-nav-item.active {
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .dashboard-content {
+            padding: 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary-color);
+        }
+
+        .stat-card.warning::after {
+            background: var(--admin-warning);
+        }
+
+        .stat-card.danger::after {
+            background: var(--admin-danger);
+        }
+
+        .stat-card.success::after {
+            background: var(--admin-success);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            color: var(--text-color);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .chart-container {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-container {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .status-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--admin-success);
+        }
+
+        .status-failure {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--admin-danger);
+        }
+
+        .log-viewer {
+            background: #000;
+            color: #0f0;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            border-radius: var(--radius-sm);
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-refresh {
+            padding: 0.5rem 1rem;
+            background: var(--surface-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-color);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .btn-refresh:hover {
+            border-color: var(--primary-color);
+        }
+
+        .critical-warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--admin-danger);
+            color: var(--admin-danger);
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 1.5rem;
+            display: none;
+            align-items: center;
+            gap: 1rem;
+            font-weight: 600;
+        }
+
+        .admin-layout {
+            display: flex;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body data-theme="dark">
+    <div class="admin-layout">
+        <div class="admin-sidebar">
+            <h1 style="font-size: 1.2rem; margin-bottom: 2rem; color: var(--primary-color);">Admin Panel</h1>
+            <a href="#" class="admin-nav-item active" onclick="showSection('overview')">Overview</a>
+            <a href="#" class="admin-nav-item" onclick="showSection('performance')">Performance</a>
+            <a href="#" class="admin-nav-item" onclick="showSection('behavior')">Behavior</a>
+            <a href="#" class="admin-nav-item" onclick="showSection('puzzles')">Puzzles & Reviews</a>
+            <a href="#" class="admin-nav-item" onclick="showSection('logs')">System Logs</a>
+            <div style="flex: 1;"></div>
+            <a href="/" class="admin-nav-item">Back to Site</a>
+        </div>
+
+        <div class="dashboard-content">
+            <div class="admin-header">
+                <h2 id="section-title">Overview</h2>
+                <button class="btn-refresh" onclick="refreshData()">Refresh Data</button>
+            </div>
+
+            <div id="critical-alert" class="critical-warning">
+                <span>⚠️ CRITICAL: Server load detected! High memory/CPU usage.</span>
+            </div>
+
+            <!-- Overview Section -->
+            <div id="section-overview" class="admin-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Users</div>
+                        <div id="stat-users" class="stat-value">--</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-label">Active Users (15m)</div>
+                        <div id="stat-active" class="stat-value">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Puzzles Played</div>
+                        <div id="stat-puzzles" class="stat-value">--</div>
+                    </div>
+                    <div id="card-cpu" class="stat-card">
+                        <div class="stat-label">System CPU</div>
+                        <div id="stat-cpu" class="stat-value">--%</div>
+                    </div>
+                </div>
+
+                <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="chart-container">
+                        <div class="chart-title">CPU Load Trend</div>
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Memory Usage</div>
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Section -->
+            <div id="section-performance" class="admin-section" style="display: none;">
+                <div class="chart-container">
+                    <div class="chart-title">Average Request Duration (ms)</div>
+                    <canvas id="performanceChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <table id="performanceTable">
+                        <thead>
+                            <tr>
+                                <th>Path</th>
+                                <th>Avg Duration (ms)</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Behavior Section -->
+            <div id="section-behavior" class="admin-section" style="display: none;">
+                <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="chart-container">
+                        <div class="chart-title">Solve Time per Difficulty (s)</div>
+                        <canvas id="solveTimeChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Move Speed (ms)</div>
+                        <canvas id="moveSpeedChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Move Speed Over Fill State (ms)</div>
+                    <canvas id="progressSpeedChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Puzzles Section -->
+            <div id="section-puzzles" class="admin-section" style="display: none;">
+                <div class="table-container">
+                    <table id="puzzlesTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Puzzle ID</th>
+                                <th>Difficulty</th>
+                                <th>Rating</th>
+                                <th>Comment</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Logs Section -->
+            <div id="section-logs" class="admin-section" style="display: none;">
+                <div class="chart-title">Authentication History</div>
+                <div class="table-container">
+                    <table id="authLogsTable">
+                        <thead>
+                            <tr>
+                                <th>User/Email</th>
+                                <th>Action</th>
+                                <th>Status</th>
+                                <th>IP</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="chart-title" style="margin-top: 2rem;">System Error Logs (Tail)</div>
+                <div id="errorLogViewer" class="log-viewer">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/admin.js"></script>
+</body>
+
+</html>

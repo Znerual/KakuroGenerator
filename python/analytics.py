@@ -110,6 +110,7 @@ def log_interaction(
         old_value=str(action_data.get('old_value')) if action_data.get('old_value') is not None else None,
         new_value=str(action_data.get('new_value')) if action_data.get('new_value') is not None else None,
         duration_ms=action_data.get('duration_ms'),
+        fill_count=action_data.get('fill_count'),
         device_type=action_data.get('device_type', 'desktop'),
         is_correct=is_correct,
         client_timestamp=datetime.fromisoformat(action_data.get('client_timestamp').replace('Z', '+00:00')) if action_data.get('client_timestamp') else None

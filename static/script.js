@@ -415,6 +415,19 @@ function loadPuzzleIntoState(data) {
     renderBoard();
 }
 
+function getFillCount() {
+    if (!state.puzzle) return 0;
+    let count = 0;
+    for (let r = 0; r < state.puzzle.height; r++) {
+        for (let c = 0; c < state.puzzle.width; c++) {
+            if (state.userGrid[r][c].type === 'WHITE' && state.userGrid[r][c].userValue) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
 function calculateGridBounds() {
     const { width, height, grid } = state.puzzle;
     let minRow = height, maxRow = -1, minCol = width, maxCol = -1;
@@ -451,6 +464,7 @@ async function logInteraction(actionType, data = {}) {
 
     const deviceType = window.innerWidth <= 968 ? 'mobile' : 'desktop';
     const timestamp = new Date().toISOString();
+    const fillCount = getFillCount();
 
     const createPayload = (itemData) => ({
         puzzle_id: state.puzzle.id,
@@ -460,6 +474,7 @@ async function logInteraction(actionType, data = {}) {
         old_value: itemData.oldValue ? String(itemData.oldValue) : null,
         new_value: itemData.newValue ? String(itemData.newValue) : null,
         duration_ms: duration, // Batch shares the same think-time
+        fill_count: fillCount,
         client_timestamp: timestamp,
         device_type: deviceType
     });

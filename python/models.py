@@ -37,6 +37,7 @@ class User(Base):
     
     # Statistics
     kakuros_solved = Column(Integer, default=0)
+    is_admin = Column(Boolean, default=False, nullable=False)
     
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -201,6 +202,9 @@ class PuzzleInteraction(Base):
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     client_timestamp = Column(DateTime, nullable=True) # Time on user's device
     duration_ms = Column(Integer, nullable=True) # Time taken since last action (think time)
+    
+    # Progress
+    fill_count = Column(Integer, nullable=True) # How many white cells are filled at this moment
     
     # Device context (in case they switch devices mid-puzzle)
     device_type = Column(String, nullable=True) # 'mobile', 'desktop'

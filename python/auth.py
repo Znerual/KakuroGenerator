@@ -216,6 +216,20 @@ def get_current_user(
     user, _ = get_current_user_and_session(credentials, db)
     return user
 
+def get_admin_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Dependency to require an admin user.
+    Raises 403 Forbidden if the user is not an admin.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrative access required"
+        )
+    return current_user
+
 
 def get_required_user(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),

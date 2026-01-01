@@ -27,6 +27,7 @@ from python.models import User, Puzzle, PuzzleTemplate
 from python.auth import get_current_user, get_required_user, get_current_user_and_session
 from python.analytics import log_interaction
 from routes.auth_routes import router as auth_router
+from routes.admin_routes import router as admin_router
 from python.generator_service import generator_service
 import python.config as config
 from python.performance import Timer, log_system_performance, record_metric
@@ -66,6 +67,8 @@ app.add_middleware(
 
 # Include authentication routes
 app.include_router(auth_router)
+# Include admin routes
+app.include_router(admin_router)
 
 @app.middleware("http")
 async def performance_middleware(request: Request, call_next):
@@ -124,14 +127,26 @@ def startup_event():
     from python.database import engine
     
     inspector = inspect(engine)
-    if "puzzles" in inspector.get_table_names():
-        columns = [c["name"] for c in inspector.get_columns("puzzles")]
-        if "template_id" not in columns:
-            logger.info("Migrating database: Adding template_id to puzzles table")
-            with engine.connect() as conn:
+    table_names = inspector.get_table_names()
+    
+    with engine.connect() as conn:
+        if "puzzles" in table_names:
+            columns = [c["name"] for c in inspector.get_columns("puzzles")]
+            if "template_id" not in columns:
+                logger.info("Migrating database: Adding template_id to puzzles table")
                 conn.execute(text("ALTER TABLE puzzles ADD COLUMN template_id TEXT"))
-                # Also index it? SQLite doesn't strictly require explicit index creation for FKs to work for joins, but good practice.
-                # conn.execute(text("CREATE INDEX ix_puzzles_template_id ON puzzles (template_id)"))
+        
+        if "users" in table_names:
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            if "is_admin" not in columns:
+                logger.info("Migrating database: Adding is_admin to users table")
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+
+        if "puzzle_interactions" in table_names:
+            columns = [c["name"] for c in inspector.get_columns("puzzle_interactions")]
+            if "fill_count" not in columns:
+                logger.info("Migrating database: Adding fill_count to puzzle_interactions table")
+                conn.execute(text("ALTER TABLE puzzle_interactions ADD COLUMN fill_count INTEGER"))
                 
     logger.info("Database initialized")
     
