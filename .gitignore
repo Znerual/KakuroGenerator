@@ -18,3 +18,5 @@ kakuro.db
 .env
 kakuro_debug.log
 generation_result.txt
+python/kakuro_cpp.cp312-win_amd64.pyd
+python/kakuro_cpp.cpython-312-x86_64-linux-gnu.so
