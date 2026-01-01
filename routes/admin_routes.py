@@ -122,24 +122,6 @@ async def get_solving_behavior(
         "speed_by_progress": [{"fill_bucket": p.bucket * 10, "ms": p.avg_ms} for p in progress_speed]
     }
 
-@router.post("/users/{user_id}/make-admin")
-async def make_admin(
-    user_id: str,
-    secret: str,
-    db: Session = Depends(get_db)
-):
-    """Temporary utility to grant admin status. Use a secret key."""
-    # In a real app, this would be highly restricted or done via CLI.
-    if secret != "kakuro_admin_setup_2026": # Temporary secret
-        raise HTTPException(status_code=403, detail="Invalid secret")
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user.is_admin = True
-    db.commit()
-    return {"status": "success", "message": f"User {user.username} is now an admin."}
 
 @router.get("/stats/puzzles")
 async def get_puzzle_stats(
