@@ -88,7 +88,7 @@ void KakuroBoard::generate_topology(double density, int max_sector_length) {
         // 5. Validation
         int min_cells = std::max(5, (int)(width * height * 0.15));
         if ((int)white_cells.size() >= min_cells) {
-            std::cout << "Topology generated on attempt " << attempt << std::endl;
+            LOG_DEBUG("Topology generated on attempt " << attempt);
             return;
         }
     }
