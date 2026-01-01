@@ -990,6 +990,10 @@ function createNoteCell(type, index, value) {
         input.className = 'note-input';
         input.value = value;
         input.maxLength = 10;
+
+        // Update state immediately on input, but don't re-render (avoids focus loss)
+        input.addEventListener('input', () => updateNoteState(type, index, input.value));
+
         input.addEventListener('blur', () => saveNote(type, index, input.value));
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -1015,7 +1019,7 @@ function createNoteCell(type, index, value) {
     return cell;
 }
 
-function saveNote(type, index, value) {
+function updateNoteState(type, index, value) {
     if (type === 'row') {
         state.rowNotes[index] = value;
     } else if (type === 'col') {
@@ -1023,9 +1027,13 @@ function saveNote(type, index, value) {
     } else if (type === 'cell') {
         state.cellNotes[index] = value;
     }
+    triggerAutosave();
+}
+
+function saveNote(type, index, value) {
+    updateNoteState(type, index, value);
     state.editingNote = null;
     renderBoard();
-    triggerAutosave();
 }
 
 function createGridCell(cellData, r, c) {
@@ -2462,6 +2470,7 @@ function handleInputNumber(numStr) {
     } else if (!state.noteMode && state.selected) {
         const { r, c } = state.selected;
         if (state.userGrid[r][c].type === 'WHITE') {
+            const oldValue = state.userGrid[r][c].userValue;
             state.userGrid[r][c].userValue = parseInt(numStr);
             state.showErrors = false;
 
@@ -2492,6 +2501,7 @@ function handleInputDelete() {
     } else if (!state.noteMode && state.selected) {
         const { r, c } = state.selected;
         if (state.userGrid[r][c].type === 'WHITE') {
+            const oldValue = state.userGrid[r][c].userValue;
             state.userGrid[r][c].userValue = null;
             state.showErrors = false;
 

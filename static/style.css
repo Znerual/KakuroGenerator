@@ -1102,15 +1102,41 @@ body {
     font-weight: 600;
 }
 
+.margin-note {
+    position: relative;
+    /* Ensure absolute child aligns to this */
+}
+
+.note-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--bg-secondary);
+    /* Solid background to hide underlying text/glitches */
+    color: var(--text-color);
+    text-align: center;
+    font-size: 0.9rem;
+    /* Slightly larger for visibility */
+    outline: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    font-weight: 700;
+    z-index: 50;
+    line-height: normal;
+}
+
 .margin-note-row .note-input {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    transform: rotate(180deg);
+    /* Force horizontal orientation for typing */
+    writing-mode: horizontal-tb !important;
+    transform: none !important;
 }
 
 .note-input:focus {
-    background: rgba(79, 159, 255, 0.12);
-    box-shadow: 0 0 0 2px var(--primary-color);
+    box-shadow: inset 0 0 0 2px var(--primary-color);
 }
 
 /* ===============================================
