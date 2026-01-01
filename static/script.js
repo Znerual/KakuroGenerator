@@ -47,6 +47,7 @@ function init() {
     const btnNoteMode = document.getElementById('btn-note-mode');
     const btnNotebook = document.getElementById('btn-notebook');
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    const btnMobileThemeToggle = document.getElementById('btn-mobile-theme-toggle');
     console.log('btnNoteMode:', btnNoteMode);
 
     btnGenerate.addEventListener('click', fetchPuzzle);
@@ -70,6 +71,9 @@ function init() {
 
     if (btnThemeToggle) {
         btnThemeToggle.addEventListener('click', toggleTheme);
+    }
+    if (btnMobileThemeToggle) {
+        btnMobileThemeToggle.addEventListener('click', toggleTheme);
     }
 
     // Load theme from localStorage
@@ -187,19 +191,24 @@ function toggleTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
-    if (btnThemeToggle) {
-        const icon = btnThemeToggle.querySelector('.tool-icon');
-        const label = btnThemeToggle.querySelector('.tool-label');
-        if (icon && label) {
+    const btnMobileThemeToggle = document.getElementById('btn-mobile-theme-toggle');
+
+    const updateButton = (btn) => {
+        if (btn) {
+            const icon = btn.querySelector('.tool-icon');
+            const label = btn.querySelector('.tool-label');
             if (theme === 'light') {
-                icon.textContent = '🌙';
-                label.textContent = 'Dark Mode';
+                if (icon) icon.textContent = '🌙';
+                if (label) label.textContent = 'Dark Mode';
             } else {
-                icon.textContent = '☀️';
-                label.textContent = 'Light Mode';
+                if (icon) icon.textContent = '☀️';
+                if (label) label.textContent = 'Light Mode';
             }
         }
-    }
+    };
+
+    updateButton(btnThemeToggle);
+    updateButton(btnMobileThemeToggle);
 }
 
 function toggleNotebook() {

@@ -98,6 +98,10 @@ body {
     animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.mobile-header {
+    display: none;
+}
+
 @keyframes slideDown {
     from {
         transform: translateY(-100%);
@@ -1717,16 +1721,40 @@ body {
         font-size: 0.6rem !important;
     }
 
-    .app-container::before {
-        content: "Kakuro";
+    /* REMOVED .app-container::before pseudo-header */
+
+    /* MOBILE HEADER */
+    .mobile-header {
         display: block;
-        text-align: center;
-        padding: 15px;
-        font-weight: 800;
-        font-size: 1.2rem;
         background: var(--surface-color);
         border-bottom: 1px solid var(--border-color);
+        padding: 0.75rem 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .mobile-header-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .mobile-brand {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 800;
         color: var(--primary-color);
+        font-family: 'JetBrains Mono', 'Space Mono', monospace;
+    }
+
+    /* Position the button absolutely to the left */
+    .mobile-header .btn-theme-toggle {
+        position: absolute;
+        left: 0;
+        border: none;
+        padding: 0.5rem;
     }
 
     .mobile-bottom-nav {
