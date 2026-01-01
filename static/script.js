@@ -101,7 +101,7 @@ function init() {
 
     fetchPuzzle();
 
-        
+
     window.addEventListener('contextmenu', (e) => {
         // If we are currently doing a long press action, block the menu
         if (state.isDragSelecting || state.isLongPressTriggered) {
@@ -110,7 +110,7 @@ function init() {
         }
     }, { capture: true }); // Capture phase ensures we catch it first
 
-   // Add Autosave to Desktop Notebook
+    // Add Autosave to Desktop Notebook
     const notebookTextarea = document.getElementById('notebook-textarea');
     if (notebookTextarea) {
         notebookTextarea.addEventListener('input', () => {
@@ -136,7 +136,7 @@ function getCellFromPoint(x, y) {
     if (numpad) {
         numpad.style.display = prevDisplay;
     }
-    
+
     // If we hit a child element, find the parent cell
     if (el) {
         return el.closest('.cell');
@@ -188,14 +188,14 @@ function toggleNotebook() {
 function toggleNoteMode(skipRender = false) {
     state.noteMode = !state.noteMode;
     console.log('toggleNoteMode called, current state:', state.noteMode);
-    
+
     const board = document.getElementById('kakuro-board');
     if (state.noteMode) {
         board.classList.add('mode-notes');
     } else {
         board.classList.remove('mode-notes');
     }
-    
+
     const btnNoteMode = document.getElementById('btn-note-mode');
     console.log('New note mode state:', state.noteMode);
     if (btnNoteMode) {
@@ -233,7 +233,7 @@ function toggleNoteMode(skipRender = false) {
     }
 
     const navTools = document.getElementById('nav-tools');
-    if(navTools) {
+    if (navTools) {
         navTools.style.color = state.noteMode ? 'var(--success-color)' : '';
     }
 
@@ -298,6 +298,7 @@ function loadPuzzleIntoState(data) {
     state.editingNote = null;
     state.showErrors = false;
     state.noteMode = false;
+
     const btnNoteMode = document.getElementById('btn-note-mode');
     if (btnNoteMode) {
         btnNoteMode.classList.remove('active');
@@ -307,10 +308,21 @@ function loadPuzzleIntoState(data) {
         }
     }
 
+    // 2. Hide Help Text
+    const noteHelp = document.getElementById('note-help');
+    if (noteHelp) {
+        noteHelp.style.display = 'none';
+    }
+
     // Update notebook textarea if it exists
     const notebookTextarea = document.getElementById('notebook-textarea');
     if (notebookTextarea) {
         notebookTextarea.value = state.notebook;
+    }
+
+    const navNotes = document.getElementById('nav-notes');
+    if (navNotes) {
+        navNotes.style.color = '';
     }
 
     // Calculate grid bounds
@@ -347,7 +359,7 @@ function calculateGridBounds() {
 
 async function saveCurrentState(silent = false) {
     if (typeof silent !== 'boolean') silent = false;
-    
+
     if (!state.puzzle) return;
 
     if (!state.user) {
@@ -409,7 +421,7 @@ async function openLibrary() {
         openAuthModal('login');
         return;
     }
-    
+
     libraryModal.style.display = 'block';
     renderLibrary();
 }
@@ -484,36 +496,36 @@ function setupCellInteractions(element, r, c) {
 
         state.isLongPressTriggered = false;
         state.isDragSelecting = false;
-        state.lastTouchedRC = null; 
+        state.lastTouchedRC = null;
 
         // ============================================
         // 1. DOUBLE TAP DETECTION
         // ============================================
         const now = Date.now();
         const currentRC = `${r},${c}`;
-        
+
         // Check if same cell tapped within 300ms
         if (state.lastTapRC === currentRC && (now - state.lastTapTime) < 300) {
-            
+
             // If in Note Mode, Exit it!
             if (state.noteMode) {
-                toggleNoteMode(); 
+                toggleNoteMode();
                 if (navigator.vibrate) navigator.vibrate([50, 50]); // Double buzz feedback
                 showToast("Exited Note Mode");
             }
-            
+
             // IMPORTANT: Return early to prevent Long Press timer from starting.
             // The browser will fire a 'click' event immediately after this.
             // That 'click' will call selectCell(), which will see that Note Mode 
             // is now OFF, and perform a standard exclusive selection.
-            return; 
+            return;
         }
-        
+
         // Save tap info for next time
         state.lastTapTime = now;
         state.lastTapRC = currentRC;
         // ============================================
-        
+
         // Record Start Position (Critical for movement calculation)
         if (e.type === 'touchstart') {
             state.touchStartX = e.touches[0].clientX;
@@ -532,19 +544,19 @@ function setupCellInteractions(element, r, c) {
             // Store Origin
             const currentRC = `${r},${c}`;
             state.lastTouchedRC = currentRC;
-            
+
 
             // 1. Enable Note Mode if off
             if (!state.noteMode) {
                 // Pass true to skip renderBoard(), preventing DOM destruction
-                toggleNoteMode(true); 
+                toggleNoteMode(true);
                 if (navigator.vibrate) navigator.vibrate(50);
             }
 
             // 2. Select Origin Cell
             state.selectedCells.add(currentRC);
             state.selected = { r, c };
-            
+
             const cell = document.querySelector(`.cell[data-rc="${currentRC}"]`);
             if (cell) {
                 cell.classList.add('selected');
@@ -554,7 +566,7 @@ function setupCellInteractions(element, r, c) {
                 document.getElementById('kakuro-board').classList.add('mode-notes');
             }
 
-            
+
         }, state.longPressDuration);
     };
 
@@ -592,7 +604,7 @@ function setupCellInteractions(element, r, c) {
             if (e.cancelable) e.preventDefault();
 
             const targetCell = getCellFromPoint(clientX, clientY);
-            
+
             if (targetCell && targetCell.classList.contains('white')) {
                 const rc = targetCell.dataset.rc;
                 if (rc) {
@@ -617,7 +629,7 @@ function setupCellInteractions(element, r, c) {
         // If we were dragging, finish up
         if (state.isDragSelecting) {
             state.isDragSelecting = false;
-            
+
             // Show numpad
             if (window.innerWidth <= 768 && state.lastTouchedRC) {
                 const targetEl = document.querySelector(`.cell[data-rc="${state.lastTouchedRC}"]`);
@@ -625,14 +637,14 @@ function setupCellInteractions(element, r, c) {
                     showNumpad(targetEl);
                 }
             }
-            
+
             if (e.cancelable) e.preventDefault();
             e.stopImmediatePropagation();
         }
     };
 
     // --- Event Listeners ---
-    
+
     // 1. Context Menu: Strictly Block It (Fixes the menu appearing)
     element.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -643,7 +655,7 @@ function setupCellInteractions(element, r, c) {
     // 2. Touch Events
     // passive: false is REQUIRED to use e.preventDefault() in touchmove
     element.addEventListener('touchstart', handleStart, { passive: true });
-    element.addEventListener('touchmove', handleMove, { passive: false }); 
+    element.addEventListener('touchmove', handleMove, { passive: false });
     element.addEventListener('touchend', handleEnd);
 
     // 3. Mouse Events (Desktop)
@@ -687,7 +699,7 @@ function handleLongPress(r, c, element) {
     if (!state.noteMode) {
         toggleNoteMode(); // Use existing toggle to update UI buttons/banners
         showToast("Note Mode Active");
-        
+
         // Haptic Feedback (Vibration) - works on Android/Modern iOS
         if (navigator.vibrate) {
             navigator.vibrate(50);
@@ -709,11 +721,11 @@ function handleLongPress(r, c, element) {
         // This relies on the fact that renderBoard builds cells in order
         const allCells = document.querySelectorAll('.cell');
         const index = (r - state.gridBounds.minRow) * (state.gridBounds.maxCol - state.gridBounds.minCol + 1) + (c - state.gridBounds.minCol);
-        
+
         // Find the cell in the DOM based on flattened index is risky but usually works
         // Better approach: Add data-rc to cells in renderBoard
         const targetCell = document.querySelector(`.cell[data-rc="${r},${c}"]`);
-        
+
         if (targetCell && window.innerWidth <= 768) {
             showNumpad(targetCell);
         }
@@ -811,6 +823,16 @@ function renderBoard() {
 }
 
 function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
+    // Detect mobile layout matching CSS breakpoint
+    const isMobile = window.innerWidth <= 968;
+
+    // Desktop: 60px cell, 40px header
+    // Mobile: 45px cell, 30px header
+    const cellSize = isMobile ? 45 : 60;
+    const headerSize = isMobile ? 30 : 40;
+    const gap = 1;
+    const cellStride = cellSize + gap;
+
     // Add all boundary notes as absolutely positioned elements
     for (let r = minRow; r <= maxRow; r++) {
         for (let c = minCol; c <= maxCol; c++) {
@@ -825,9 +847,9 @@ function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
                     // Position between columns
                     const colIndex = c - minCol;
                     const rowIndex = r - minRow;
-                    // 40px for row labels, then colIndex * 60px to get to the cell, +60px to get to right edge
-                    const left = 40 + (colIndex + 1) * 60;
-                    const top = rowIndex * 60 + 30; // Center vertically in the cell
+
+                    const left = headerSize + (colIndex + 1) * cellStride;
+                    const top = rowIndex * cellStride + (cellSize / 2); // Center vertically in the cell
 
                     note.style.left = `${left}px`;
                     note.style.top = `${top}px`;
@@ -846,9 +868,9 @@ function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
                     // Position between rows
                     const colIndex = c - minCol;
                     const rowIndex = r - minRow;
-                    // 40px for row labels, then colIndex * 60px, +30px to center horizontally
-                    const left = 40 + colIndex * 60 + 30;
-                    const top = (rowIndex + 1) * 60; // Bottom edge of current cell
+
+                    const left = headerSize + colIndex * cellStride + (cellSize / 2); // Center horizontally in the cell
+                    const top = (rowIndex + 1) * cellStride; // Bottom edge of current cell
 
                     note.style.left = `${left}px`;
                     note.style.top = `${top}px`;
@@ -1014,7 +1036,7 @@ function selectCell(r, c, event) {
     if (window.innerWidth <= 768) {
         // Find the cell using the data-rc attribute
         const targetEl = document.querySelector(`.cell[data-rc="${r},${c}"]`);
-        
+
         if (targetEl) {
             showNumpad(targetEl);
         }
@@ -1027,7 +1049,7 @@ function showNumpad(cellElement) {
     const scrollY = window.scrollY;
 
     // Dimensions based on your CSS
-    const numpadWidth = 300; 
+    const numpadWidth = 300;
     const numpadHeight = 132; // (10px pad * 2) + (50px btn * 2) + 8px gap + borders
     const screenMargin = 10;  // Padding from screen edge
     const cellGap = 8;        // Gap between cell and numpad
@@ -1058,11 +1080,11 @@ function showNumpad(cellElement) {
         // Calculation: Top of cell - Gap - Height of numpad
         top = rect.top + scrollY - cellGap - numpadHeight;
     }
-    
+
     numpad.style.top = `${top}px`;
     numpad.style.left = `${left}px`; // CSS transform handles the centering offset
 
-    numpad.style.display = ''; 
+    numpad.style.display = '';
     numpad.classList.add('active');
 }
 
@@ -1853,26 +1875,26 @@ function setupAuthEventListeners() {
 
 function setupCodeInputs() {
     const codeInputs = document.querySelectorAll('.code-input');
-    
+
     codeInputs.forEach((input, index) => {
         // Auto-focus next input on digit entry
         input.addEventListener('input', (e) => {
             const value = e.target.value;
-            
+
             // Only allow digits
             if (!/^\d*$/.test(value)) {
                 e.target.value = '';
                 return;
             }
-            
+
             // Remove error class when typing
             input.classList.remove('error');
-            
+
             // Auto-focus next input
             if (value.length === 1 && index < codeInputs.length - 1) {
                 codeInputs[index + 1].focus();
             }
-            
+
             // Auto-submit when all filled
             if (index === codeInputs.length - 1 && value.length === 1) {
                 const allFilled = Array.from(codeInputs).every(inp => inp.value.length === 1);
@@ -1881,26 +1903,26 @@ function setupCodeInputs() {
                 }
             }
         });
-        
+
         // Handle backspace
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Backspace' && !input.value && index > 0) {
                 codeInputs[index - 1].focus();
             }
         });
-        
+
         // Handle paste
         input.addEventListener('paste', (e) => {
             e.preventDefault();
             const paste = e.clipboardData.getData('text');
             const digits = paste.replace(/\D/g, '').slice(0, 6);
-            
+
             digits.split('').forEach((digit, i) => {
                 if (codeInputs[i]) {
                     codeInputs[i].value = digit;
                 }
             });
-            
+
             if (digits.length === 6) {
                 setTimeout(() => handleVerifyEmail(), 100);
             }
@@ -1937,7 +1959,7 @@ function clearAuthErrors() {
     const loginError = document.getElementById('login-error');
     const registerError = document.getElementById('register-error');
     const verificationError = document.getElementById('verification-error');
-    
+
     if (loginError) {
         loginError.textContent = '';
         loginError.classList.remove('show');
@@ -1950,7 +1972,7 @@ function clearAuthErrors() {
         verificationError.textContent = '';
         verificationError.classList.remove('show');
     }
-    
+
     // Clear code inputs
     document.querySelectorAll('.code-input').forEach(input => {
         input.classList.remove('error');
@@ -1963,7 +1985,7 @@ function showAuthError(form, message) {
         errorEl.textContent = message;
         errorEl.classList.add('show');
     }
-    
+
     // Shake code inputs on verification error
     if (form === 'verification') {
         document.querySelectorAll('.code-input').forEach(input => {
@@ -1991,11 +2013,11 @@ async function handleRegister() {
         const res = await fetch('/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                username, 
-                email, 
+            body: JSON.stringify({
+                username,
+                email,
                 password,
-                full_name: username 
+                full_name: username
             })
         });
 
@@ -2005,12 +2027,12 @@ async function handleRegister() {
             // Store email for verification
             pendingVerificationEmail = email;
             document.getElementById('verify-email-display').textContent = email;
-            
+
             // Clear code inputs
             document.querySelectorAll('.code-input').forEach(input => {
                 input.value = '';
             });
-            
+
             // Show verification form
             showAuthForm('verification');
             showToast('Check your email for the verification code!');
@@ -2026,24 +2048,24 @@ async function handleVerifyEmail() {
     // Get code from inputs
     const codeInputs = document.querySelectorAll('.code-input');
     const code = Array.from(codeInputs).map(input => input.value).join('');
-    
+
     if (code.length !== 6) {
         showAuthError('verification', 'Please enter the complete 6-digit code');
         return;
     }
-    
+
     // Disable inputs during verification
     codeInputs.forEach(input => input.disabled = true);
     const btnVerify = document.getElementById('btn-verify-submit');
-    if(btnVerify) btnVerify.textContent = "Verifying...";
-    
+    if (btnVerify) btnVerify.textContent = "Verifying...";
+
     try {
         const res = await fetch('/auth/verify-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                email: pendingVerificationEmail, 
-                code 
+            body: JSON.stringify({
+                email: pendingVerificationEmail,
+                code
             })
         });
 
@@ -2051,22 +2073,22 @@ async function handleVerifyEmail() {
 
         if (res.ok) {
             showToast('Email verified! You are now logged in.');
-            
+
             // 1. Set tokens in localStorage and state
             setTokens(data.access_token, data.refresh_token);
-            
+
             // 2. Set user data in state
             state.user = data.user;
-            
+
             // 3. Update the UI buttons (Hide Login/Register, Show User Menu)
             updateAuthUI();
-            
+
             // 4. Close the modal
             closeAuthModal();
         } else {
             codeInputs.forEach(input => input.disabled = false);
             showAuthError('verification', data.detail || 'Invalid verification code');
-            
+
             // Clear inputs and focus first one
             codeInputs.forEach(input => input.value = '');
             codeInputs[0].focus();
@@ -2076,7 +2098,7 @@ async function handleVerifyEmail() {
         showAuthError('verification', 'Network error. Please try again.');
         console.error(e);
     } finally {
-        if(btnVerify) btnVerify.textContent = "Verify Email";
+        if (btnVerify) btnVerify.textContent = "Verify Email";
     }
 }
 
@@ -2089,10 +2111,10 @@ async function handleResendCode() {
         });
 
         const data = await res.json();
-        
+
         if (res.ok) {
             showToast('New verification code sent!');
-            
+
             // Clear inputs
             document.querySelectorAll('.code-input').forEach(input => {
                 input.value = '';
@@ -2113,12 +2135,12 @@ function setupMobile() {
 
     const closeOtherModals = (exceptId) => {
         const modalIds = [
-            'mobile-settings-modal', 
-            'mobile-notebook-modal', 
-            'library-modal', 
+            'mobile-settings-modal',
+            'mobile-notebook-modal',
+            'library-modal',
             'auth-modal'
         ];
-        
+
         modalIds.forEach(id => {
             if (id !== exceptId) {
                 const el = document.getElementById(id);
@@ -2127,14 +2149,14 @@ function setupMobile() {
         });
     };
 
-    if(btnMobileGenerate) {
+    if (btnMobileGenerate) {
         btnMobileGenerate.addEventListener('click', () => {
             // Sync value to desktop select (so fetchPuzzle uses it)
-            if(desktopDiffSelect) desktopDiffSelect.value = mobileDiffSelect.value;
-            
+            if (desktopDiffSelect) desktopDiffSelect.value = mobileDiffSelect.value;
+
             // Close modal
             settingsModal.style.display = 'none';
-            
+
             // Generate
             fetchPuzzle();
         });
@@ -2175,7 +2197,7 @@ function setupMobile() {
         mobileTextarea.addEventListener('input', (e) => {
             state.notebook = e.target.value;
             // Sync back to desktop textarea if it exists (for seamless switching)
-            if(desktopTextarea) desktopTextarea.value = state.notebook;
+            if (desktopTextarea) desktopTextarea.value = state.notebook;
             triggerAutosave();
         });
     }
@@ -2184,14 +2206,14 @@ function setupMobile() {
     const navNotes = document.getElementById('nav-notes');
     if (navNotes) {
         navNotes.addEventListener('click', () => {
-            toggleNoteMode(); 
-            
+            toggleNoteMode();
+
             // Visual feedback
             const isActive = state.noteMode;
             navNotes.style.color = isActive ? 'var(--success-color)' : '';
             // Optional: Haptic feedback
             if (navigator.vibrate) navigator.vibrate(20);
-            
+
             showToast(isActive ? "Note Mode ON" : "Note Mode OFF");
         });
     }
@@ -2199,26 +2221,26 @@ function setupMobile() {
 
     const navLibrary = document.getElementById('nav-library');
     const libraryModal = document.getElementById('library-modal');
-    
+
     if (navLibrary && libraryModal) {
         navLibrary.addEventListener('click', () => {
             if (libraryModal.style.display === 'block') {
                 libraryModal.style.display = 'none';
             } else {
                 closeOtherModals('library-modal');
-                openLibrary(); 
+                openLibrary();
             }
         });
     }
-    
+
     const navProfile = document.getElementById('nav-profile');
     const authModal = document.getElementById('auth-modal');
 
     if (navProfile) {
         navProfile.addEventListener('click', () => {
-            if(state.user) {
+            if (state.user) {
                 // If logged in, we use confirm (native dialog, cannot toggle)
-                if(confirm(`Logged in as ${state.user.username}. Logout?`)) {
+                if (confirm(`Logged in as ${state.user.username}. Logout?`)) {
                     handleLogout();
                 }
             } else {
@@ -2254,7 +2276,7 @@ function setupNumpad() {
         btn.addEventListener('click', (e) => {
             e.stopPropagation(); // Don't deselect cell
             const val = btn.dataset.val;
-            
+
             if (val === 'del') {
                 handleInputDelete();
             } else {
@@ -2262,7 +2284,7 @@ function setupNumpad() {
             }
         });
     });
-    
+
     // Hide numpad on scroll to prevent it floating awkwardly
     window.addEventListener('scroll', () => {
         if (window.innerWidth <= 768) hideNumpad();
@@ -2302,7 +2324,7 @@ let autosaveTimer = null;
 function triggerAutosave() {
     // Clear existing timer
     if (autosaveTimer) clearTimeout(autosaveTimer);
-    
+
     // Set new timer (save after 1 second of inactivity)
     autosaveTimer = setTimeout(() => {
         saveCurrentState(true); // true = silent mode

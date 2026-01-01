@@ -103,6 +103,7 @@ body {
         transform: translateY(-100%);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -284,6 +285,7 @@ body {
         opacity: 0;
         transform: scale(0.95) translateY(-8px);
     }
+
     to {
         opacity: 1;
         transform: scale(1) translateY(0);
@@ -345,8 +347,13 @@ body {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* ===============================================
@@ -941,7 +948,7 @@ body {
     font-weight: 800;
     white-space: nowrap;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) !important;
     pointer-events: none;
     border: 2px solid rgba(255, 255, 255, 0.3);
     letter-spacing: 0.02em;
@@ -978,12 +985,11 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to top right, 
-        transparent calc(50% - 1px), 
-        var(--grid-line) calc(50% - 0.5px), 
-        var(--grid-line) calc(50% + 0.5px), 
-        transparent calc(50% + 1px)
-    );
+    background: linear-gradient(to top right,
+            transparent calc(50% - 1px),
+            var(--grid-line) calc(50% - 0.5px),
+            var(--grid-line) calc(50% + 0.5px),
+            transparent calc(50% + 1px));
     opacity: 0.5;
 }
 
@@ -1154,6 +1160,7 @@ body {
         transform: translate(-50%, 50px);
         opacity: 0;
     }
+
     to {
         transform: translate(-50%, 0);
         opacity: 1;
@@ -1174,19 +1181,14 @@ body {
     position: relative;
     margin: 0;
 }
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-xl);
-    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative;
-}
+
 
 @keyframes scaleIn {
     from {
         transform: scale(0.9);
         opacity: 0;
     }
+
     to {
         transform: scale(1);
         opacity: 1;
@@ -1573,9 +1575,19 @@ body {
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-5px);
+    }
+
+    75% {
+        transform: translateX(5px);
+    }
 }
 
 .resend-text {
@@ -1616,6 +1628,7 @@ body {
 }
 
 @media (max-width: 968px) {
+
     /* Preserve your mobile design exactly as is */
     #root {
         padding: 0;
@@ -1634,11 +1647,11 @@ body {
         display: none;
     }
 
-    .sidebar-left, 
+    .sidebar-left,
     .sidebar-right {
         display: none !important;
     }
-    
+
     .action-bar {
         display: none;
     }
@@ -1675,12 +1688,12 @@ body {
         user-select: none;
         -webkit-user-select: none;
     }
-    
+
     .main-grid-area-with-gaps {
         grid-template-columns: 30px repeat(var(--cols), 45px) !important;
         grid-template-rows: repeat(var(--rows), 45px) !important;
     }
-    
+
     .col-notes-row {
         grid-template-columns: 30px repeat(var(--cols), 45px) !important;
     }
@@ -1729,7 +1742,7 @@ body {
         border-top: 1px solid var(--border-color);
         z-index: 1000;
         padding-bottom: env(safe-area-inset-bottom);
-        box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
+        box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);
     }
 
     .nav-item {
@@ -1766,7 +1779,7 @@ body {
         border: 1px solid var(--border-color);
         border-radius: 12px;
         padding: 10px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(10px);
         transform: translateX(-50%);
     }
@@ -1777,8 +1790,15 @@ body {
     }
 
     @keyframes popIn {
-        from { opacity: 0; transform: translate(-50%, 10px); }
-        to { opacity: 1; transform: translate(-50%, 0); }
+        from {
+            opacity: 0;
+            transform: translate(-50%, 10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
     }
 
     .num-btn {
@@ -1791,7 +1811,7 @@ body {
         font-size: 1.3rem;
         font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         transition: all 0.1s;
         display: flex;
         align-items: center;
@@ -1825,7 +1845,7 @@ body {
         height: 50px;
         font-size: 1.5rem;
     }
-    
+
     .verification-code-container {
         gap: 0.5rem;
     }
