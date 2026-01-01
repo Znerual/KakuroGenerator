@@ -2,7 +2,8 @@ import argparse
 import sys
 import uuid
 from sqlalchemy.orm import Session
-from python.models import User, SessionLocal
+from python.models import User
+from python.database import SessionLocal
 from python.auth import hash_password
 from datetime import datetime, timezone
 
