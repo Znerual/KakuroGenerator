@@ -98,10 +98,17 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        if not existing_user.email_verified:
+            # User exists but is not verified -> Prompt for verification
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account exists but is not verified. Please check your email for the code."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
     
     # Check username uniqueness if provided
     if request.username:
@@ -259,7 +266,7 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 
 
 # Email Verification Endpoints
-@router.post("/verify-email", response_model=MessageResponse)
+@router.post("/verify-email", response_model=AuthResponse)
 async def verify_email(
     request_data: VerifyEmailRequest, 
     request: Request, 
@@ -282,7 +289,7 @@ async def verify_email(
         pass 
     else:
         # 3. Validate Code
-        if not user.verification_code or user.verification_code != request.code:
+        if not user.verification_code or user.verification_code != request_data.code:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid verification code"
@@ -434,7 +441,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             detail="Failed to get user info from Google"
         )
     
-    return await handle_oauth_user(user_info, db)
+    return await handle_oauth_user(user_info, db, request)
 
 
 @router.get("/facebook/callback", response_model=AuthResponse)
@@ -447,13 +454,14 @@ async def facebook_callback(request: Request, db: Session = Depends(get_db)):
             detail="Failed to get user info from Facebook"
         )
     
-    return await handle_oauth_user(user_info, db)
+    return await handle_oauth_user(user_info, db, request)
 
 
 @router.post("/apple/callback", response_model=AuthResponse)
 async def apple_callback(
     id_token: str,
     code: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Handle Apple Sign In callback."""
@@ -464,10 +472,10 @@ async def apple_callback(
             detail="Failed to get user info from Apple"
         )
     
-    return await handle_oauth_user(user_info, db)
+    return await handle_oauth_user(user_info, db, request)
 
 
-async def handle_oauth_user(user_info: dict, db: Session) -> AuthResponse:
+async def handle_oauth_user(user_info: dict, db: Session, request: Request) -> AuthResponse:
     """
     Handle OAuth user creation or login.
     OAuth users are automatically verified.
