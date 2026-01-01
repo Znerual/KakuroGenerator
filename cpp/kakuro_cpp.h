@@ -14,7 +14,7 @@
 
 namespace kakuro {
 
-#define LOG_DEBUG(msg) do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0)
+#define LOG_DEBUG(msg) do {} while(0) // do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0)
 
 enum class CellType {
     BLOCK,
