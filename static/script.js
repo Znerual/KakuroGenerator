@@ -29,7 +29,9 @@ const state = {
     // Auth state
     user: null, // Current logged in user
     accessToken: null,
-    refreshToken: null
+    refreshToken: null,
+    // Analytics
+    lastActionTime: Date.now()
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -341,6 +343,7 @@ function loadPuzzleIntoState(data) {
     state.editingNote = null;
     state.showErrors = false;
     state.noteMode = false;
+    state.lastActionTime = Date.now();
 
     const btnNoteMode = document.getElementById('btn-note-mode');
     if (btnNoteMode) {
@@ -398,6 +401,55 @@ function calculateGridBounds() {
     maxCol = Math.min(width - 1, maxCol);
 
     state.gridBounds = { minRow, maxRow, minCol, maxCol };
+}
+
+async function logInteraction(actionType, data = {}) {
+    // We only log if a puzzle is active. 
+    // Authentication is handled by headers; backend ignores if not logged in.
+    if (!state.puzzle) return;
+
+    const now = Date.now();
+    const duration = now - state.lastActionTime;
+    state.lastActionTime = now;
+
+    const deviceType = window.innerWidth <= 968 ? 'mobile' : 'desktop';
+    const timestamp = new Date().toISOString();
+
+    const createPayload = (itemData) => ({
+        puzzle_id: state.puzzle.id,
+        action_type: actionType,
+        row: itemData.row ?? null,
+        col: itemData.col ?? null,
+        old_value: itemData.oldValue ? String(itemData.oldValue) : null,
+        new_value: itemData.newValue ? String(itemData.newValue) : null,
+        duration_ms: duration, // Batch shares the same think-time
+        client_timestamp: timestamp,
+        device_type: deviceType
+    });
+
+    try {
+        // CHECK IF BATCH (Array) OR SINGLE
+        if (Array.isArray(data)) {
+            const batchPayload = data.map(createPayload);
+            if (batchPayload.length === 0) return;
+
+            fetch('/log/batch_interaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify(batchPayload)
+            });
+        } else {
+            // Single Interaction
+            const payload = createPayload(data || {});
+            fetch('/log/interaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify(payload)
+            });
+        }
+    } catch (e) {
+        console.error("Logging failed", e);
+    }
 }
 
 async function saveCurrentState(silent = false) {
@@ -1266,6 +1318,14 @@ function handleNoteInput(char) {
             const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
             const currentValue = state.cellNotes[boundaryKey] || '';
             state.cellNotes[boundaryKey] = currentValue + char;
+
+            logInteraction('NOTE_BOUNDARY_ADD', {
+                row: first.r,
+                col: first.c,
+                oldValue: oldValue,
+                newValue: newValue
+            });
+
             renderBoard();
             triggerAutosave();
             return;
@@ -1273,10 +1333,26 @@ function handleNoteInput(char) {
     }
 
     // Otherwise, add to corner notes of all selected cells
+    const logs = [];
     state.selectedCells.forEach(key => {
-        const currentValue = state.cellNotes[key] || '';
-        state.cellNotes[key] = currentValue + char;
+        const [r, c] = key.split(',').map(Number);
+        const oldValue = state.cellNotes[key] || '';
+        const newValue = oldValue + char;
+
+        state.cellNotes[key] = newValue;
+
+        logs.push({
+            row: r,
+            col: c,
+            oldValue: oldValue,
+            newValue: newValue
+        });
     });
+
+    if (logs.length > 0) {
+        logInteraction('NOTE_ADD', logs);
+    }
+
     renderBoard();
     triggerAutosave();
 }
@@ -1307,6 +1383,12 @@ function deleteSelectedNotes() {
                 if (state.cellNotes[boundaryKey] === '') {
                     delete state.cellNotes[boundaryKey];
                 }
+                logInteraction('NOTE_BOUNDARY_REMOVE', {
+                    row: first.r,
+                    col: first.c,
+                    oldValue: oldValue,
+                    newValue: newValue
+                });
             }
             renderBoard();
             triggerAutosave();
@@ -1315,21 +1397,38 @@ function deleteSelectedNotes() {
     }
 
     // Delete last character from corner notes
+    const logs = [];
     state.selectedCells.forEach(key => {
-        const currentValue = state.cellNotes[key] || '';
-        if (currentValue.length > 0) {
-            state.cellNotes[key] = currentValue.slice(0, -1);
-            if (state.cellNotes[key] === '') {
+        const [r, c] = key.split(',').map(Number);
+        const oldValue = state.cellNotes[key] || '';
+        if (oldValue.length > 0) {
+            const newValue = oldValue.slice(0, -1);
+            if (newValue === '') {
                 delete state.cellNotes[key];
+            } else {
+                state.cellNotes[key] = newValue;
             }
+
+            logs.push({
+                row: r,
+                col: c,
+                oldValue: oldValue,
+                newValue: newValue
+            });
         }
     });
+
+    if (logs.length > 0) {
+        logInteraction('NOTE_REMOVE', logs);
+    }
     renderBoard();
     triggerAutosave();
 }
 
 function checkPuzzle() {
     if (!state.puzzle) return;
+
+    logInteraction('CHECK');
 
     state.showErrors = true;
     renderBoard();
@@ -1354,6 +1453,7 @@ function checkPuzzle() {
     if (allCorrect) {
         showToast("Perfect! Puzzle Solved!");
         state.puzzle.status = "solved";
+        logInteraction('SOLVED');
         // Show rating modal
         showRatingModal();
     } else if (allFilled) {
@@ -2364,6 +2464,14 @@ function handleInputNumber(numStr) {
         if (state.userGrid[r][c].type === 'WHITE') {
             state.userGrid[r][c].userValue = parseInt(numStr);
             state.showErrors = false;
+
+            logInteraction('INPUT', {
+                row: r,
+                col: c,
+                oldValue: oldValue,
+                newValue: numStr
+            });
+
             renderBoard();
             triggerAutosave();
             if (window.innerWidth <= 768) {
@@ -2386,6 +2494,14 @@ function handleInputDelete() {
         if (state.userGrid[r][c].type === 'WHITE') {
             state.userGrid[r][c].userValue = null;
             state.showErrors = false;
+
+            logInteraction('DELETE', {
+                row: r,
+                col: c,
+                oldValue: oldValue,
+                newValue: null
+            });
+
             renderBoard();
             triggerAutosave();
             if (window.innerWidth <= 768) hideNumpad();

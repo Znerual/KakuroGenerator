@@ -22,7 +22,8 @@ from python.auth import (
     create_password_reset_token,
     verify_password_reset_token,
     get_current_user,
-    get_required_user
+    get_current_user_and_session,
+    get_required_user,
 )
 from python.oauth import (
     get_oauth_authorize_redirect,
@@ -35,6 +36,7 @@ from python.email_service import (
     send_password_reset_email,
     send_welcome_email
 )
+from python.analytics import start_user_session, end_user_session
 import python.config as config
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -145,13 +147,13 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(request: LoginRequest, db: Session = Depends(get_db)):
+async def login(login_data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """
     Login with email and password.
     Returns access and refresh tokens.
     """
     # Find user
-    user = db.query(User).filter(User.email == request.email).first()
+    user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -159,7 +161,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         )
     
     # Verify password
-    if not verify_password(request.password, user.password_hash):
+    if not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
@@ -174,11 +176,21 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     
     # Update last login
     user.last_login = datetime.now(timezone.utc)
+
+    # --- ANALYTICS START ---
+    # Determine device type from user agent (simple heuristic)
+    ua = request.headers.get("user-agent", "").lower()
+    device_type = "mobile" if "mobile" in ua else "desktop"
+    
+    # Create Database Session Record
+    session = start_user_session(db, user.id, request, device_type)
+    # --- ANALYTICS END ---
+    
     db.commit()
     
     # Generate tokens
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token = create_access_token(user.id, session.id)
+    refresh_token = create_refresh_token(user.id, session.id)
     
     return {
         "access_token": access_token,
@@ -186,6 +198,20 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": user.to_dict()
     }
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(
+    auth_data: tuple[Optional[User], Optional[str]] = Depends(get_current_user_and_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Logs out the user by marking the session as ended in the database.
+    """
+    user, session_id = auth_data
+    if session_id:
+        end_user_session(db, session_id)
+    
+    return {"message": "Logged out successfully"}
 
 
 @router.post("/refresh", response_model=AuthResponse)
@@ -204,6 +230,8 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
         )
     
     user_id = payload.get("sub")
+    session_id = payload.get("sid")
+
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -219,8 +247,8 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
         )
     
     # Generate new tokens
-    new_access_token = create_access_token(user.id)
-    new_refresh_token = create_refresh_token(user.id)
+    new_access_token = create_access_token(user.id, session_id)
+    new_refresh_token = create_refresh_token(user.id, session_id)
     
     return {
         "access_token": new_access_token,
@@ -232,12 +260,16 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 
 # Email Verification Endpoints
 @router.post("/verify-email", response_model=MessageResponse)
-async def verify_email(request: VerifyEmailRequest, db: Session = Depends(get_db)):
+async def verify_email(
+    request_data: VerifyEmailRequest, 
+    request: Request, 
+    db: Session = Depends(get_db)
+):
     """
     Verify user's email address using the 6-digit code.
     """
     # 1. Find user by email
-    user = db.query(User).filter(User.email == request.email).first()
+    user = db.query(User).filter(User.email == request_data.email).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -272,19 +304,22 @@ async def verify_email(request: VerifyEmailRequest, db: Session = Depends(get_db
         user.email_verified = True
         user.verification_code = None
         user.verification_code_expires_at = None
-        db.commit()
         
         # Send welcome email
         if config.is_resend_configured():
             send_welcome_email(user.email, user.full_name or user.username)
         
-    # 6. Generate Tokens (Auto-Login)
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
-    
-    # Update last login
+    # 6. Auto-Login Logic (Create Session)
     user.last_login = datetime.now(timezone.utc)
+    
+    ua = request.headers.get("user-agent", "").lower()
+    device_type = "mobile" if "mobile" in ua else "desktop"
+    session = start_user_session(db, user.id, request, device_type)
+
     db.commit()
+    # 6. Generate Tokens (Auto-Login)
+    access_token = create_access_token(user.id, session.id)
+    refresh_token = create_refresh_token(user.id, session.id)
     
     return {
         "access_token": access_token,
@@ -470,12 +505,17 @@ async def handle_oauth_user(user_info: dict, db: Session) -> AuthResponse:
     
     # Update last login
     user.last_login = datetime.now(timezone.utc)
+
+    ua = request.headers.get("user-agent", "").lower()
+    device_type = "mobile" if "mobile" in ua else "desktop"
+    session = start_user_session(db, user.id, request, device_type)
+    
     db.commit()
     db.refresh(user)
     
     # Generate tokens
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token = create_access_token(user.id, session.id)
+    refresh_token = create_refresh_token(user.id, session.id)
     
     return {
         "access_token": access_token,
