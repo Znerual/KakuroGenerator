@@ -31,7 +31,9 @@ const state = {
     accessToken: null,
     refreshToken: null,
     // Analytics
-    lastActionTime: Date.now()
+    lastActionTime: Date.now(),
+    puzzleQueue: [], // Queue of puzzles from the feed
+    currentBatchDifficulty: null // Track difficulty of current queue items
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -104,6 +106,16 @@ function init() {
 
     // Initialize authentication
     initAuth();
+
+    // Clear queue when difficulty changes (so next 'New Game' fetches correct difficulty)
+    const diffSelect = document.getElementById('difficulty-select');
+    if (diffSelect) {
+        diffSelect.addEventListener('change', () => {
+            state.puzzleQueue = [];
+            state.currentBatchDifficulty = diffSelect.value;
+            console.log("Difficulty changed, queue cleared");
+        });
+    }
 
     fetchPuzzle();
 
@@ -299,21 +311,46 @@ function toggleNoteMode(skipRender = false) {
 }
 
 async function fetchPuzzle() {
-    btnGenerate.textContent = "Generating...";
+    btnGenerate.textContent = "Loading...";
     btnGenerate.disabled = true;
+
     try {
         const difficultySelect = document.getElementById('difficulty-select');
         const difficulty = difficultySelect ? difficultySelect.value : 'medium';
 
-        const res = await fetch(`/generate?difficulty=${difficulty}&verify_unique=true`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        console.log("Received data:", data);
+        // Check if we need to invalidate the queue (user changed difficulty)
+        if (state.currentBatchDifficulty !== difficulty) {
+            state.puzzleQueue = [];
+            state.currentBatchDifficulty = difficulty;
+        }
 
-        loadPuzzleIntoState(data);
+        // If queue is empty, fetch more
+        if (state.puzzleQueue.length === 0) {
+            console.log("Queue empty, fetching feed for:", difficulty);
+            const res = await fetch(`/feed?difficulty=${difficulty}&limit=5`, {
+                headers: getAuthHeaders()
+            });
+            if (!res.ok) throw new Error("Failed to fetch feed");
+            const newPuzzles = await res.json();
+
+            if (newPuzzles.length === 0) {
+                alert("No puzzles found in feed.");
+                return;
+            }
+            state.puzzleQueue.push(...newPuzzles);
+            console.log(`Added ${newPuzzles.length} puzzles to queue.`);
+        }
+
+        // Pop the next puzzle
+        const nextPuzzle = state.puzzleQueue.shift();
+        console.log("Loading puzzle from feed:", nextPuzzle);
+        loadPuzzleIntoState(nextPuzzle);
+
     } catch (e) {
         console.error("Error in fetchPuzzle:", e);
-        alert("Error generating puzzle: " + e.message);
+        // Fallback to old single generate if feed fails? 
+        // Or just show error. Let's show error for now as feed should work.
+        alert("Error loading new puzzle: " + e.message);
     } finally {
         btnGenerate.textContent = "New Puzzle";
         btnGenerate.disabled = false;

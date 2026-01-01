@@ -409,13 +409,23 @@ def get_puzzle_feed(
     puzzles_to_return = []
     
     # 1. Fetch some existing templates (randomly for now)
-    # In a real app, we'd filter by 'not solved by user'
-    existing_templates = db.query(PuzzleTemplate).filter(
+    # Filter by 'not solved or started by user' if logged in
+    query = db.query(PuzzleTemplate).filter(
         PuzzleTemplate.difficulty == difficulty
-    ).order_by(func.random()).limit(limit // 2).all()
+    )
+
+    if current_user:
+        # Subquery to find template_ids that the user has already interacted with
+        subquery = db.query(Puzzle.template_id).filter(
+            Puzzle.user_id == current_user.id,
+            Puzzle.template_id.isnot(None)
+        ).subquery()
+        
+        query = query.filter(~PuzzleTemplate.id.in_(subquery))
+    
+    existing_templates = query.order_by(func.random()).limit(limit // 2).all()
     
     for tmpl in existing_templates:
-        # Check if user already solved it? (optimization for later)
         puzzles_to_return.append({
             "id": str(uuid.uuid4()), # New instance ID for the user to start
             "template_id": tmpl.id,
