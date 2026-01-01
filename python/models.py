@@ -37,6 +37,7 @@ class User(Base):
     
     # Statistics
     kakuros_solved = Column(Integer, default=0)
+    total_score = Column(Integer, default=0)
     is_admin = Column(Boolean, default=False, nullable=False)
     
     # Timestamps
@@ -47,6 +48,7 @@ class User(Base):
     puzzles = relationship("Puzzle", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     interactions = relationship("PuzzleInteraction", back_populates="user", cascade="all, delete-orphan")
+    scores = relationship("ScoreRecord", back_populates="user", cascade="all, delete-orphan")
 
     def to_dict(self):
         """Convert user to dictionary for API responses."""
@@ -59,6 +61,7 @@ class User(Base):
             "full_name": self.full_name,
             "avatar_url": self.avatar_url,
             "kakuros_solved": self.kakuros_solved,
+            "total_score": self.total_score,
             "is_admin": self.is_admin,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None,
@@ -265,3 +268,20 @@ class AuthLog(Base):
             "reason": self.reason,
             "timestamp": self.timestamp.isoformat() if self.timestamp else None
         }
+
+class ScoreRecord(Base):
+    """
+    Tracks individual scores gained for each solved puzzle.
+    Used for monthly and all-time leaderboards.
+    """
+    __tablename__ = "score_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    puzzle_id = Column(String, ForeignKey("puzzles.id"), nullable=False, index=True)
+    points = Column(Integer, nullable=False)
+    difficulty = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    # Relationships
+    user = relationship("User", back_populates="scores")

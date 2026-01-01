@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, select
+from sqlalchemy import func, select, desc
 import os
 import sys
 import webbrowser
@@ -147,7 +147,31 @@ def startup_event():
             if "fill_count" not in columns:
                 logger.info("Migrating database: Adding fill_count to puzzle_interactions table")
                 conn.execute(text("ALTER TABLE puzzle_interactions ADD COLUMN fill_count INTEGER"))
-                
+
+        if "users" in table_names:
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            if "total_score" not in columns:
+                logger.info("Migrating database: Adding total_score to users table")
+                conn.execute(text("ALTER TABLE users ADD COLUMN total_score INTEGER DEFAULT 0"))
+        
+        # Create score_records table if it doesn't exist
+        if "score_records" not in table_names:
+            logger.info("Migrating database: Creating score_records table")
+            conn.execute(text("""
+                CREATE TABLE score_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    puzzle_id TEXT NOT NULL,
+                    points INTEGER NOT NULL,
+                    difficulty TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(user_id) REFERENCES users(id),
+                    FOREIGN KEY(puzzle_id) REFERENCES puzzles(id)
+                )
+            """))
+            conn.execute(text("CREATE INDEX idx_score_records_user_id ON score_records(user_id)"))
+            conn.execute(text("CREATE INDEX idx_score_records_created_at ON score_records(created_at)"))
+
     logger.info("Database initialized")
     
     # Start background generator
@@ -185,6 +209,13 @@ MIN_CELLS_MAP = {
     "easy": 10,
     "medium": 15,
     "hard": 20
+}
+
+DIFFICULTY_POINTS = {
+    "very_easy": 10,
+    "easy": 25,
+    "medium": 100,
+    "hard": 250
 }
 
 DIFFICULTY_SIZE_RANGES = {
@@ -304,6 +335,19 @@ def save_puzzle_endpoint(
                 # Update solved count if status changed to solved
                 if request.status == "solved" and puzzle.status != "solved":
                     current_user.kakuros_solved += 1
+                    # Award points
+                    points = DIFFICULTY_POINTS.get(puzzle.difficulty, 0)
+                    current_user.total_score += points
+                    
+                    # Create score record
+                    from python.models import ScoreRecord
+                    score_record = ScoreRecord(
+                        user_id=current_user.id,
+                        puzzle_id=puzzle.id,
+                        points=points,
+                        difficulty=puzzle.difficulty
+                    )
+                    db.add(score_record)
             else:
                 # Create new
                 puzzle = Puzzle(
@@ -343,6 +387,19 @@ def save_puzzle_endpoint(
                 
                 if request.status == "solved":
                     current_user.kakuros_solved += 1
+                    # Award points
+                    points = DIFFICULTY_POINTS.get(request.difficulty, 0)
+                    current_user.total_score += points
+                    
+                    # Create score record
+                    from python.models import ScoreRecord
+                    score_record = ScoreRecord(
+                        user_id=current_user.id,
+                        puzzle_id=puzzle.id,
+                        points=points,
+                        difficulty=request.difficulty
+                    )
+                    db.add(score_record)
             
             db.commit()
         else:
@@ -567,6 +624,53 @@ def get_puzzle_feed(
                         break
 
     return puzzles_to_return
+
+@app.get("/leaderboard/all-time")
+def get_all_time_leaderboard(db: Session = Depends(get_db)):
+    """Fetch top 50 users by total score."""
+    top_users = db.query(User).filter(User.username.isnot(None))\
+        .order_by(User.total_score.desc()).limit(50).all()
+    
+    return [
+        {
+            "username": u.username,
+            "score": u.total_score,
+            "solved": u.kakuros_solved,
+            "avatar": u.avatar_url
+        } for u in top_users
+    ]
+
+@app.get("/leaderboard/monthly")
+def get_monthly_leaderboard(db: Session = Depends(get_db)):
+    """Fetch top users based on points earned in the current month."""
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    # Start of the current month
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    from sqlalchemy import func
+    from python.models import ScoreRecord
+    
+    # Query to sum points per user for the current month
+    monthly_scores = db.query(
+        User.username,
+        User.avatar_url,
+        func.sum(ScoreRecord.points).label("monthly_points"),
+        func.count(ScoreRecord.id).label("monthly_solved")
+    ).join(ScoreRecord, User.id == ScoreRecord.user_id)\
+     .filter(ScoreRecord.created_at >= start_of_month)\
+     .group_by(User.id)\
+     .order_by(desc("monthly_points"))\
+     .limit(50).all()
+    
+    return [
+        {
+            "username": s.username,
+            "score": int(s.monthly_points),
+            "solved": s.monthly_solved,
+            "avatar": s.avatar_url
+        } for s in monthly_scores
+    ]
 
 def open_browser(url: str):
     """Wait for the server to start and then open the browser."""

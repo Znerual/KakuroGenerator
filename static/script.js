@@ -33,7 +33,9 @@ const state = {
     // Analytics
     lastActionTime: Date.now(),
     puzzleQueue: [], // Queue of puzzles from the feed
-    currentBatchDifficulty: null // Track difficulty of current queue items
+    currentBatchDifficulty: null, // Track difficulty of current queue items
+    leaderboardType: 'monthly', // 'monthly' or 'all-time'
+    leaderboardData: []
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -138,6 +140,27 @@ function init() {
 
     // Check if we should show the tutorial
     checkAndShowTutorial();
+
+    // Leaderboard listeners
+    const btnLeaderboard = document.getElementById('btn-leaderboard');
+    if (btnLeaderboard) {
+        btnLeaderboard.addEventListener('click', openLeaderboard);
+    }
+    const leaderboardClose = document.getElementById('leaderboard-close');
+    if (leaderboardClose) {
+        leaderboardClose.addEventListener('click', () => {
+            document.getElementById('leaderboard-modal').style.display = 'none';
+        });
+    }
+    const leaderboardTabs = document.querySelectorAll('[data-leaderboard]');
+    leaderboardTabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            leaderboardTabs.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.leaderboardType = btn.dataset.leaderboard;
+            fetchLeaderboardData();
+        });
+    });
 }
 
 function checkAndShowTutorial() {
@@ -2211,6 +2234,8 @@ function updateAuthUI() {
         if (userName) userName.textContent = state.user.username;
         if (userEmail) userEmail.textContent = state.user.email;
         if (userSolved) userSolved.textContent = `${state.user.kakuros_solved} puzzles solved`;
+        const userScoreDisplay = document.getElementById('user-score-display');
+        if (userScoreDisplay) userScoreDisplay.textContent = `${state.user.total_score || 0} pts`;
 
         // Admin button
         if (btnAdmin) {
@@ -2517,6 +2542,66 @@ function initSidebarToggles() {
         } else if (rightCollapsed) {
             mainLayout.classList.add('right-collapsed');
         }
+    }
+}
+
+async function openLeaderboard() {
+    const modal = document.getElementById('leaderboard-modal');
+    if (modal) {
+        modal.style.display = 'block';
+        fetchLeaderboardData();
+    }
+}
+
+async function fetchLeaderboardData() {
+    const body = document.getElementById('leaderboard-body');
+    const loading = document.getElementById('leaderboard-loading');
+
+    if (body) body.innerHTML = '';
+    if (loading) loading.style.display = 'block';
+
+    try {
+        const endpoint = state.leaderboardType === 'monthly' ? '/leaderboard/monthly' : '/leaderboard/all-time';
+        const res = await fetch(endpoint);
+        if (!res.ok) throw new Error("Failed to fetch leaderboard");
+        const data = await res.json();
+        state.leaderboardData = data;
+        renderLeaderboard();
+    } catch (e) {
+        console.error("Leaderboard error:", e);
+        if (body) body.innerHTML = '<tr><td colspan="4" style="text-align:center">Error loading rankings</td></tr>';
+    } finally {
+        if (loading) loading.style.display = 'none';
+    }
+}
+
+function renderLeaderboard() {
+    const body = document.getElementById('leaderboard-body');
+    if (!body) return;
+
+    body.innerHTML = '';
+    state.leaderboardData.forEach((entry, index) => {
+        const tr = document.createElement('tr');
+        if (state.user && entry.username === state.user.username) {
+            tr.classList.add('current-user');
+        }
+
+        const avatar = entry.avatar ? `<img src="${entry.avatar}" class="leaderboard-avatar">` : `<span class="leaderboard-avatar">👤</span>`;
+
+        tr.innerHTML = `
+            <td class="rank-cell">#${index + 1}</td>
+            <td class="user-cell">
+                ${avatar}
+                <span>${entry.username}</span>
+            </td>
+            <td>${entry.solved}</td>
+            <td class="score-cell">${entry.score}</td>
+        `;
+        body.appendChild(tr);
+    });
+
+    if (state.leaderboardData.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" style="text-align:center">No rankings yet this month</td></tr>';
     }
 }
 
