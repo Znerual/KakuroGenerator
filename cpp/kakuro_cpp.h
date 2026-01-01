@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <random>
 #include <deque>
+#include <utility>
 
 namespace kakuro {
 
