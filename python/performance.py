@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from python.models import PerformanceMetric, AuthLog
 from datetime import datetime, timezone
+import time
 import os
 
 logger = logging.getLogger("performance")
