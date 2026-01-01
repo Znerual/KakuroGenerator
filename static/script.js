@@ -117,7 +117,41 @@ function init() {
             triggerAutosave();
         });
     }
+
+    // Check if we should show the tutorial
+    checkAndShowTutorial();
 }
+
+function checkAndShowTutorial() {
+    const lastVisit = localStorage.getItem('last_visit');
+    const hasSeen = localStorage.getItem('has_seen_tutorial');
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+    // Show if never seen OR if not visited in 30 days
+    if (!hasSeen || (lastVisit && (now - parseInt(lastVisit) > THIRTY_DAYS))) {
+        // Delay slightly to let the UI settle
+        setTimeout(() => {
+            const modal = document.getElementById('tutorial-modal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }, 1000);
+    }
+
+    // Update last visit time
+    localStorage.setItem('last_visit', now.toString());
+}
+
+function closeTutorial() {
+    const modal = document.getElementById('tutorial-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        localStorage.setItem('has_seen_tutorial', 'true');
+    }
+}
+window.closeTutorial = closeTutorial; // Make globally available
+
 
 function getCellFromPoint(x, y) {
     const numpad = document.getElementById('mobile-numpad');
@@ -2218,6 +2252,14 @@ function setupMobile() {
         });
     }
 
+    const navCheck = document.getElementById('nav-check');
+    if (navCheck) {
+        navCheck.addEventListener('click', () => {
+            checkPuzzle();
+        });
+    }
+
+
 
     const navLibrary = document.getElementById('nav-library');
     const libraryModal = document.getElementById('library-modal');
@@ -2291,6 +2333,20 @@ function setupNumpad() {
     });
 }
 
+function isBoardFull() {
+    if (!state.puzzle) return false;
+    for (let r = 0; r < state.puzzle.height; r++) {
+        for (let c = 0; c < state.puzzle.width; c++) {
+            const cell = state.userGrid[r][c];
+            // If it's a white cell and has no value (null), board is not full
+            if (cell.type === 'WHITE' && !cell.userValue) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 function handleInputNumber(numStr) {
     if (state.noteMode && state.selectedCells.size > 0) {
         handleNoteInput(numStr);
@@ -2301,6 +2357,14 @@ function handleInputNumber(numStr) {
             state.showErrors = false;
             renderBoard();
             triggerAutosave();
+            if (window.innerWidth <= 768) {
+                hideNumpad();
+
+                // Auto-check on mobile if the board is full
+                if (isBoardFull()) {
+                    checkPuzzle();
+                }
+            }
         }
     }
 }
@@ -2315,6 +2379,7 @@ function handleInputDelete() {
             state.showErrors = false;
             renderBoard();
             triggerAutosave();
+            if (window.innerWidth <= 768) hideNumpad();
         }
     }
 }
