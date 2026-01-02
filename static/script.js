@@ -30,6 +30,8 @@ const state = {
     user: null, // Current logged in user
     accessToken: null,
     refreshToken: null,
+    resendTimerInterval: null,
+    resendCooldownSeconds: 60,
     // Analytics
     lastActionTime: Date.now(),
     puzzleQueue: [], // Queue of puzzles from the feed
@@ -1678,6 +1680,9 @@ function setupAuthEventListeners() {
     const btnRegisterSubmit = document.getElementById('btn-register-submit');
     const btnVerifySubmit = document.getElementById('btn-verify-submit');
     const btnResendCode = document.getElementById('btn-resend-code');
+    const btnSpamConfirm = document.getElementById('btn-spam-confirm');
+    const btnSpamCancel = document.getElementById('btn-spam-cancel');
+    const spamModal = document.getElementById('spam-check-modal');
     const backToRegister = document.getElementById('back-to-register');
     const switchToRegister = document.getElementById('switch-to-register');
     const switchToLogin = document.getElementById('switch-to-login');
@@ -1711,13 +1716,38 @@ function setupAuthEventListeners() {
     if (btnResendCode) {
         btnResendCode.addEventListener('click', (e) => {
             e.preventDefault();
-            handleResendCode();
+
+            // Check if link is disabled via class
+            if (btnResendCode.classList.contains('disabled')) return;
+
+            // Open the Spam Check Modal instead of sending immediately
+            if (spamModal) {
+                spamModal.style.display = 'block';
+            }
         });
     }
     if (backToRegister) {
         backToRegister.addEventListener('click', (e) => {
             e.preventDefault();
             showAuthForm('register');
+        });
+    }
+    if (btnSpamConfirm) {
+        btnSpamConfirm.addEventListener('click', () => {
+            // Close Spam Modal
+            if (spamModal) spamModal.style.display = 'none';
+            // Trigger actual API call
+            handleResendCode();
+        });
+    }
+    if (btnSpamCancel) {
+        btnSpamCancel.addEventListener('click', () => {
+            if (spamModal) spamModal.style.display = 'none';
+        });
+    }
+    if (spamModal) {
+        spamModal.addEventListener('click', (e) => {
+            if (e.target === spamModal) spamModal.style.display = 'none';
         });
     }
     if (switchToRegister) {
@@ -1782,6 +1812,78 @@ function setupAuthEventListeners() {
             });
         }
     });
+
+    checkResendTimerOnLoad();
+}
+
+function startResendTimer(remaining = RESEND_COOLDOWN_SEC) {
+    const btnResend = document.getElementById('btn-resend-code');
+    if (!btnResend) return;
+
+    // 1. Set timestamp in localStorage if this is a fresh start
+    if (remaining === RESEND_COOLDOWN_SEC) {
+        const targetTime = Date.now() + (RESEND_COOLDOWN_SEC * 1000);
+        localStorage.setItem('kakuro-resend-target', targetTime);
+    }
+
+    // 2. Disable Link UI
+    btnResend.classList.add('disabled');
+
+    // 3. Clear existing interval if any
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
+
+    // 4. Update UI immediately
+    updateResendUI(remaining);
+
+    // 5. Start Interval
+    resendTimerInterval = setInterval(() => {
+        // Calculate real remaining time based on storage (prevents drift/refresh cheats)
+        const targetTime = parseInt(localStorage.getItem('kakuro-resend-target') || '0');
+        const now = Date.now();
+        const secondsLeft = Math.ceil((targetTime - now) / 1000);
+
+        if (secondsLeft <= 0) {
+            stopResendTimer();
+        } else {
+            updateResendUI(secondsLeft);
+        }
+    }, 1000);
+}
+
+function stopResendTimer() {
+    if (resendTimerInterval) {
+        clearInterval(resendTimerInterval);
+        resendTimerInterval = null;
+    }
+
+    localStorage.removeItem('kakuro-resend-target');
+
+    const btnResend = document.getElementById('btn-resend-code');
+    if (btnResend) {
+        btnResend.classList.remove('disabled');
+        btnResend.innerHTML = 'Resend code'; // Restore original text
+    }
+}
+
+function updateResendUI(seconds) {
+    const btnResend = document.getElementById('btn-resend-code');
+    if (btnResend) {
+        btnResend.innerHTML = `Resend in <span class="resend-timer-count">${seconds}s</span>`;
+    }
+}
+
+function checkResendTimerOnLoad() {
+    const targetTime = localStorage.getItem('kakuro-resend-target');
+    if (targetTime) {
+        const now = Date.now();
+        const secondsLeft = Math.ceil((parseInt(targetTime) - now) / 1000);
+
+        if (secondsLeft > 0) {
+            startResendTimer(secondsLeft);
+        } else {
+            localStorage.removeItem('kakuro-resend-target');
+        }
+    }
 }
 
 function openAuthModal(form = 'login') {
@@ -1988,6 +2090,12 @@ async function handleVerifyEmail() {
 async function handleResendCode() {
     if (!pendingVerificationEmail) return;
 
+    const btnResend = document.getElementById('btn-resend-code');
+    if (btnResend) {
+        btnResend.disabled = true;
+        btnResend.textContent = 'Sending...';
+    }
+
     try {
         const res = await fetch('/auth/resend-verification', {
             method: 'POST',
@@ -2003,11 +2111,18 @@ async function handleResendCode() {
             const codeInputs = document.querySelectorAll('.code-input');
             codeInputs.forEach(input => input.value = '');
             if (codeInputs[0]) codeInputs[0].focus();
+
+            startResendTimer();
         } else {
             showAuthError('verification', data.detail || 'Failed to resend code');
         }
     } catch (e) {
         showAuthError('verification', 'Network error. Please try again.');
+    } finally {
+        if (btnResend) {
+            btnResend.disabled = false;
+            btnResend.textContent = 'Send Again';
+        }
     }
 }
 
@@ -2018,6 +2133,12 @@ async function handleLogin() {
     if (!email || !password) {
         showAuthError('login', 'Please enter email and password');
         return;
+    }
+
+    const btnLogin = document.getElementById('btn-login-submit');
+    if (btnLogin) {
+        btnLogin.disabled = true;
+        btnLogin.textContent = 'Logging in...';
     }
 
     try {
@@ -2063,6 +2184,11 @@ async function handleLogin() {
         }
     } catch (e) {
         showAuthError('login', 'Network error. Please try again.');
+    } finally {
+        if (btnLogin) {
+            btnLogin.disabled = false;
+            btnLogin.textContent = 'Login';
+        }
     }
 }
 
@@ -2079,6 +2205,12 @@ async function handleRegister() {
     if (password.length < 6) {
         showAuthError('register', 'Password must be at least 6 characters');
         return;
+    }
+
+    const btnRegister = document.getElementById('btn-register-submit');
+    if (btnRegister) {
+        btnRegister.disabled = true;
+        btnRegister.textContent = 'Registering...';
     }
 
     try {
@@ -2134,6 +2266,11 @@ async function handleRegister() {
         }
     } catch (e) {
         showAuthError('register', 'Network error. Please try again.');
+    } finally {
+        if (btnRegister) {
+            btnRegister.disabled = false;
+            btnRegister.textContent = 'Register';
+        }
     }
 }
 

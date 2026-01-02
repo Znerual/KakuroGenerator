@@ -1647,6 +1647,20 @@ body {
     text-decoration: underline;
 }
 
+.resend-text a.disabled {
+    pointer-events: none;
+    cursor: default;
+    color: var(--text-muted);
+    text-decoration: none;
+    opacity: 0.7;
+}
+
+.resend-timer-count {
+    font-variant-numeric: tabular-nums;
+    /* Prevents jitter when numbers change */
+    font-weight: 700;
+}
+
 #verify-email-display {
     color: var(--primary-color);
 }
@@ -2098,4 +2112,23 @@ body {
     color: var(--secondary-color);
     font-weight: 700;
     margin-top: 2px;
+}
+
+/* SPAM CHECK MODAL SPECIFIC STYLES */
+
+/* Ensure Spam modal sits ON TOP of Auth modal (z-index 2000) */
+#spam-check-modal {
+    z-index: 2100;
+}
+
+.spam-check-content {
+    text-align: center;
+    max-width: 400px;
+}
+
+.spam-check-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
 }
