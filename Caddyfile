@@ -1,0 +1,17 @@
+# --- LOCAL TESTING (Windows) ---
+# To test locally, uncomment the lines below and run 'caddy run'
+# Then access the site at https://localhost:8008
+#
+# localhost:8008 {
+#     reverse_proxy localhost:8000
+# }
+
+# --- PRODUCTION (Raspberry Pi) ---
+# To deploy, uncomment the lines below and set your domain
+#
+kakuro.servegame.com {
+    reverse_proxy localhost:8000
+    
+    # Optional: Email for Let's Encrypt notifications
+    # tls your-email@example.com
+}

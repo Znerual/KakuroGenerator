@@ -35,7 +35,7 @@ APPLE_KEY_ID: Optional[str] = os.getenv("APPLE_KEY_ID")
 APPLE_PRIVATE_KEY: Optional[str] = os.getenv("APPLE_PRIVATE_KEY")  # Contents of .p8 file
 
 # Application settings
-APP_HOST = os.getenv("APP_HOST", "http://localhost:8008")
+APP_HOST = os.getenv("APP_HOST", "http://localhost:8008") # https://kakuro.servegame.com
 
 # OAuth redirect URIs (constructed from APP_HOST)
 GOOGLE_REDIRECT_URI = f"{APP_HOST}/auth/google/callback"
