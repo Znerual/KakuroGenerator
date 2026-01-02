@@ -82,6 +82,24 @@ def edit_user(id_or_username, password=None, email=None):
     finally:
         db.close()
 
+def delete_user(id_or_username):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter((User.id == id_or_username) | (User.username == id_or_username)).first()
+        if not user:
+            print(f"Error: User '{id_or_username}' not found.")
+            return
+        
+        username = user.username # Save name for print
+        db.delete(user)
+        db.commit()
+        print(f"User '{username}' (ID: {user.id}) deleted successfully.")
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 def main():
     parser = argparse.ArgumentParser(description="Kakuro Admin CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -106,6 +124,11 @@ def main():
     edit_parser.add_argument("--password", help="New password")
     edit_parser.add_argument("--email", help="New email")
 
+    # Delete
+    delete_parser = subparsers.add_parser("delete", help="Delete a user")
+    delete_parser.add_argument("user", help="ID or Username")
+
+
     args = parser.parse_args()
 
     if args.command == "create":
@@ -116,6 +139,8 @@ def main():
         promote_user(args.user)
     elif args.command == "edit":
         edit_user(args.user, args.password, args.email)
+    elif args.command == "delete":
+        delete_user(args.user)
     else:
         parser.print_help()
 
