@@ -682,9 +682,9 @@ def open_browser(url: str):
     webbrowser.open(url)
 
 if __name__ == "__main__":
-    host = "0.0.0.0" # "127.0.0.1"
+    host = "0.0.0.0" 
     port = 8000
-    url = f"http://{host}:{port}"
+    url = config.APP_HOST
     
     try:
         # Check if we're running as a bundle to disable reload
