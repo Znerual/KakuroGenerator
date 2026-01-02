@@ -3,7 +3,7 @@ Authentication routes for Kakuro Generator.
 Handles registration, login, OAuth, email verification, and password reset.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -91,13 +91,13 @@ class MessageResponse(BaseModel):
 
 # Registration Endpoints
 @router.post("/register", response_model=MessageResponse)
-async def register(request: RegisterRequest, db: Session = Depends(get_db)):
+async def register(register_data: RegisterRequest, request: Request,  background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Register a new user with email and password.
     Sends verification code via email.
     """
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == request.email).first()
+    existing_user = db.query(User).filter(User.email == register_data.email).first()
     if existing_user:
         if not existing_user.email_verified:
             # User exists but is not verified -> Prompt for verification
@@ -112,8 +112,8 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
             )
     
     # Check username uniqueness if provided
-    if request.username:
-        existing_username = db.query(User).filter(User.username == request.username).first()
+    if register_data.username:
+        existing_username = db.query(User).filter(User.username == register_data.username).first()
         if existing_username:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -130,10 +130,10 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     user_id = str(uuid.uuid4())
     new_user = User(
         id=user_id,
-        email=request.email,
-        username=request.username,
-        password_hash=hash_password(request.password),
-        full_name=request.full_name,
+        email=register_data.email,
+        username=register_data.username,
+        password_hash=hash_password(register_data.password),
+        full_name=register_data.full_name,
         email_verified=False,
         verification_code=verification_code,
         verification_code_expires_at=code_expires
@@ -144,15 +144,15 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     db.refresh(new_user)
     
     # Log registration
-    log_auth_attempt(db, request.email, "REGISTER", "SUCCESS", request, user_id=user_id)
+    log_auth_attempt(db, register_data.email, "REGISTER", "SUCCESS", request, user_id=user_id)
     
     # Send verification email
     if config.is_resend_configured():
-        send_verification_email(request.email, verification_code, request.full_name or request.username)
+        background_tasks.add_task(send_verification_email, register_data.email, verification_code, register_data.full_name or register_data.username)
         return {"message": "Registration successful! Please check your email for a verification code."}
     else:
         # If email not configured, print code to console for dev
-        print(f"DEV MODE: Verification code for {request.email} is {verification_code}")
+        print(f"DEV MODE: Verification code for {register_data.email} is {verification_code}")
         return {"message": f"DEV MODE: Verification code is {verification_code}"}
 
 
@@ -279,6 +279,7 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 async def verify_email(
     request_data: VerifyEmailRequest, 
     request: Request, 
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
@@ -323,7 +324,7 @@ async def verify_email(
         
         # Send welcome email
         if config.is_resend_configured():
-            send_welcome_email(user.email, user.full_name or user.username)
+            background_tasks.add_task(send_welcome_email, user.email, user.full_name or user.username)
         
     # 6. Auto-Login Logic (Create Session)
     user.last_login = datetime.now(timezone.utc)
@@ -348,7 +349,7 @@ async def verify_email(
     }
 
 @router.post("/resend-verification", response_model=MessageResponse)
-async def resend_verification(request: ResendVerificationRequest, db: Session = Depends(get_db)):
+async def resend_verification(request: ResendVerificationRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Resend verification code to user.
     """
@@ -373,7 +374,7 @@ async def resend_verification(request: ResendVerificationRequest, db: Session = 
     
     # Send verification email
     if config.is_resend_configured():
-        send_verification_email(user.email, verification_code, user.full_name or user.username)
+        background_tasks.add_task(send_verification_email, user.email, verification_code, user.full_name or user.username)
     else:
         print(f"DEV MODE: Resent verification code for {user.email}: {verification_code}")
     
@@ -381,7 +382,7 @@ async def resend_verification(request: ResendVerificationRequest, db: Session = 
 
 # Password Reset Endpoints
 @router.post("/forgot-password", response_model=MessageResponse)
-async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+async def forgot_password(request: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Request a password reset link.
     """
@@ -395,7 +396,7 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
     # Send password reset email
     if config.is_resend_configured():
         reset_token = create_password_reset_token(user.id, user.email)
-        send_password_reset_email(user.email, reset_token, user.full_name or user.username)
+        background_tasks.add_task(send_password_reset_email, user.email, reset_token, user.full_name or user.username)
     
     return {"message": "If an account exists with this email, a password reset link has been sent."}
 
