@@ -364,8 +364,25 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
         return {"message": "This email is already verified. You can log in now."}
     
     # Generate new verification code
+    expire_hours = getattr(config, 'EMAIL_VERIFICATION_EXPIRE_HOURS', 1.0)
+
+    current_expires_at = user.verification_code_expires_at
+    if current_expires_at.tzinfo is None:
+        current_expires_at = current_expires_at.replace(tzinfo=timezone.utc)
+
+
+    # The time the current code was created is (Expires - Lifetime)
+    # Using timedelta to reverse check
+    created_at = current_expires_at - timedelta(hours=expire_hours)
+    
+    # If the code was created less than 60 seconds ago, block the request
+    if (now - created_at).total_seconds() < 60:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait 60 seconds before requesting a new code."
+        )
+    
     verification_code = generate_verification_code()
-    expire_hours = getattr(config, 'EMAIL_VERIFICATION_EXPIRE_HOURS', 0.25)
     code_expires = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
     
     user.verification_code = verification_code
