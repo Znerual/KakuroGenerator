@@ -123,8 +123,10 @@ class KakuroBoard:
         elif difficulty == "medium":
             island_mode = False
             max_sector_length = 7
+            min_cells = 22
         elif difficulty == "hard":
             island_mode = False
+            min_cells = 25
             max_sector_length = 9  # Allow longest runs
             density = min(0.70, density + 0.05)  # Denser
         
