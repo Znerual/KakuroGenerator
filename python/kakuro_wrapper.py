@@ -142,16 +142,19 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
         KakuroBoard with generated puzzle
     """
     print(f"Generating {width}x{height} {difficulty} puzzle...")
-    board = KakuroBoard(width, height, use_cpp=use_cpp)
-    solver = CSPSolver(board)
     
-    success = solver.generate_puzzle(difficulty)
+
+    for i in range(20):
+        board = KakuroBoard(width, height, use_cpp=use_cpp)
+        solver = CSPSolver(board)
+        
+        success = solver.generate_puzzle(difficulty)
+        
+        if success:
+            print(f"✓ Generated puzzle successfully")
+            return board
     
-    if not success:
-        print(f"⚠ Failed to generate puzzle with difficulty {difficulty}")
-    else:
-        print(f"✓ Generated puzzle successfully")
-    
+    print(f"⚠ Failed to generate puzzle with difficulty {difficulty}")
     return board
 
 
@@ -181,11 +184,11 @@ def export_to_json(board: KakuroBoard) -> dict:
                 "type": cell_dict["type"],
             }
             
-            if "value" in cell_dict:
+            if "value" in cell_dict and cell_dict["value"] is not None:
                 cell_data["value"] = int(cell_dict["value"])
-            if "clue_h" in cell_dict:
+            if "clue_h" in cell_dict and cell_dict["clue_h"] is not None:
                 cell_data["clue_h"] = int(cell_dict["clue_h"])
-            if "clue_v" in cell_dict:
+            if "clue_v" in cell_dict and cell_dict["clue_v"] is not None:
                 cell_data["clue_v"] = int(cell_dict["clue_v"])
             
             result_row.append(cell_data)
