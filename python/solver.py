@@ -1,6 +1,7 @@
 from collections import deque
 from typing import List, Dict, Set, Optional, Tuple
 from python.kakuro import KakuroBoard, Cell, CellType
+from python.difficulty_estimator import KakuroDifficultyEstimator
 import copy
 import random
 import logging
@@ -19,67 +20,206 @@ class CSPSolver:
         3. Check Uniqueness
         4. If not unique, fix ambiguous area and repeat.
         """
-        max_retries = 80
+        MAX_TOPOLOGY_RETRIES = 20
+        MAX_REPAIR_ATTEMPTS = 5 # How many times we try to fix a specific topology
+        MAX_VALUE_RETRIES = 5   # How many times we try to fill values before giving up
         
-        for attempt in range(max_retries):
-            # 1. Generate Topology 
-            # We regenerate topology frequently if filling fails, 
-            # because some intricate shapes are mathematically impossible to fill
-            if attempt % 5 == 0: 
-                d = 0.50 if difficulty == "very_easy" else (0.55 if difficulty == "easy" else 0.60)
-                # For hard, we want more density (longer runs)
-                if difficulty == "hard": d = 0.65
+        for topo_attempt in range(MAX_TOPOLOGY_RETRIES):
+            # 1. Generate Topology
+            d = 0.60
+            if difficulty == "very_easy": d = 0.50
+            elif difficulty == "easy": d = 0.55
+            elif difficulty == "hard": d = 0.65
                 
-                self.board.generate_topology(density=d)
+            self.board.generate_topology(density=d, difficulty=difficulty)
             
             # Safety check: Is board empty?
-            if len(self.board.white_cells) < 4:
+            if len(self.board.white_cells) < 12:
+                logger.info(f"Topology led to empty board on attempt {topo_attempt}")
                 continue
 
-            # 2. Fill grid with numbers
-            self.board.reset_values()
-
-            if not self.solve_fill(difficulty=difficulty):
-                continue # Bad topology, retry
+            # ---------------------------------------------------
+            # STEP 2: Try to find a Unique Fill (Value Logic)
+            # ---------------------------------------------------
+            self.board._collect_white_cells()
+            self.board._identify_sectors()
             
-            # 3. Calculate Clues based on the fill
-            self.calculate_clues()
-            
-            # 4. Verify Uniqueness
-            # Find an alternate solution
-            unique, alt_solution = self.check_uniqueness()
-            
-            if unique:
-                print(f"Success! Unique puzzle generated on attempt {attempt}.")
-                return True
-            
-            # 5. Fix Uniqueness (Targeted Repair)
-            # If we are here, we have Solution A (in board) and Solution B (in alt_solution)
-            # Find a cell where they differ and block it.
-            # 5. Fix Uniqueness (Targeted Repair)
-            # Try to block a cell to remove ambiguity WITHOUT breaking the board
-            repaired = self._repair_ambiguity_safely(alt_solution)
-            
-            if not repaired:
-                # If we couldn't repair it safely (e.g. any block disconnects the graph),
-                # we must regenerate the topology.
-                # Force regeneration in next loop by manipulating loop counter or just continue
-                # (The 'continue' will hit the solve_fill, fail or succeed, and eventually 
-                # hit the 'attempt % 5' check to regen topology if we get stuck)
-                d = 0.50 if difficulty == "very easy" else (0.55 if difficulty == "easy" else 0.60)
-                # For hard, we want more density (longer runs)
-                if difficulty == "hard": d = 0.65
+            repair_count = 0
+            while repair_count < MAX_REPAIR_ATTEMPTS:
+                # 2. Try to Fill Values
+                # We try a few times with different seeds because sometimes 
+                # a topology is valid but a specific random path gets stuck.
+                fill_success = False
+                last_ambiguity = None
+                previous_solution_state = {} 
                 
-                self.board.generate_topology(density=d)
+                for fill_attempt in range(MAX_VALUE_RETRIES):
+                    constraints = {}
+                    if fill_attempt > 1 and last_ambiguity:
+                        constraints = self._generate_breaking_constraints(last_ambiguity)
+
+                    self.board.reset_values()
+
+                    success = self.solve_fill(difficulty=difficulty, initial_constraints=constraints, ignore_clues=True)
+                    
+                    if not success:
+                        continue # Try next fill attempt
+
+                    # Store this solution state for comparison / constraint generation
+                    previous_solution_state = {(c.r, c.c): c.value for c in self.board.white_cells}
+                    
+                    # Calculate Clues based on this fill
+                    self.calculate_clues()
+                    
+                    # Check Uniqueness using the clues
+                    is_unique, alt_sol = self.check_uniqueness(random_seed=fill_attempt)
+                    
+                    if is_unique:
+                        if self.check_uniqueness(random_seed=fill_attempt + 100)[0]:
+                            logger.info(f"Success! Unique puzzle generated (Topo {topo_attempt}, Fill {fill_attempt})")
+                          
+                            return True
+                    
+                    last_ambiguity = alt_sol
+                    
+                if not fill_success:
+                    # If we can't fill this topology (e.g. impossible geometry), 
+                    # break inner loop and generate a NEW topology.
+                    logger.debug(f"Topo {topo_attempt}: Could not fill values. Discarding.")
+                    break 
+                    
+                # 3. Calculate Clues based on the fill
+                self.calculate_clues()
+                
+                # Check Uniqueness
+                is_unique, alt_sol = self.check_uniqueness(random_seed=fill_attempt)
+                    
+                if is_unique:
+                    # Double check
+                    is_unique_2, _ = self.check_uniqueness(random_seed=fill_attempt + 100)
+                    if is_unique_2:
+                        logger.info(f"Success! Unique puzzle generated (Topo {topo_attempt}, Fill {fill_attempt})")
+                       
+                        return True
+                    
+                # Not unique - record the ambiguity for the next 'Targeted Fill' attempt
+                last_ambiguity = alt_sol
+                logger.debug(f"Topo {topo_attempt} Fill {fill_attempt}: Not unique. Retrying values...")
+
+
+                    
+                # ---------------------------------------------------
+                # STEP 3: Topology Repair (Last Resort)
+                # ---------------------------------------------------
+                # If we are here, we tried 10 different number combinations and ALL were ambiguous.
+                # This implies the geometry itself is flawed (e.g., a symmetric loop).
+                # Now we try to block a cell.
+                
+                print(f"Values failed for Topo {topo_attempt}. Attempting topology repair...")
+                
+                if self._repair_topology_robust(last_ambiguity):
+                    # SUCCESSFUL REPAIR
+                    # The grid changed. The sectors changed.
+                    self.board._collect_white_cells()  
+                    self.board._identify_sectors()
+                    
+                    # CRITICAL: DO NOT return True yet.
+                    # The current values are now garbage (sums are wrong for new blocks).
+                    # We must LOOP BACK to the top of 'while' to RE-FILL the board.
+                    repair_count += 1
+                    continue 
+                else:
+                    # Repair failed (could not block without breaking connectivity).
+                    # Break inner loop to try a fresh topology.
+                    break
                 
             
         return False
 
+    def _repair_topology_robust(self, alt_sol: Dict[Tuple[int, int], int]) -> bool:
+        """
+        Surgically alters the board to resolve ambiguity.
+        Returns True if a valid modification was made.
+        """
+        # 1. Identify differences
+        diff_cells = []
+        for c in self.board.white_cells:
+            if c.value is not None and alt_sol.get((c.r, c.c)) != c.value:
+                diff_cells.append(c)
+        
+        if not diff_cells: return False
 
-    def solve_fill(self, difficulty: str = "medium", max_nodes: int = 30000) -> bool:
+        # 2. Sort by Connectivity Safety
+        # Remove "Hubs" first (3-4 neighbors), check "Bridges" (1-2 neighbors) last.
+        # This increases the chance that the graph stays connected.
+        random.shuffle(diff_cells) # Add randomness so we don't always pick top-left
+        diff_cells.sort(key=lambda c: self._count_white_neighbors(c), reverse=True)
+
+        # Snapshot grid types for rollback
+        original_types = [row[:] for row in [[c.type for c in r] for r in self.board.grid]]
+        
+        for target in diff_cells:
+            # Transaction Start
+            
+            # 3. Apply Block + Symmetry
+            targets = {(target.r, target.c)}
+            sym_r, sym_c = self.board.height - 1 - target.r, self.board.width - 1 - target.c
+            targets.add((sym_r, sym_c))
+            
+            for r, c in targets:
+                self.board.set_block(r, c)
+                
+            # 4. CASCADE PRUNING
+            # If blocking a cell creates a 1-length run neighbor, block that too.
+            # This recursively cleans up the board.
+            self.board._prune_singles()
+            
+            # 5. Validation
+            valid = True
+            
+            # A. Check Size
+            self.board._collect_white_cells()
+            if len(self.board.white_cells) < 12:
+                valid = False
+                
+            # B. Check Connectivity
+            if valid and not self.board._check_connectivity():
+                valid = False
+                
+            # C. Check Headers (Headless runs)
+            if valid and not self.board._validate_clue_headers():
+                valid = False
+
+            if valid:
+                return True # Commit Transaction
+            
+            # Rollback Transaction
+            for r in range(self.board.height):
+                for c in range(self.board.width):
+                    self.board.grid[r][c].type = original_types[r][c]
+            self.board._collect_white_cells()
+            
+        return False
+
+    def solve_fill(self, difficulty: str = "medium", 
+                   max_nodes: int = 50000, 
+                   initial_constraints: Dict[Tuple[int, int], int] = None,
+                   ignore_clues: bool = False) -> bool:
         """Backtracking to fill the grid with valid numbers 1-9."""
         assignment = {}
         node_count = [0]
+
+        # Apply initial constraints
+        if initial_constraints:
+            for (r, c), val in initial_constraints.items():
+                cell = self.board.grid[r][c]
+                if cell.type == CellType.WHITE:
+                    # Verify consistency before assigning
+                    if self._is_consistent_number(cell, val, assignment, ignore_clues):
+                        assignment[cell] = val
+                    else:
+                        # Constraints were impossible
+                        return False
         
         # Difficulty Weighting for numbers 1 through 9
         # format: [weight_for_1, weight_for_2, ..., weight_for_9]
@@ -108,9 +248,9 @@ class CSPSolver:
             # Fallback to medium
             domain_weights = [5, 5, 5, 5, 5, 5, 5, 5, 5]
             
-        return self._backtrack_fill(assignment, node_count, max_nodes, domain_weights)
+        return self._backtrack_fill(assignment, node_count, max_nodes, domain_weights, ignore_clues)
     
-    def _backtrack_fill(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int, weights: List[int]) -> bool:
+    def _backtrack_fill(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int, weights: List[int], ignore_clues: bool = False) -> bool:
         if node_count[0] > max_nodes: 
             return False
         node_count[0] += 1
@@ -123,27 +263,65 @@ class CSPSolver:
                 cell.value = val
             return True
             
-        # Sort by most constrained (approximate by sector neighbors filled)
         var = max(unassigned, key=lambda c: self._count_neighbors_filled(c, assignment))
         
-        # Domain selection
         nums = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        # Weighted shuffle based on difficulty
-        # python's random.choices returns with replacement, so we use it to sort
         weighted_pairs = list(zip(nums, weights))
         random.shuffle(weighted_pairs)
-        # Sort based on weight + random noise
         weighted_pairs.sort(key=lambda x: x[1] * random.random(), reverse=True)
         ordered_domain = [x[0] for x in weighted_pairs]
 
         for val in ordered_domain:
-            if self._is_consistent_number(var, val, assignment):
+            if self._is_consistent_number(var, val, assignment, ignore_clues):
                 assignment[var] = val
-                if self._backtrack_fill(assignment, node_count, max_nodes, weights):
+                if self._backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues):
                     return True
                 del assignment[var]
         
         return False
+
+    def _generate_breaking_constraints(self, alt_sol: Dict[Tuple[int, int], int]) -> Dict[Tuple[int, int], int]:
+        """
+        Smart Value Repair:
+        Compare current board values (Main Sol) vs Alt Sol.
+        Pick a cell where they differ.
+        Force that cell to be a THIRD value (randomly).
+        
+        This forces the solver to explore a completely different branch of the solution tree.
+        """
+        diffs = []
+        for c in self.board.white_cells:
+            if c.value is not None:
+                if alt_sol.get((c.r, c.c)) != c.value:
+                    diffs.append(c)
+        
+        if not diffs: return {}
+        
+        # Pick one difference to act as the pivot
+        target = random.choice(diffs)
+        
+        val_a = target.value
+        val_b = alt_sol.get((target.r, target.c))
+        
+        # Pick a value that is NEITHER A nor B
+        domain = list(range(1, 10))
+        if val_a in domain: domain.remove(val_a)
+        if val_b in domain: domain.remove(val_b)
+        
+        if not domain: return {} # Should verify against neighbors, but let solver handle it
+        
+        new_val = random.choice(domain)
+        
+        # Return as constraint
+        return {(target.r, target.c): new_val}
+
+    def _count_white_neighbors(self, cell: Cell) -> int:
+        n = 0
+        for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
+            nr, nc = cell.r + dr, cell.c + dc
+            if self.board.get_cell(nr, nc) and self.board.get_cell(nr, nc).type == CellType.WHITE:
+                n += 1
+        return n
 
     def _count_neighbors_filled(self, cell: Cell, assignment: Dict[Cell, int]) -> int:
         count = 0
@@ -155,15 +333,49 @@ class CSPSolver:
                 if n in assignment: count += 1
         return count
 
-    def _is_consistent_number(self, var: Cell, value: int, assignment: Dict[Cell, int]) -> bool:
-        # Check Row
+    def _is_consistent_number(self, var: Cell, value: int, assignment: Dict[Cell, int], ignore_clues: bool = False) -> bool:
+        """
+        Checks validity.
+        If ignore_clues is True, ONLY checks for duplicate numbers in row/col.
+        If ignore_clues is False, checks Sums match Clues.
+        """
+        # --- HORIZONTAL CHECK ---
         if var.sector_h:
+            curr_sum = value
+            filled_count = 1
             for cell in var.sector_h:
-                if cell in assignment and assignment[cell] == value: return False
-        # Check Col
+                if cell in assignment:
+                    v = assignment[cell]
+                    if v == value: return False # Duplicate check (ALWAYS ON)
+                    curr_sum += v
+                    filled_count += 1
+            
+            # Sum check (ONLY if not ignoring clues)
+            if not ignore_clues:
+                clue_cell = self.board.grid[var.sector_h[0].r][var.sector_h[0].c - 1]
+                if clue_cell.clue_h is None: return False # Should not happen in solver mode
+                
+                if curr_sum > clue_cell.clue_h: return False
+                if filled_count == len(var.sector_h) and curr_sum != clue_cell.clue_h: return False
+
+        # --- VERTICAL CHECK ---
         if var.sector_v:
+            curr_sum = value
+            filled_count = 1
             for cell in var.sector_v:
-                if cell in assignment and assignment[cell] == value: return False
+                if cell in assignment:
+                    v = assignment[cell]
+                    if v == value: return False # Duplicate check
+                    curr_sum += v
+                    filled_count += 1
+            
+            if not ignore_clues:
+                clue_cell = self.board.grid[var.sector_v[0].r - 1][var.sector_v[0].c]
+                if clue_cell.clue_v is None: return False
+
+                if curr_sum > clue_cell.clue_v: return False
+                if filled_count == len(var.sector_v) and curr_sum != clue_cell.clue_v: return False
+        
         return True
 
     def calculate_clues(self):
@@ -181,7 +393,7 @@ class CSPSolver:
                 self.board.grid[first.r - 1][first.c].clue_v = s_sum
 
 
-    def check_uniqueness(self, max_nodes: int = 10000) -> Tuple[bool, Optional[Dict[Tuple[int, int], int]]]:
+    def check_uniqueness(self, max_nodes: int = 10000, random_seed: int = 0) -> Tuple[bool, Optional[Dict[Tuple[int, int], int]]]:
         """
         Returns (True, None) if unique.
         Returns (False, Alternative_Assignment) if not unique.
@@ -193,7 +405,7 @@ class CSPSolver:
             c.value = None
             
         found_solutions = []
-        self._solve_for_uniqueness(found_solutions, current_solution, [0], max_nodes)
+        self._solve_for_uniqueness(found_solutions, current_solution, [0], max_nodes, random_seed)
         
         # Restore original solution
         for c in self.board.white_cells:
@@ -206,33 +418,35 @@ class CSPSolver:
         # found_solutions contains the ALTERNATIVE solution
         return False, found_solutions[0]
 
-    def _solve_for_uniqueness(self, found_solutions: List[Dict], avoid_sol: Dict, node_count: List[int], max_nodes: int):
-        if found_solutions: return # Found an alternative, stop
-        if node_count[0] > max_nodes: return
+    def _solve_for_uniqueness(self, found_solutions: List[Dict], avoid_sol: Dict, node_count: List[int], max_nodes: int, random_seed: int):
+        if found_solutions or node_count[0] > max_nodes: return
         node_count[0] += 1
-        
-        # Find unassigned
         unassigned = [c for c in self.board.white_cells if c.value is None]
         if not unassigned:
-            # Check if this solution is different from the original
-            is_diff = False
-            current_sol = {}
             for c in self.board.white_cells:
-                current_sol[(c.r, c.c)] = c.value
-                if avoid_sol[(c.r, c.c)] != c.value:
-                    is_diff = True
-            
-            if is_diff:
-                found_solutions.append(current_sol)
+                if avoid_sol.get((c.r, c.c)) != c.value:
+                    found_solutions.append({(cell.r, cell.c): cell.value for cell in self.board.white_cells})
+                    return
             return
-
-        # MRV
-        var = min(unassigned, key=lambda c: self._get_domain_size(c))
         
-        for val in range(1, 10):
-            if self._is_valid_move(var, val):
+        # Helper to get domain size respecting CLUES
+        def get_d_size(c):
+            cnt = 0
+            for v in range(1, 10):
+                if self._is_consistent_number(c, v, {x: x.value for x in self.board.white_cells if x.value}, ignore_clues=False): cnt += 1
+            return cnt
+
+        var = min(unassigned, key=lambda c: get_d_size(c))
+        values = list(range(1, 10))
+        random.Random(random_seed + node_count[0]).shuffle(values)
+        
+        # Current partial assignment for validation
+        current_assign = {x: x.value for x in self.board.white_cells if x.value is not None}
+        
+        for val in values:
+            if self._is_consistent_number(var, val, current_assign, ignore_clues=False):
                 var.value = val
-                self._solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes)
+                self._solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes, random_seed)
                 if found_solutions: return
                 var.value = None
 
