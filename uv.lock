@@ -486,7 +486,7 @@ wheels = [
 
 [[package]]
 name = "kakuro"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "authlib" },
