@@ -7,7 +7,7 @@ except ImportError:
 import logging
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
-from python.models import PerformanceMetric, AuthLog
+from .models import PerformanceMetric, AuthLog
 from datetime import datetime, timezone
 import time
 import os

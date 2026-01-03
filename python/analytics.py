@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from fastapi import Request
-from python.models import UserSession, PuzzleInteraction, Puzzle
-from python.kakuro import KakuroBoard # Needed to check correctness if required
+from .models import UserSession, PuzzleInteraction, Puzzle
+from .kakuro import KakuroBoard # Needed to check correctness if required
 
 def start_user_session(db: Session, user_id: str, request: Request, device_type: str = "desktop") -> UserSession:
     """

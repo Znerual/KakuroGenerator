@@ -143,7 +143,7 @@ class KakuroBoard:
                 if self._place_random_seed():
                     self._grow_lattice(density, max_sector_length)
                     success = len(self.white_cells) > 0
-                print(f"Original growth algorithm: {success}")
+                #print(f"Original growth algorithm: {success}")
 
             if not success:
                 continue

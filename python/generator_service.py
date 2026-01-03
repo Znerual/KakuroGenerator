@@ -3,10 +3,10 @@ import time
 import logging
 import random
 from sqlalchemy.orm import Session
-from python.database import SessionLocal
-from python.models import PuzzleTemplate
-from python.kakuro_wrapper import KakuroBoard, CSPSolver
-from python.performance import Timer
+from .database import SessionLocal
+from .models import PuzzleTemplate
+from .kakuro_wrapper import KakuroBoard, CSPSolver
+from .performance import Timer
 
 logger = logging.getLogger("kakuro_generator")
 

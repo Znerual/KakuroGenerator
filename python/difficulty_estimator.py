@@ -1,7 +1,7 @@
 import itertools
 from typing import List, Set, Dict, Tuple
 from collections import defaultdict
-from python.kakuro import KakuroBoard, Cell, CellType # Adjust import
+from .kakuro import KakuroBoard, Cell, CellType # Adjust import
 
 class KakuroDifficultyEstimator:
     def __init__(self, board: KakuroBoard):

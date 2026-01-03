@@ -6,7 +6,7 @@ Defines User and Puzzle models with SQLAlchemy.
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
-from python.database import Base
+from .database import Base
 import uuid
 
 def generate_uuid():

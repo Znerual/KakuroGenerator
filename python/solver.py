@@ -1,7 +1,7 @@
 from collections import deque
 from typing import List, Dict, Set, Optional, Tuple
-from python.kakuro import KakuroBoard, Cell, CellType
-from python.difficulty_estimator import KakuroDifficultyEstimator
+from .kakuro import KakuroBoard, Cell, CellType
+from .difficulty_estimator import KakuroDifficultyEstimator
 import copy
 import random
 import logging

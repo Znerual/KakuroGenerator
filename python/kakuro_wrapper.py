@@ -10,11 +10,12 @@ import os
 # Try to import the C++ module
 try:
     # Look for the module in the python directory
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from kakuro_cpp import KakuroBoard as _KakuroBoard
-    from kakuro_cpp import CSPSolver as _CSPSolver
-    from kakuro_cpp import KakuroDifficultyEstimator as _KakuroDifficultyEstimator
-    from kakuro_cpp import CellType
+    from kakuro import kakuro_cpp
+    
+    # Map C++ classes to local names
+    _KakuroBoard = kakuro_cpp.KakuroBoard
+    _CSPSolver = kakuro_cpp.CSPSolver
+    _KakuroDifficultyEstimator = kakuro_cpp.KakuroDifficultyEstimator
     CPP_AVAILABLE = True
     print("✓ C++ acceleration loaded successfully")
 except ImportError as e:
@@ -37,7 +38,7 @@ class KakuroBoard:
         else:
             # Fallback to pure Python implementation
             try:
-                from python.kakuro import KakuroBoard as PyKakuroBoard
+                from .kakuro import KakuroBoard as PyKakuroBoard
                 self._board = PyKakuroBoard(width, height)
             except ImportError:
                 # Alternative import path
@@ -101,7 +102,7 @@ class CSPSolver:
             self._solver = _CSPSolver(board._board)
         else:
             try:
-                from python.solver import CSPSolver as PyCSPSolver
+                from .solver import CSPSolver as PyCSPSolver
                 self._solver = PyCSPSolver(board._board)
             except ImportError:
                 from solver import CSPSolver as PyCSPSolver
@@ -132,11 +133,12 @@ class KakuroDifficultyEstimator:
             self._estimator = _KakuroDifficultyEstimator(board._board)
         else:
             try:
-                from python.difficulty_estimator import KakuroDifficultyEstimator as PyEst
+                from .difficulty_estimator import KakuroDifficultyEstimator as PyEst
                 self._estimator = PyEst(board._board)
             except ImportError:
-                # Fallback internal definition or secondary import
-                pass # You would need to ensure the python version is importable
+                from difficulty_estimator import KakuroDifficultyEstimator as PyEst
+                self._estimator = PyEst(board._board)
+               
 
     def estimate_difficulty(self) -> float:
         """Returns the difficulty score."""

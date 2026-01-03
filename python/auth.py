@@ -10,9 +10,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from python.database import get_db
-from python.models import User
-import python.config as config
+from .database import get_db
+from .models import User
+import kakuro.config as config
 import random
 import string
 

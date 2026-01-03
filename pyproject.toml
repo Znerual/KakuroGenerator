@@ -1,6 +1,6 @@
 [project]
 name = "kakuro"
-version = "0.3.1"
+version = "0.3.2"
 description = "High-performance Kakuro puzzle generator with C++ acceleration"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,12 +33,16 @@ requires = [
     "setuptools>=45",
     "wheel",
     "pybind11[global]>=2.11.0",
+    "cmake>=3.12",
 ]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["python", "routes"]
-include-package-data = true
+packages = ["kakuro"]
+
+[tool.setuptools.package-dir]
+# This maps the package "kakuro" to the directory "python"
+kakuro = "python"
 
 [tool.setuptools.package-data]
 "*" = ["*.so", "*.pyd", "*.dll"]

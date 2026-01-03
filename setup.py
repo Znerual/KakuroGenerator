@@ -35,7 +35,8 @@ class CMakeBuild(build_ext):
 
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        
+        if not os.path.exists(extdir):
+            os.makedirs(extdir)
         # For in-place builds, put the extension in the python/ directory
         if self.inplace:
             extdir = os.path.abspath('python')
@@ -149,6 +150,7 @@ setup(
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
     python_requires='>=3.12',
-    packages=['python', 'routes'],
-    package_dir={'python': 'python', 'routes': 'routes'},
+    packages=['kakuro'],
+    package_dir={'kakuro': 'python'},
+    package_data={'kakuro': ['*.so', '*.pyd', '*.dll']},
 )

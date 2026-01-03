@@ -5,7 +5,7 @@ Uses Resend API for email delivery.
 
 import resend
 from typing import Optional
-import python.config as config
+import kakuro.config as config
 
 
 def send_verification_email(email: str, code: str, user_name: Optional[str] = None) -> bool:
