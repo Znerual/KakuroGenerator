@@ -66,8 +66,6 @@ PYBIND11_MODULE(kakuro_cpp, m) {
             py::dict d;
             d["r"] = c.r;
             d["c"] = c.c;
-            // Map CellType enum to its string representation ("BLOCK" or "WHITE")
-            // matching Python's self.type.value behavior
             d["type"] = (c.type == kakuro::CellType::BLOCK) ? "BLOCK" : "WHITE";
             
             if (c.value.has_value()) d["value"] = c.value.value();
@@ -95,9 +93,13 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         .def("reset_values", &kakuro::KakuroBoard::reset_values)
         .def("set_block", &kakuro::KakuroBoard::set_block)
         .def("set_white", &kakuro::KakuroBoard::set_white)
+        
+        // FIX: Added difficulty argument
         .def("generate_topology", &kakuro::KakuroBoard::generate_topology,
              py::arg("density") = 0.60,
-             py::arg("max_sector_length") = 9)
+             py::arg("max_sector_length") = 9,
+             py::arg("difficulty") = "medium") 
+             
         .def("collect_white_cells", &kakuro::KakuroBoard::collect_white_cells)
         .def("identify_sectors", &kakuro::KakuroBoard::identify_sectors)
         .def("to_dict", &kakuro::KakuroBoard::to_dict)
@@ -114,12 +116,10 @@ PYBIND11_MODULE(kakuro_cpp, m) {
                 return b.sectors_v;
             })
         .def("get_grid", [](const kakuro::KakuroBoard& b) {
-            // Return a Python-accessible grid
             py::list result;
             for (int r = 0; r < b.height; r++) {
                 py::list row;
                 for (int c = 0; c < b.width; c++) {
-                    // Return pointer to cell (managed by C++)
                     row.append(py::cast(&b.grid[r][c], py::return_value_policy::reference));
                 }
                 result.append(row);
@@ -132,10 +132,21 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         .def(py::init<std::shared_ptr<kakuro::KakuroBoard>>())
         .def("generate_puzzle", &kakuro::CSPSolver::generate_puzzle,
              py::arg("difficulty") = "medium")
+             
+        // FIX: Added initial_constraints and ignore_clues arguments
         .def("solve_fill", &kakuro::CSPSolver::solve_fill,
              py::arg("difficulty") = "medium",
-             py::arg("max_nodes") = 30000)
+             py::arg("max_nodes") = 30000,
+             py::arg("initial_constraints") = std::unordered_map<kakuro::Cell*, int>(),
+             py::arg("ignore_clues") = false)
+             
         .def("calculate_clues", &kakuro::CSPSolver::calculate_clues)
+        
         .def("check_uniqueness", &kakuro::CSPSolver::check_uniqueness,
-             py::arg("max_nodes") = 10000);
+             py::arg("max_nodes") = 10000,
+             py::arg("seed_offset") = 0);
+
+    py::class_<kakuro::KakuroDifficultyEstimator>(m, "KakuroDifficultyEstimator")
+        .def(py::init<std::shared_ptr<kakuro::KakuroBoard>>())
+        .def("estimate_difficulty", &kakuro::KakuroDifficultyEstimator::estimate_difficulty);
 }

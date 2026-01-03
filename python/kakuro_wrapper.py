@@ -13,6 +13,7 @@ try:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from kakuro_cpp import KakuroBoard as _KakuroBoard
     from kakuro_cpp import CSPSolver as _CSPSolver
+    from kakuro_cpp import KakuroDifficultyEstimator as _KakuroDifficultyEstimator
     from kakuro_cpp import CellType
     CPP_AVAILABLE = True
     print("✓ C++ acceleration loaded successfully")
@@ -35,7 +36,6 @@ class KakuroBoard:
             self._board = _KakuroBoard(width, height)
         else:
             # Fallback to pure Python implementation
-            # Import from your existing python/kakuro.py
             try:
                 from python.kakuro import KakuroBoard as PyKakuroBoard
                 self._board = PyKakuroBoard(width, height)
@@ -44,9 +44,10 @@ class KakuroBoard:
                 from kakuro import KakuroBoard as PyKakuroBoard
                 self._board = PyKakuroBoard(width, height)
     
-    def generate_topology(self, density: float = 0.60, max_sector_length: int = 9):
+    def generate_topology(self, density: float = 0.60, max_sector_length: int = 9, difficulty: str = "medium"):
         """Generate the board topology."""
-        self._board.generate_topology(density, max_sector_length)
+        # Note: Added difficulty argument to match updated C++ API
+        self._board.generate_topology(density, max_sector_length, difficulty)
     
     def reset_values(self):
         """Clear all values and clues."""
@@ -109,12 +110,6 @@ class CSPSolver:
     def generate_puzzle(self, difficulty: str = "medium") -> bool:
         """
         Generate a complete, unique Kakuro puzzle.
-        
-        Args:
-            difficulty: One of "very_easy", "easy", "medium", "hard"
-        
-        Returns:
-            True if successful, False otherwise
         """
         return self._solver.generate_puzzle(difficulty)
     
@@ -127,23 +122,38 @@ class CSPSolver:
         self._solver.calculate_clues()
 
 
+class KakuroDifficultyEstimator:
+    """Python wrapper for Difficulty Estimator."""
+    
+    def __init__(self, board: KakuroBoard):
+        self.board = board
+        
+        if board.use_cpp:
+            self._estimator = _KakuroDifficultyEstimator(board._board)
+        else:
+            try:
+                from python.difficulty_estimator import KakuroDifficultyEstimator as PyEst
+                self._estimator = PyEst(board._board)
+            except ImportError:
+                # Fallback internal definition or secondary import
+                pass # You would need to ensure the python version is importable
+
+    def estimate_difficulty(self) -> float:
+        """Returns the difficulty score."""
+        if self.board.use_cpp:
+            return self._estimator.estimate_difficulty()
+        else:
+            return self._estimator.estimate_difficulty()
+
+
 def generate_kakuro(width: int, height: int, difficulty: str = "medium", 
                    use_cpp: bool = True) -> KakuroBoard:
     """
     Convenience function to generate a complete Kakuro puzzle.
-    
-    Args:
-        width: Board width
-        height: Board height
-        difficulty: Difficulty level ("very_easy", "easy", "medium", "hard")
-        use_cpp: Whether to use C++ implementation (faster)
-    
-    Returns:
-        KakuroBoard with generated puzzle
     """
-    print(f"Generating {width}x{height} {difficulty} puzzle...")
+    #print(f"Generating {width}x{height} {difficulty} puzzle (C++={use_cpp})...")
     
-
+    # Try up to 20 times to get a valid puzzle
     for i in range(20):
         board = KakuroBoard(width, height, use_cpp=use_cpp)
         solver = CSPSolver(board)
@@ -151,7 +161,11 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
         success = solver.generate_puzzle(difficulty)
         
         if success:
-            print(f"✓ Generated puzzle successfully")
+            # Estimate actual difficulty
+            estimator = KakuroDifficultyEstimator(board)
+            score = estimator.estimate_difficulty()
+            
+            #print(f"✓ Generated puzzle successfully. Score: {score} ({type(score)})")
             return board
     
     print(f"⚠ Failed to generate puzzle with difficulty {difficulty}")
@@ -161,9 +175,6 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
 def export_to_json(board: KakuroBoard) -> dict:
     """
     Export board to JSON-serializable format.
-    
-    Returns:
-        Dictionary representing the board state
     """
     grid_dict = board.to_dict()
     
@@ -204,11 +215,14 @@ if __name__ == "__main__":
     if CPP_AVAILABLE:
         print("\n✓ C++ acceleration is working!")
         print("\nGenerating test puzzle...")
-        board = generate_kakuro(10, 10, difficulty="medium", use_cpp=True)
+        board = generate_kakuro(10, 10, difficulty="very_easy", use_cpp=True)
         
         print(f"Generated board with {len(board.white_cells)} white cells")
-        print(f"Horizontal sectors: {len(board.sectors_h)}")
-        print(f"Vertical sectors: {len(board.sectors_v)}")
+        
+        # Test difficulty estimator explicitly
+        est = KakuroDifficultyEstimator(board)
+        print(f"Difficulty Score: {est.estimate_difficulty()}")
+        
     else:
         print("\n⚠ C++ module not available")
         print("\nTo build the C++ module:")

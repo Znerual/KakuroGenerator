@@ -58,11 +58,11 @@ class KakuroDifficultyEstimator:
                 # This drastically increases difficulty score.
                 remaining = total_cells - solved_cells
                 penalty = remaining * 2.0 # Heavy penalty for unsolved cells
-                return "Hard", float(passes) + penalty
+                return float(passes) + penalty
 
             # Loop safety cap
             if passes > 20:
-                return "Very Hard", 99.0
+                return 99.0
 
         # Calculate final score based on passes needed
         # Base score is the number of logic passes

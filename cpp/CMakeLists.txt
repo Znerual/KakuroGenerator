@@ -22,6 +22,7 @@ option(BUILD_PYTHON_BINDINGS "Build Python bindings with pybind11" ON)
 add_library(kakuro_core STATIC
     kakuro_board.cpp
     kakuro_solver.cpp
+    kakuro_difficulty.cpp
 )
 
 target_include_directories(kakuro_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -60,6 +61,7 @@ if(ANDROID)
     add_library(kakuro_jni SHARED
         kakuro_board.cpp
         kakuro_solver.cpp
+        kakuro_difficulty.cpp
         kakuro_jni.cpp
     )
     
