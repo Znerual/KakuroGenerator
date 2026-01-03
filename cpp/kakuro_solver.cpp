@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <queue>
 #include <iostream>
+#include <map>
+#include <numeric>
 
 namespace kakuro {
 
@@ -9,162 +11,161 @@ CSPSolver::CSPSolver(std::shared_ptr<KakuroBoard> b)
     : board(b), rng(std::random_device{}()) {}
 
 bool CSPSolver::generate_puzzle(const std::string& difficulty) {
-    const int max_retries = 80;
+    const int MAX_TOPOLOGY_RETRIES = 20;
+    const int MAX_REPAIR_ATTEMPTS = 5;
+    const int MAX_VALUE_RETRIES = 5;
+
     
     LOG_DEBUG("Starting puzzle generation. Difficulty: " << difficulty);
 
-    for (int attempt = 0; attempt < max_retries; attempt++) {
-        // Regenerate topology periodically
-        if (attempt % 5 == 0) {
-            LOG_DEBUG("Attempt " << attempt << ": Regenerating topology");
-            double d = 0.60;
-            if (difficulty == "very_easy") d = 0.50;
-            else if (difficulty == "easy") d = 0.55;
-            else if (difficulty == "hard") d = 0.65;
-            
-            board->generate_topology(d);
-        }
+    for (int topo_attempt = 0; topo_attempt < MAX_TOPOLOGY_RETRIES; topo_attempt++) {
+        board->generate_topology(0.60, 9, difficulty);
+
+        if (board->white_cells.size() < 12) continue;
         
-        // Safety check
-        if (board->white_cells.size() < 4) {
-            LOG_DEBUG("Attempt " << attempt << ": Too few white cells (" << board->white_cells.size() << ")");
-            continue;
-        }
+        // Force synchronization
+        board->collect_white_cells();
+        board->identify_sectors();
+
         
-        // Fill grid with numbers
-        board->reset_values();
-        
-        if (!solve_fill(difficulty)) {
-            if (attempt % 10 == 0) LOG_DEBUG("Attempt " << attempt << ": Failed to fill grid");
-            continue;
-        }
-        
-        // Calculate clues
-        calculate_clues();
-        
-        // Check uniqueness
-        LOG_DEBUG("Attempt " << attempt << ": Checking uniqueness...");
-        auto [unique, alt_solution] = check_uniqueness();
-        
-        if (unique) {
-            LOG_DEBUG("Success! Unique puzzle generated on attempt " << attempt);
-            return true;
-        }
-        
-        // Try to repair
-        if (alt_solution.has_value()) {
-            LOG_DEBUG("Attempt " << attempt << ": Ambiguous. Trying repair...");
-            bool repaired = repair_ambiguity_safely(alt_solution.value());
-            
-            if (!repaired) {
-                LOG_DEBUG("Attempt " << attempt << ": Repair failed. Forcing regen.");
-                // Force regeneration
-                double d = 0.60;
-                if (difficulty == "very_easy") d = 0.50;
-                else if (difficulty == "easy") d = 0.55;
-                else if (difficulty == "hard") d = 0.65;
+        int repair_count = 0;
+        while (repair_count < MAX_REPAIR_ATTEMPTS) {
+            bool fill_success = false;
+            std::unordered_map<std::pair<int, int>, int, PairHash> last_ambiguity;
+            std::unordered_map<std::pair<int, int>, int, PairHash> previous_solution_state;
+            bool has_last_ambiguity = false;
+            bool has_previous_state = false;
+
+            for (int fill_attempt = 0; fill_attempt < MAX_VALUE_RETRIES; fill_attempt++) {
                 
-                board->generate_topology(d);
+                // Logic Fix 1: Generate constraints BEFORE reset
+                std::unordered_map<Cell*, int> constraints;
+                if (fill_attempt > 1 && has_last_ambiguity && has_previous_state) {
+                    auto constraint_map = generate_breaking_constraints(last_ambiguity, previous_solution_state);
+                    for(auto& [c, val] : constraint_map) {
+                        constraints[c] = val;
+                    }
+                }
+
+                board->reset_values();
+
+                // Logic Fix 2: Pass ignore_clues=true
+                bool success = solve_fill(difficulty, 50000, constraints, true);
+
+                if (success) {
+                    fill_success = true;
+                    // Store state
+                    previous_solution_state.clear();
+                    for(Cell* c : board->white_cells) {
+                        if(c->value) previous_solution_state[{c->r, c->c}] = *c->value;
+                    }
+                    has_previous_state = true;
+                    break;
+                }
+            }
+
+            if (!fill_success) break; // discard topology
+
+            calculate_clues();
+
+            // Check Uniqueness (seed logic can be handled by offset)
+            auto [unique, alt_sol] = check_uniqueness(10000, 0);
+            
+            if (unique) {
+                // Double check
+                auto [unique2, _] = check_uniqueness(10000, 100);
+                if (unique2) return true;
+            }
+
+            if (alt_sol.has_value()) {
+                last_ambiguity = alt_sol.value();
+                has_last_ambiguity = true;
+                
+                // Repair
+                if (repair_topology_robust(last_ambiguity)) {
+                    // Force complete re-sync
+                    board->collect_white_cells();
+                    board->identify_sectors();
+                    repair_count++;
+                    continue; // Loop back to refill
+                } else {
+                    break; // Repair failed
+                }
             } else {
-                LOG_DEBUG("Attempt " << attempt << ": Repair successful!");
-                // You might want to re-check uniqueness here or return true depending on logic
-                // For now assuming repair makes it unique or we retry loop
+                // Should be unique if alt_sol is empty, but double check logic might have failed
+                break; 
             }
         }
     }
-    
-    LOG_DEBUG("Failed to generate puzzle after max retries");
     return false;
 }
 
-bool CSPSolver::solve_fill(const std::string& difficulty, int max_nodes) {
+bool CSPSolver::solve_fill(const std::string& difficulty, 
+                           int max_nodes,
+                           const std::unordered_map<Cell*, int>& initial_constraints,
+                           bool ignore_clues) {
     std::unordered_map<Cell*, int> assignment;
     int node_count = 0;
     
-    // Difficulty weights for numbers 1-9
-    std::vector<int> domain_weights;
-    
-    if (difficulty == "very_easy") {
-        domain_weights = {20, 15, 5, 1, 1, 1, 5, 15, 20};
-    } else if (difficulty == "easy") {
-        domain_weights = {10, 8, 6, 2, 1, 2, 6, 8, 10};
-    } else if (difficulty == "medium") {
-        domain_weights = {5, 5, 5, 5, 5, 5, 5, 5, 5};
-    } else if (difficulty == "hard") {
-        domain_weights = {1, 2, 5, 10, 10, 10, 5, 2, 1};
-    } else {
-        domain_weights = {5, 5, 5, 5, 5, 5, 5, 5, 5};
+    // Apply constraints
+    for(auto& [cell, val] : initial_constraints) {
+        if(cell->type == CellType::WHITE) {
+            if(is_consistent_number(cell, val, assignment, ignore_clues)) {
+                assignment[cell] = val;
+            } else {
+                return false;
+            }
+        }
     }
+
+    std::vector<int> weights;
+    if (difficulty == "very_easy") weights = {20, 15, 5, 1, 1, 1, 5, 15, 20};
+    else if (difficulty == "easy") weights = {10, 8, 6, 2, 1, 2, 6, 8, 10};
+    else if (difficulty == "hard") weights = {1, 2, 5, 10, 10, 10, 5, 2, 1};
+    else weights = {5, 5, 5, 5, 5, 5, 5, 5, 5};
     
-    return backtrack_fill(assignment, node_count, max_nodes, domain_weights);
+    return backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues);
 }
 
+
 bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
-                                int& node_count, int max_nodes,
-                                const std::vector<int>& weights) {
-    if (node_count > max_nodes) {
-        return false;
-    }
+                               int& node_count, int max_nodes,
+                               const std::vector<int>& weights,
+                               bool ignore_clues) {
+    if (node_count > max_nodes) return false;
     node_count++;
     
-    // Find unassigned cells
     std::vector<Cell*> unassigned;
-    unassigned.reserve(board->white_cells.size());
     for (Cell* c : board->white_cells) {
-        if (assignment.find(c) == assignment.end()) {
-            unassigned.push_back(c);
-        }
+        if (assignment.find(c) == assignment.end()) unassigned.push_back(c);
     }
     
     if (unassigned.empty()) {
-        // Apply assignment to board
-        for (auto& [cell, val] : assignment) {
-            cell->value = val;
-        }
+        for (auto& [cell, val] : assignment) cell->value = val;
         return true;
     }
     
-    // MRV: Select most constrained variable
-    Cell* var = nullptr;
-    int max_neighbors = -1;
-    
-    for (Cell* c : unassigned) {
-        int n = count_neighbors_filled(c, assignment);
-        if (n > max_neighbors) {
-            max_neighbors = n;
-            var = c;
-        }
-    }
-    
-    // Pre-calculate random scores so they don't change during sort
-    std::vector<std::pair<int, double>> domain;
-    domain.reserve(9);
-    
-    std::uniform_real_distribution<> dist(0.01, 1.0);
-    
-    for (int i = 0; i < 9; i++) {
-        // weights[i] is int, multiply by random double
-        double score = static_cast<double>(weights[i]) * dist(rng);
-        domain.push_back({i + 1, score});
-    }
-    
-    // Sort descending by score (Safe: score is constant for this call)
-    std::sort(domain.begin(), domain.end(),
-        [](const std::pair<int, double>& a, const std::pair<int, double>& b) {
-            return a.second > b.second;
+    // MRV
+    Cell* var = *std::max_element(unassigned.begin(), unassigned.end(),
+        [this, &assignment](Cell* a, Cell* b) {
+            return count_neighbors_filled(a, assignment) < count_neighbors_filled(b, assignment);
         });
     
-    for (const auto& pair : domain) {
-        int val = pair.first;
-        if (is_consistent_number(var, val, assignment)) {
+    std::vector<std::pair<int, double>> domain;
+    std::uniform_real_distribution<> dist(0.01, 1.0);
+    for (int i = 0; i < 9; i++) {
+        domain.push_back({i + 1, (double)weights[i] * dist(rng)});
+    }
+    std::sort(domain.begin(), domain.end(), [](const auto& a, const auto& b){ return a.second > b.second; });
+    
+    for (auto& p : domain) {
+        int val = p.first;
+        if (is_consistent_number(var, val, assignment, ignore_clues)) {
             assignment[var] = val;
-            if (backtrack_fill(assignment, node_count, max_nodes, weights)) {
-                return true;
-            }
+            if (backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues)) return true;
             assignment.erase(var);
         }
     }
-    
     return false;
 }
 
@@ -191,28 +192,55 @@ int CSPSolver::count_neighbors_filled(Cell* cell,
     return count;
 }
 
-bool CSPSolver::is_consistent_number(Cell* var, int value,
-                                     const std::unordered_map<Cell*, int>& assignment) {
-    // Check horizontal sector
-    if (var->sector_h && !var->sector_h->empty()) {
-        for (Cell* cell : *(var->sector_h)) {
-            auto it = assignment.find(cell);
-            if (it != assignment.end() && it->second == value) {
-                return false;
+bool CSPSolver::is_consistent_number(Cell* var, int value, 
+                                     const std::unordered_map<Cell*, int>& assignment, 
+                                     bool ignore_clues) {
+    // Horizontal
+    if (var->sector_h) {
+        int curr_sum = value;
+        int filled = 1;
+        for (Cell* peer : *var->sector_h) {
+            if (assignment.count(peer)) {
+                int v = assignment.at(peer);
+                if (v == value) return false; // Duplicate check always on
+                curr_sum += v;
+                filled++;
+            }
+        }
+        if (!ignore_clues) {
+            Cell* start = (*var->sector_h)[0];
+            if (start->c > 0) {
+                auto clue = board->grid[start->r][start->c-1].clue_h;
+                if (clue) {
+                    if (curr_sum > *clue) return false;
+                    if (filled == (int)var->sector_h->size() && curr_sum != *clue) return false;
+                }
             }
         }
     }
-    
-    // Check vertical sector
-    if (var->sector_v && !var->sector_v->empty()) {
-        for (Cell* cell : *(var->sector_v)) {
-            auto it = assignment.find(cell);
-            if (it != assignment.end() && it->second == value) {
-                return false;
+    // Vertical
+    if (var->sector_v) {
+        int curr_sum = value;
+        int filled = 1;
+        for (Cell* peer : *var->sector_v) {
+            if (assignment.count(peer)) {
+                int v = assignment.at(peer);
+                if (v == value) return false; 
+                curr_sum += v;
+                filled++;
+            }
+        }
+        if (!ignore_clues) {
+            Cell* start = (*var->sector_v)[0];
+            if (start->r > 0) {
+                auto clue = board->grid[start->r-1][start->c].clue_v;
+                if (clue) {
+                    if (curr_sum > *clue) return false;
+                    if (filled == (int)var->sector_v->size() && curr_sum != *clue) return false;
+                }
             }
         }
     }
-    
     return true;
 }
 
@@ -249,83 +277,57 @@ void CSPSolver::calculate_clues() {
 }
 
 std::pair<bool, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
-CSPSolver::check_uniqueness(int max_nodes) {
-    // Save current solution
-    std::unordered_map<std::pair<int, int>, int, PairHash> current_solution;
-    for (Cell* c : board->white_cells) {
-        if (c->value.has_value()) {
-            current_solution[{c->r, c->c}] = c->value.value();
-        }
-    }
+CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
+    std::unordered_map<std::pair<int, int>, int, PairHash> current_sol;
+    for (Cell* c : board->white_cells) if(c->value) current_sol[{c->r, c->c}] = *c->value;
     
-    // Clear board
-    for (Cell* c : board->white_cells) {
-        c->value = std::nullopt;
-    }
+    for (Cell* c : board->white_cells) c->value = std::nullopt;
     
-    // Search for alternative solution
-    std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found_solutions;
+    std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found;
     int node_count = 0;
-    solve_for_uniqueness(found_solutions, current_solution, node_count, max_nodes);
+    solve_for_uniqueness(found, current_sol, node_count, max_nodes, seed_offset);
     
-    // Restore original solution
-    for (Cell* c : board->white_cells) {
-        c->value = current_solution[{c->r, c->c}];
-    }
+    for (Cell* c : board->white_cells) c->value = current_sol[{c->r, c->c}];
     
-    if (found_solutions.empty()) {
-        return {true, std::nullopt};
-    }
-    
-    return {false, found_solutions[0]};
+    if (found.empty()) return {true, std::nullopt};
+    return {false, found[0]};
 }
 
 void CSPSolver::solve_for_uniqueness(
     std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>& found_solutions,
     const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol,
-    int& node_count, int max_nodes) {
+    int& node_count, int max_nodes, int seed) {
     
-    if (!found_solutions.empty()) return;
-    if (node_count > max_nodes) return;
+    if (!found_solutions.empty() || node_count > max_nodes) return;
     node_count++;
     
-    // Find unassigned
     std::vector<Cell*> unassigned;
-    for (Cell* c : board->white_cells) {
-        if (!c->value.has_value()) {
-            unassigned.push_back(c);
-        }
-    }
+    for(Cell* c : board->white_cells) if(!c->value) unassigned.push_back(c);
     
-    if (unassigned.empty()) {
-        // Check if different from original
-        bool is_diff = false;
-        std::unordered_map<std::pair<int, int>, int, PairHash> current_sol;
-        
-        for (Cell* c : board->white_cells) {
-            current_sol[{c->r, c->c}] = c->value.value();
-            if (avoid_sol.at({c->r, c->c}) != c->value.value()) {
-                is_diff = true;
-            }
+    if(unassigned.empty()) {
+        bool diff = false;
+        std::unordered_map<std::pair<int, int>, int, PairHash> sol;
+        for(Cell* c : board->white_cells) {
+            sol[{c->r, c->c}] = *c->value;
+            if(avoid_sol.at({c->r, c->c}) != *c->value) diff = true;
         }
-        
-        if (is_diff) {
-            found_solutions.push_back(current_sol);
-        }
+        if(diff) found_solutions.push_back(sol);
         return;
     }
     
-    // MRV
     Cell* var = *std::min_element(unassigned.begin(), unassigned.end(),
-        [this](Cell* a, Cell* b) {
-            return get_domain_size(a) < get_domain_size(b);
-        });
+        [this](Cell* a, Cell* b){ return get_domain_size(a) < get_domain_size(b); });
     
-    for (int val = 1; val <= 9; val++) {
-        if (is_valid_move(var, val)) {
-            var->value = val;
-            solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes);
-            if (!found_solutions.empty()) return;
+    std::vector<int> vals(9);
+    std::iota(vals.begin(), vals.end(), 1);
+    std::shuffle(vals.begin(), vals.end(), std::default_random_engine(seed + node_count));
+    
+    for(int v : vals) {
+        // false = DO NOT ignore clues (we are checking uniqueness against clues)
+        if(is_valid_move(var, v)) {
+            var->value = v;
+            solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes, seed);
+            if(!found_solutions.empty()) return;
             var->value = std::nullopt;
         }
     }
@@ -342,122 +344,112 @@ int CSPSolver::get_domain_size(Cell* cell) {
 }
 
 bool CSPSolver::is_valid_move(Cell* cell, int val) {
-    // Check horizontal sector
-    if (cell->sector_h && !cell->sector_h->empty()) {
-        int curr_sum = val;
-        int filled = 1;
-        
-        for (Cell* peer : *(cell->sector_h)) {
-            if (peer->value.has_value()) {
-                if (peer->value.value() == val) return false;
-                curr_sum += peer->value.value();
+    // Horizontal
+    if(cell->sector_h) {
+        int sum = val; int filled = 1;
+        for(Cell* p : *cell->sector_h) {
+            if(p->value) {
+                if(*p->value == val) return false;
+                sum += *p->value;
                 filled++;
             }
         }
-        
-        Cell* first = (*(cell->sector_h))[0];
-        if (first->c > 0) {
-            auto clue = board->grid[first->r][first->c - 1].clue_h;
-            if (clue.has_value()) {
-                if (curr_sum > clue.value()) return false;
-                if (filled == (int)cell->sector_h->size() && 
-                    curr_sum != clue.value()) return false;
-            }
+        if((*cell->sector_h)[0]->c > 0) {
+            auto clue = board->grid[(*cell->sector_h)[0]->r][(*cell->sector_h)[0]->c-1].clue_h;
+            if(clue && (sum > *clue || (filled == (int)cell->sector_h->size() && sum != *clue))) return false;
         }
     }
-    
-    // Check vertical sector
-    if (cell->sector_v && !cell->sector_v->empty()) {
-        int curr_sum = val;
-        int filled = 1;
-        
-        for (Cell* peer : *(cell->sector_v)) {
-            if (peer->value.has_value()) {
-                if (peer->value.value() == val) return false;
-                curr_sum += peer->value.value();
+    // Vertical
+    if(cell->sector_v) {
+        int sum = val; int filled = 1;
+        for(Cell* p : *cell->sector_v) {
+            if(p->value) {
+                if(*p->value == val) return false;
+                sum += *p->value;
                 filled++;
             }
         }
-        
-        Cell* first = (*(cell->sector_v))[0];
-        if (first->r > 0) {
-            auto clue = board->grid[first->r - 1][first->c].clue_v;
-            if (clue.has_value()) {
-                if (curr_sum > clue.value()) return false;
-                if (filled == (int)cell->sector_v->size() && 
-                    curr_sum != clue.value()) return false;
-            }
+        if((*cell->sector_v)[0]->r > 0) {
+            auto clue = board->grid[(*cell->sector_v)[0]->r-1][(*cell->sector_v)[0]->c].clue_v;
+            if(clue && (sum > *clue || (filled == (int)cell->sector_v->size() && sum != *clue))) return false;
         }
     }
-    
     return true;
 }
 
-bool CSPSolver::repair_ambiguity_safely(
-    const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol) {
-    
-    // Find different cells
-    std::vector<Cell*> diff_cells;
-    for (Cell* c : board->white_cells) {
-        if (c->value.has_value()) {
-            auto it = alt_sol.find({c->r, c->c});
-            if (it != alt_sol.end() && it->second != c->value.value()) {
-                diff_cells.push_back(c);
-            }
+bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol) {
+    std::vector<Cell*> diffs;
+    for(Cell* c : board->white_cells) {
+        if(c->value && alt_sol.count({c->r, c->c}) && alt_sol.at({c->r, c->c}) != *c->value) {
+            diffs.push_back(c);
         }
     }
+    if(diffs.empty()) return false;
     
-    if (diff_cells.empty()) return false;
+    std::shuffle(diffs.begin(), diffs.end(), rng);
+    std::sort(diffs.begin(), diffs.end(), [this](Cell* a, Cell* b){
+        return board->count_white_neighbors(a) > board->count_white_neighbors(b);
+    });
     
-    // Sort by distance from center
-    std::sort(diff_cells.begin(), diff_cells.end(),
-        [this](Cell* a, Cell* b) {
-            int dist_a = std::abs(a->r - board->height/2) + 
-                        std::abs(a->c - board->width/2);
-            int dist_b = std::abs(b->r - board->height/2) + 
-                        std::abs(b->c - board->width/2);
-            return dist_a < dist_b;
-        });
-    
-    // Current white coordinates
-    std::unordered_set<std::pair<int, int>, PairHash> white_coords;
-    for (Cell* c : board->white_cells) {
-        white_coords.insert({c->r, c->c});
+    // Snapshot types
+    std::vector<std::vector<CellType>> snapshot(board->height, std::vector<CellType>(board->width));
+    for(int r=0; r<board->height; r++)
+        for(int c=0; c<board->width; c++) snapshot[r][c] = board->grid[r][c].type;
+
+    for(Cell* target : diffs) {
+        board->set_block(target->r, target->c);
+        board->set_block(board->height - 1 - target->r, board->width - 1 - target->c);
+        
+        board->prune_singles(); // Cascading prune
+        
+        // Validate
+        board->collect_white_cells();
+        bool valid = true;
+        if(board->white_cells.size() < 12) valid = false;
+        if(valid && !board->check_connectivity()) valid = false;
+        if(valid && !board->validate_clue_headers()) valid = false;
+        
+        if(valid) return true;
+        
+        // Rollback
+        for(int r=0; r<board->height; r++)
+            for(int c=0; c<board->width; c++) board->grid[r][c].type = snapshot[r][c];
+        board->collect_white_cells();
     }
-    
-    for (Cell* target : diff_cells) {
-        // Simulate removal
-        std::unordered_set<std::pair<int, int>, PairHash> removed;
-        removed.insert({target->r, target->c});
-        
-        int sym_r = board->height - 1 - target->r;
-        int sym_c = board->width - 1 - target->c;
-        if (white_coords.count({sym_r, sym_c})) {
-            removed.insert({sym_r, sym_c});
-        }
-        
-        std::unordered_set<std::pair<int, int>, PairHash> remaining_coords;
-        for (auto coord : white_coords) {
-            if (!removed.count(coord)) {
-                remaining_coords.insert(coord);
-            }
-        }
-        
-        if (remaining_coords.size() < 0.8 * white_coords.size()) {
-            continue;
-        }
-        
-        // Check connectivity
-        if (is_connected(remaining_coords)) {
-            board->set_block(target->r, target->c);
-            board->set_block(sym_r, sym_c);
-            board->stabilize_grid();
-            return true;
-        }
-    }
-    
     return false;
 }
+
+std::unordered_map<Cell*, int> CSPSolver::generate_breaking_constraints(
+    const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol,
+    const std::unordered_map<std::pair<int, int>, int, PairHash>& prev_sol) {
+    
+    std::unordered_map<Cell*, int> constraints;
+    std::vector<Cell*> diffs;
+    
+    for(Cell* c : board->white_cells) {
+        if(alt_sol.count({c->r, c->c}) && prev_sol.count({c->r, c->c})) {
+            if(alt_sol.at({c->r, c->c}) != prev_sol.at({c->r, c->c})) {
+                diffs.push_back(c);
+            }
+        }
+    }
+    
+    if(!diffs.empty()) {
+        Cell* target = diffs[std::uniform_int_distribution<>(0, (int)diffs.size()-1)(rng)];
+        int val_a = prev_sol.at({target->r, target->c});
+        int val_b = alt_sol.at({target->r, target->c});
+        
+        std::vector<int> domain;
+        for(int i=1; i<=9; i++) if(i != val_a && i != val_b) domain.push_back(i);
+        
+        if(!domain.empty()) {
+            int new_val = domain[std::uniform_int_distribution<>(0, (int)domain.size()-1)(rng)];
+            constraints[target] = new_val;
+        }
+    }
+    return constraints;
+}
+
 
 bool CSPSolver::is_connected(
     const std::unordered_set<std::pair<int, int>, PairHash>& coords) {
