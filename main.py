@@ -11,28 +11,27 @@ import sys
 import webbrowser
 import threading
 import time
-from python.kakuro_wrapper import KakuroBoard
-from python.kakuro_wrapper import CSPSolver
+from kakuro import KakuroBoard, CSPSolver
 import uvicorn
 import uuid
 import datetime
-import python.storage as storage
 import logging
 import traceback
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 
 # Import auth and database modules
-from python.database import init_db, get_db
-from python.models import User, Puzzle, PuzzleTemplate
-from python.auth import get_current_user, get_required_user, get_current_user_and_session
-from python.analytics import log_interaction
-from routes.auth_routes import router as auth_router
-from routes.admin_routes import router as admin_router
-from python.generator_service import generator_service
-import python.config as config
-from python.performance import Timer, log_system_performance, record_metric
-import python.performance as performance
+import kakuro.storage as storage
+from kakuro.database import init_db, get_db
+from kakuro.models import User, Puzzle, PuzzleTemplate
+from kakuro.auth import get_current_user, get_required_user, get_current_user_and_session
+from kakuro.analytics import log_interaction
+from kakuro.routes.auth_routes import router as auth_router
+from kakuro.routes.admin_routes import router as admin_router
+from kakuro.generator_service import generator_service
+import kakuro.config as config
+from kakuro.performance import Timer, log_system_performance, record_metric
+import kakuro.performance as performance
 
 # Configure logging
 root_logger = logging.getLogger()
