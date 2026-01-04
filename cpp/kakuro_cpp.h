@@ -16,7 +16,7 @@
 
 namespace kakuro {
 
-#define LOG_DEBUG(msg) do {} while(0) // do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0)
+#define LOG_DEBUG(msg) do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0) //  do {} while(0) // 
 
 enum class CellType {
     BLOCK,
@@ -117,11 +117,11 @@ public:
     check_uniqueness(int max_nodes = 10000, int seed_offset = 0);
     
 private:
-    bool backtrack_fill(std::unordered_map<Cell*, int>& assignment,
-                               int& node_count, int max_nodes,
-                               const std::vector<int>& weights,
-                               bool ignore_clues,
-                               const std::string& partition_preference);
+    bool backtrack_fill(std::unordered_map<Cell*, int>& assignment, 
+                   int& node_count, int max_nodes, 
+                   const std::vector<int>& weights,
+                   bool ignore_clues,
+                   const std::string& partition_preference);
     
     int count_neighbors_filled(Cell* cell, const std::unordered_map<Cell*, int>& assignment);
     bool is_consistent_number(Cell* var, int value, const std::unordered_map<Cell*, int>& assignment, bool ignore_clues);

@@ -19,9 +19,13 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
     LOG_DEBUG("Starting puzzle generation. Difficulty: " << difficulty);
 
     for (int topo_attempt = 0; topo_attempt < MAX_TOPOLOGY_RETRIES; topo_attempt++) {
+        LOG_DEBUG("--- Topology attempt " << topo_attempt << " ---");
         board->generate_topology(0.60, 9, difficulty);
 
-        if (board->white_cells.size() < 12) continue;
+        if (board->white_cells.size() < 12) {
+            LOG_DEBUG("Topology too small. Skipping.");
+            continue;
+        }
         
         // Force synchronization
         board->collect_white_cells();
@@ -30,6 +34,8 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
         
         int repair_count = 0;
         while (repair_count < MAX_REPAIR_ATTEMPTS) {
+            LOG_DEBUG("--- Repair attempt " << repair_count << " ---");
+
             bool fill_success = false;
             std::unordered_map<std::pair<int, int>, int, PairHash> last_ambiguity;
             std::unordered_map<std::pair<int, int>, int, PairHash> previous_solution_state;
@@ -37,10 +43,12 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
             bool has_previous_state = false;
 
             for (int fill_attempt = 0; fill_attempt < MAX_VALUE_RETRIES; fill_attempt++) {
-                
+                LOG_DEBUG("    Fill attempt " << fill_attempt);
+
                 // Logic Fix 1: Generate constraints BEFORE reset
                 std::unordered_map<Cell*, int> constraints;
                 if (fill_attempt > 1 && has_last_ambiguity && has_previous_state) {
+                    LOG_DEBUG("    Generating breaking constraints");
                     auto constraint_map = generate_breaking_constraints(last_ambiguity, previous_solution_state);
                     for(auto& [c, val] : constraint_map) {
                         constraints[c] = val;
@@ -53,6 +61,7 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
                 bool success = solve_fill(difficulty, 50000, constraints, true);
 
                 if (success) {
+                    LOG_DEBUG("    Fill succeeded!");
                     fill_success = true;
                     // Store state
                     previous_solution_state.clear();
@@ -64,7 +73,10 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
                 }
             }
 
-            if (!fill_success) break; // discard topology
+            if (!fill_success) {
+                LOG_DEBUG("    Fill failed. Discarding topology.");
+                break; // discard topology
+            }
 
             calculate_clues();
 
@@ -73,30 +85,40 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
             
             if (unique) {
                 // Double check
+                LOG_DEBUG("  Puzzle appears unique, double-checking");
                 auto [unique2, _] = check_uniqueness(10000, 100);
-                if (unique2) return true;
+                if (unique2) {
+                    LOG_DEBUG("  Puzzle is unique!");
+                    return true;
+                }
             }
 
             if (alt_sol.has_value()) {
                 last_ambiguity = alt_sol.value();
                 has_last_ambiguity = true;
+                LOG_DEBUG("    Ambiguity detected. Repairing...");
                 
                 // Repair
                 if (repair_topology_robust(last_ambiguity)) {
+                    LOG_DEBUG("    Repair succeeded!");
                     // Force complete re-sync
                     board->collect_white_cells();
                     board->identify_sectors();
                     repair_count++;
                     continue; // Loop back to refill
                 } else {
+                    LOG_DEBUG("    Repair failed.");
                     break; // Repair failed
                 }
             } else {
                 // Should be unique if alt_sol is empty, but double check logic might have failed
+                LOG_DEBUG("  Puzzle is not unique. Discarding topology.");
                 break; 
             }
         }
     }
+
+    LOG_DEBUG("=== FAILURE: Maximum topology retries exceeded ===");
     return false;
 }
 
@@ -104,6 +126,8 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
                            int max_nodes,
                            const std::unordered_map<Cell*, int>& initial_constraints,
                            bool ignore_clues) {
+    LOG_DEBUG("      solve_fill: difficulty=" << difficulty << ", max_nodes=" << max_nodes 
+              << ", ignore_clues=" << ignore_clues);
     std::unordered_map<Cell*, int> assignment;
     int node_count = 0;
     
@@ -113,6 +137,7 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
             if(is_consistent_number(cell, val, assignment, ignore_clues)) {
                 assignment[cell] = val;
             } else {
+                LOG_DEBUG("      solve_fill: Inconsistent number");
                 return false;
             }
         }
@@ -135,7 +160,9 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
         partition_preference = "";
     }
     
-    return backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues, partition_preference);
+    bool result = backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues, partition_preference);
+    LOG_DEBUG("      solve_fill result: " << (result ? "SUCCESS" : "FAIL") << ", nodes explored: " << node_count);
+    return result;
 }
 
 
@@ -144,8 +171,15 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
                                const std::vector<int>& weights,
                                bool ignore_clues,
                                const std::string& partition_preference) {
-    if (node_count > max_nodes) return false;
+    if (node_count > max_nodes) {
+        LOG_DEBUG("      backtrack_fill: Max nodes exceeded");
+        return false;
+    }
     node_count++;
+    if (node_count % 1000 == 0) {
+        LOG_DEBUG("        Backtrack progress: " << node_count << " nodes, " 
+                  << assignment.size() << "/" << board->white_cells.size() << " assigned");
+    }
     
     std::vector<Cell*> unassigned;
     for (Cell* c : board->white_cells) {
@@ -153,11 +187,14 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
     }
     
     if (unassigned.empty()) {
+        LOG_DEBUG("      backtrack_fill: Solution found");
         // FINAL VALIDATION for easy puzzles
         if (!partition_preference.empty() && !ignore_clues) {
             if (!validate_partition_difficulty(assignment, partition_preference)) {
+                LOG_DEBUG("      backtrack_fill: Solution rejected");
                 return false;  // Reject this solution, backtrack
             }
+            LOG_DEBUG("      backtrack_fill: Solution accepted");
         }
         
         for (auto& [cell, val] : assignment) cell->value = val;
