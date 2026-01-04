@@ -117,10 +117,11 @@ public:
     check_uniqueness(int max_nodes = 10000, int seed_offset = 0);
     
 private:
-    bool backtrack_fill(std::unordered_map<Cell*, int>& assignment, 
-                       int& node_count, int max_nodes, 
-                       const std::vector<int>& weights,
-                       bool ignore_clues);
+    bool backtrack_fill(std::unordered_map<Cell*, int>& assignment,
+                               int& node_count, int max_nodes,
+                               const std::vector<int>& weights,
+                               bool ignore_clues,
+                               const std::string& partition_preference);
     
     int count_neighbors_filled(Cell* cell, const std::unordered_map<Cell*, int>& assignment);
     bool is_consistent_number(Cell* var, int value, const std::unordered_map<Cell*, int>& assignment, bool ignore_clues);
@@ -138,6 +139,33 @@ private:
         const std::unordered_map<std::pair<int, int>, int, PairHash>& prev_sol);
         
     bool is_connected(const std::unordered_set<std::pair<int, int>, PairHash>& coords);
+    std::vector<int> get_partition_aware_domain(
+        Cell* cell, 
+        const std::unordered_map<Cell*, int>& assignment,
+        const std::string& preference,
+        const std::vector<int>& weights);
+    
+    double calculate_partition_score(
+        Cell* cell,
+        int value,
+        const std::unordered_map<Cell*, int>& assignment,
+        char direction,
+        const std::string& preference);
+    
+    int count_partitions(int target_sum, int length);
+    
+    int count_partitions_recursive(
+        int remaining_sum,
+        int remaining_length,
+        int min_digit,
+        std::unordered_set<int>& used);
+    
+    bool validate_partition_difficulty(
+        const std::unordered_map<Cell*, int>& assignment,
+        const std::string& preference);
+    
+    // Cache for partition counts
+    std::unordered_map<std::pair<int, int>, int, PairHash> partition_cache;
 };
 
 class KakuroDifficultyEstimator {

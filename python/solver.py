@@ -202,9 +202,9 @@ class CSPSolver:
         return False
 
     def solve_fill(self, difficulty: str = "medium", 
-                   max_nodes: int = 50000, 
-                   initial_constraints: Dict[Tuple[int, int], int] = None,
-                   ignore_clues: bool = False) -> bool:
+               max_nodes: int = 50000, 
+               initial_constraints: Dict[Tuple[int, int], int] = None,
+               ignore_clues: bool = False) -> bool:
         """Backtracking to fill the grid with valid numbers 1-9."""
         assignment = {}
         node_count = [0]
@@ -221,36 +221,35 @@ class CSPSolver:
                         # Constraints were impossible
                         return False
         
-        # Difficulty Weighting for numbers 1 through 9
-        # format: [weight_for_1, weight_for_2, ..., weight_for_9]
-        
+        # Difficulty settings
         if difficulty == "very_easy":
-            # Extreme bias towards 1, 2, 8, 9
-            # Creates sums with unique partitions (e.g., 3, 4, 17)
             domain_weights = [20, 15, 5, 1, 1, 1, 5, 15, 20]
+            partition_preference = "unique"  # NEW: Prefer unique partitions
             
         elif difficulty == "easy":
-            # Strong bias towards edges, but allows some variety
             domain_weights = [10, 8, 6, 2, 1, 2, 6, 8, 10]
+            partition_preference = "few"  # NEW: Prefer few partitions (1-3)
             
         elif difficulty == "medium":
-            # Flat distribution - Pure randomness
-            # Creates a balanced mix of open and closed sums
             domain_weights = [5, 5, 5, 5, 5, 5, 5, 5, 5]
+            partition_preference = None  # No preference
             
         elif difficulty == "hard":
-            # Bias towards the middle (4, 5, 6)
-            # Creates sums with maximum freedom (e.g., 12, 13, 14, 15)
-            # These are the hardest to deduce logically
             domain_weights = [1, 2, 5, 10, 10, 10, 5, 2, 1]
+            partition_preference = None
             
         else:
-            # Fallback to medium
             domain_weights = [5, 5, 5, 5, 5, 5, 5, 5, 5]
+            partition_preference = None
             
-        return self._backtrack_fill(assignment, node_count, max_nodes, domain_weights, ignore_clues)
+        return self._backtrack_fill(assignment, node_count, max_nodes, domain_weights, 
+                                ignore_clues, partition_preference)
+
+
     
-    def _backtrack_fill(self, assignment: Dict[Cell, int], node_count: List[int], max_nodes: int, weights: List[int], ignore_clues: bool = False) -> bool:
+    def _backtrack_fill(self, assignment: Dict[Cell, int], node_count: List[int], 
+                   max_nodes: int, weights: List[int], ignore_clues: bool = False,
+                   partition_preference: str = None) -> bool:
         if node_count[0] > max_nodes: 
             return False
         node_count[0] += 1
@@ -258,6 +257,11 @@ class CSPSolver:
         # MRV Heuristic
         unassigned = [c for c in self.board.white_cells if c not in assignment]
         if not unassigned:
+            # FINAL VALIDATION for easy puzzles: Check if clues are actually easy
+            if partition_preference and not ignore_clues:
+                if not self._validate_partition_difficulty(assignment, partition_preference):
+                    return False  # Reject this solution, backtrack
+            
             # Apply assignment to board
             for cell, val in assignment.items():
                 cell.value = val
@@ -265,20 +269,263 @@ class CSPSolver:
             
         var = max(unassigned, key=lambda c: self._count_neighbors_filled(c, assignment))
         
-        nums = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        weighted_pairs = list(zip(nums, weights))
-        random.shuffle(weighted_pairs)
-        weighted_pairs.sort(key=lambda x: x[1] * random.random(), reverse=True)
-        ordered_domain = [x[0] for x in weighted_pairs]
+        if partition_preference:
+            ordered_domain = self._get_partition_aware_domain(var, assignment, partition_preference, weights)
+        else:
+            # Original approach
+            nums = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            weighted_pairs = list(zip(nums, weights))
+            random.shuffle(weighted_pairs)
+            weighted_pairs.sort(key=lambda x: x[1] * random.random(), reverse=True)
+            ordered_domain = [x[0] for x in weighted_pairs]
 
         for val in ordered_domain:
             if self._is_consistent_number(var, val, assignment, ignore_clues):
                 assignment[var] = val
-                if self._backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues):
+                if self._backtrack_fill(assignment, node_count, max_nodes, weights, 
+                                   ignore_clues, partition_preference):
                     return True
                 del assignment[var]
         
         return False
+
+    def _validate_partition_difficulty(self, assignment: Dict[Cell, int], 
+                                    preference: str) -> bool:
+        """
+        Check if the filled puzzle has appropriate partition difficulty.
+        For 'unique': At least 80% of clues should have <=2 partitions
+        For 'few': At least 60% of clues should have <=4 partitions
+        """
+        easy_clue_count = 0
+        total_clue_count = 0
+        
+        # Check horizontal sectors
+        for sector in self.board.sectors_h:
+            if not all(c in assignment for c in sector):
+                continue
+            total_clue_count += 1
+            clue_sum = sum(assignment[c] for c in sector)
+            num_partitions = self._count_partitions(clue_sum, len(sector))
+            
+            if preference == "unique" and num_partitions <= 2:
+                easy_clue_count += 1
+            elif preference == "few" and num_partitions <= 4:
+                easy_clue_count += 1
+        
+        # Check vertical sectors
+        for sector in self.board.sectors_v:
+            if not all(c in assignment for c in sector):
+                continue
+            total_clue_count += 1
+            clue_sum = sum(assignment[c] for c in sector)
+            num_partitions = self._count_partitions(clue_sum, len(sector))
+            
+            if preference == "unique" and num_partitions <= 2:
+                easy_clue_count += 1
+            elif preference == "few" and num_partitions <= 4:
+                easy_clue_count += 1
+        
+        if total_clue_count == 0:
+            return True
+        
+        ratio = easy_clue_count / total_clue_count
+        
+        if preference == "unique":
+            return ratio >= 0.80  # At least 60% easy clues
+        elif preference == "few":
+            return ratio >= 0.60  # At least 40% easy clues
+        
+        return True
+
+    def _get_partition_aware_domain(self, cell: Cell, assignment: Dict[Cell, int], 
+                                    preference: str, weights: List[int]) -> List[int]:
+        """
+        Returns an ordered domain that prefers values leading to easy partitions.
+        
+        Strategy:
+        1. For each candidate value, calculate what the FINAL sum would be if we chose it
+        2. Count partitions for that final sum
+        3. Prioritize values that lead to sums with fewer partitions
+        """
+        candidates = []
+        
+        for val in range(1, 10):
+            # Quick duplicate check
+            if cell.sector_h:
+                if any(assignment.get(c) == val for c in cell.sector_h):
+                    continue
+            if cell.sector_v:
+                if any(assignment.get(c) == val for c in cell.sector_v):
+                    continue
+            
+            # Calculate partition scores for both directions
+            h_score = self._calculate_partition_score(cell, val, assignment, 'h', preference)
+            v_score = self._calculate_partition_score(cell, val, assignment, 'v', preference)
+            
+            # Combined score: lower is better (fewer partitions = easier)
+            # Weight by original difficulty weights too
+            difficulty_weight = weights[val - 1]
+            combined_score = (h_score + v_score) * (10.0 / max(difficulty_weight, 1))
+            
+            candidates.append((val, combined_score))
+        
+        # Sort by score (lower = better), with some randomness
+        candidates.sort(key=lambda x: x[1] + random.random() * 2)
+        
+        return [val for val, _ in candidates]
+
+
+    def _calculate_partition_score(self, cell: Cell, value: int, assignment: Dict[Cell, int],
+                                direction: str, preference: str) -> float:
+        """
+        Calculate how "easy" this value would make the clue.
+        Returns a score where LOWER is better (fewer partitions).
+        """
+        sector = cell.sector_h if direction == 'h' else cell.sector_v
+        if not sector:
+            return 0.0  # No constraint
+        
+        # Calculate current state of this sector
+        current_sum = value
+        filled_count = 1
+        remaining_cells = []
+        
+        for c in sector:
+            if c in assignment:
+                current_sum += assignment[c]
+                filled_count += 1
+            elif c != cell:
+                remaining_cells.append(c)
+        
+        sector_length = len(sector)
+        
+        # If this completes the sector, count actual partitions
+        if filled_count == sector_length:
+            num_partitions = self._count_partitions(current_sum, sector_length)
+            
+            if preference == "unique":
+                # Strongly prefer 1-2 partitions, heavily penalize >3
+                if num_partitions == 1:
+                    return 0.0  # Perfect!
+                elif num_partitions == 2:
+                    return 1.0
+                elif num_partitions <= 4:
+                    return 5.0
+                else:
+                    return 20.0  # Very bad
+                    
+            elif preference == "few":
+                # Prefer 1-4 partitions, penalize >6
+                if num_partitions <= 2:
+                    return 0.0
+                elif num_partitions <= 4:
+                    return 2.0
+                elif num_partitions <= 6:
+                    return 5.0
+                else:
+                    return 15.0
+        
+        else:
+            # Sector not complete yet - estimate difficulty
+            # Calculate what range of sums are possible
+            remaining_count = len(remaining_cells)
+            
+            # Minimum possible final sum (use smallest available digits)
+            used_digits = {assignment[c] for c in sector if c in assignment}
+            used_digits.add(value)
+            available = [d for d in range(1, 10) if d not in used_digits]
+            
+            if len(available) < remaining_count:
+                return 100.0  # Impossible - will be pruned by consistency check
+            
+            min_remaining = sum(available[:remaining_count])
+            max_remaining = sum(available[-remaining_count:]) if available else 0
+            
+            min_final_sum = current_sum + min_remaining
+            max_final_sum = current_sum + max_remaining
+            
+            # Estimate average partition count in this range
+            # For efficiency, sample a few sums in the range
+            sample_sums = []
+            if min_final_sum == max_final_sum:
+                sample_sums = [min_final_sum]
+            else:
+                step = max(1, (max_final_sum - min_final_sum) // 3)
+                sample_sums = list(range(min_final_sum, max_final_sum + 1, step))
+            
+            partition_counts = [self._count_partitions(s, sector_length) for s in sample_sums]
+            avg_partitions = sum(partition_counts) / len(partition_counts) if partition_counts else 10
+            
+            # Return a "potential difficulty" score
+            if preference == "unique":
+                if avg_partitions <= 2:
+                    return 1.0
+                elif avg_partitions <= 4:
+                    return 3.0
+                else:
+                    return 8.0
+                    
+            elif preference == "few":
+                if avg_partitions <= 4:
+                    return 1.0
+                elif avg_partitions <= 6:
+                    return 3.0
+                else:
+                    return 6.0
+        
+        return 5.0  # Default neutral score
+
+
+    def _count_partitions(self, target_sum: int, length: int, cache: dict = None) -> int:
+        """
+        Count how many ways we can partition target_sum into 'length' distinct digits (1-9).
+        Uses memoization for speed.
+        """
+        if cache is None:
+            if not hasattr(self, '_partition_cache'):
+                self._partition_cache = {}
+            cache = self._partition_cache
+        
+        key = (target_sum, length)
+        if key in cache:
+            return cache[key]
+        
+        result = self._count_partitions_recursive(target_sum, length, 1, set())
+        cache[key] = result
+        return result
+
+
+
+    def _count_partitions_recursive(self, remaining_sum: int, remaining_length: int, 
+                                    min_digit: int, used: Set[int]) -> int:
+        """Helper for counting partitions using backtracking with pruning."""
+        if remaining_length == 0:
+            return 1 if remaining_sum == 0 else 0
+        
+        if remaining_sum <= 0 or min_digit > 9:
+            return 0
+        
+        # Quick feasibility check
+        available = [d for d in range(min_digit, 10) if d not in used]
+        if len(available) < remaining_length:
+            return 0
+        
+        min_possible = sum(available[:remaining_length])
+        max_possible = sum(available[-remaining_length:])
+        
+        if remaining_sum < min_possible or remaining_sum > max_possible:
+            return 0
+        
+        count = 0
+        for digit in available:
+            used.add(digit)
+            count += self._count_partitions_recursive(remaining_sum - digit, 
+                                                    remaining_length - 1, 
+                                                    digit + 1, used)
+            used.remove(digit)
+        
+        return count
+
 
     def _generate_breaking_constraints(self, alt_sol: Dict[Tuple[int, int], int]) -> Dict[Tuple[int, int], int]:
         """

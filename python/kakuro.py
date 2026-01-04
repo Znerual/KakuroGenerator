@@ -90,7 +90,7 @@ class KakuroBoard:
         if difficulty == "very_easy":
             stamps = [
                 (1, 3), (3, 1), 
-                (1, 4), (4, 1), 
+                #(1, 4), (4, 1), 
                 (2, 2)          
             ]
             num_stamps = random.randint(6, 12) 
