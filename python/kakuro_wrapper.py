@@ -19,10 +19,19 @@ try:
     CPP_AVAILABLE = True
     print("✓ C++ acceleration loaded successfully")
 except ImportError as e:
-    CPP_AVAILABLE = False
-    print(f"⚠ C++ module not available: {e}")
-    print("  Falling back to pure Python implementation")
-    print("  To enable C++ acceleration, run: python setup.py build_ext --inplace")
+    try:
+        import kakuro_cpp as kakuro_cpp
+        # Map C++ classes to local names
+        _KakuroBoard = kakuro_cpp.KakuroBoard
+        _CSPSolver = kakuro_cpp.CSPSolver
+        _KakuroDifficultyEstimator = kakuro_cpp.KakuroDifficultyEstimator
+        CPP_AVAILABLE = True
+        print("✓ C++ acceleration loaded successfully")
+    except ImportError as e:
+        CPP_AVAILABLE = False
+        print(f"⚠ C++ module not available: {e}")
+        print("  Falling back to pure Python implementation")
+        print("  To enable C++ acceleration, run: python setup.py build_ext --inplace")
 
 
 class KakuroBoard:
