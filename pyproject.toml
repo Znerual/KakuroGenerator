@@ -27,6 +27,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "psutil>=7.2.1",
     "reportlab>=4.4.7",
+    "cibuildwheel>=3.3.0",
 ]
 
 [build-system]
