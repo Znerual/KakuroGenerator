@@ -60,6 +60,18 @@ if you want to recompile the extensions, run:
 uv run python setup.py build_ext --inplace
 ```
 
+## Build wheel
+
+if you want to build a wheel, run:
+```bash
+uv run python setup.py bdist_wheel
+```
+
+and for all python versions and different platforms, use 
+```bash
+uv run cibuildwheel --platform linux
+```
+
 ## 📦 Packaging (Build your own executable)
 
 If you want to create a standalone `.exe` for distribution:
