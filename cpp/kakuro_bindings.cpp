@@ -1,5 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <sstream>
+#include <iomanip>
 #include "kakuro_cpp.h"
 
 namespace py = pybind11;
@@ -151,7 +153,31 @@ PYBIND11_MODULE(kakuro_cpp, m) {
              py::arg("max_nodes") = 10000,
              py::arg("seed_offset") = 0);
 
+    py::class_<kakuro::SolveStep>(m, "SolveStep")
+        .def_readwrite("technique", &kakuro::SolveStep::technique)
+        .def_readwrite("difficulty_weight", &kakuro::SolveStep::difficulty_weight)
+        .def_readwrite("cells_affected", &kakuro::SolveStep::cells_affected);
+
+    py::class_<kakuro::DifficultyResult>(m, "DifficultyResult")
+        .def_readwrite("score", &kakuro::DifficultyResult::score)
+        .def_readwrite("rating", &kakuro::DifficultyResult::rating)
+        .def_readwrite("uniqueness", &kakuro::DifficultyResult::uniqueness)
+        .def_readwrite("solution_count", &kakuro::DifficultyResult::solution_count)
+        .def_readwrite("solve_path", &kakuro::DifficultyResult::solve_path)
+        .def_readwrite("techniques_used", &kakuro::DifficultyResult::techniques_used)
+        .def_readwrite("solutions", &kakuro::DifficultyResult::solutions)
+        .def("__repr__", [](const kakuro::DifficultyResult &r) {
+            std::ostringstream oss;
+            oss << "<DifficultyResult rating='" << r.rating << "', "
+                << "score=" << std::fixed << std::setprecision(1) << r.score << ", "
+                << "uniqueness='" << r.uniqueness << "', "
+                << "solutions=" << r.solution_count << ">";
+            return oss.str();
+        });
+
     py::class_<kakuro::KakuroDifficultyEstimator>(m, "KakuroDifficultyEstimator")
         .def(py::init<std::shared_ptr<kakuro::KakuroBoard>>())
-        .def("estimate_difficulty", &kakuro::KakuroDifficultyEstimator::estimate_difficulty);
+        .def("estimate_difficulty", &kakuro::KakuroDifficultyEstimator::estimate_difficulty)
+        .def("estimate_difficulty_detailed", &kakuro::KakuroDifficultyEstimator::estimate_difficulty_detailed);
+   
 }

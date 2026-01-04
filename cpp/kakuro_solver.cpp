@@ -99,10 +99,26 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
                 
                 if (unique) {
                     LOG_DEBUG("    Puzzle appears unique, double-checking");
-                    auto [unique2, _] = check_uniqueness(10000, fill_attempt + 100);
-                    if (unique2) {
-                        LOG_DEBUG("=== SUCCESS! Unique puzzle generated ===");
+                    KakuroDifficultyEstimator estimator(board);
+                    DifficultyResult diff = estimator.estimate_difficulty_detailed();
+
+                    if (diff.solution_count <= 1) {
+                        LOG_DEBUG("=== SUCCESS! Unique " << diff.rating << " puzzle generated ===");
                         return true;
+                    } else if (diff.solution_count > 1) {
+                        LOG_DEBUG("    Non-unique. Found " << diff.solution_count << " solutions.");
+                        
+                        // Extract the alternative solution from the estimator
+                        std::unordered_map<std::pair<int, int>, int, PairHash> alt_sol;
+                        for (int r = 0; r < board->height; ++r) {
+                            for (int c = 0; c < board->width; ++c) {
+                                if (diff.solutions[1][r][c].has_value()) 
+                                    alt_sol[{r, c}] = diff.solutions[1][r][c].value();
+                            }
+                        }
+                        last_ambiguity = alt_sol;
+                        has_last_ambiguity = true;
+                        // The loop continues and will try to repair based on this ambiguity
                     }
                 }
                 
@@ -776,7 +792,7 @@ void CSPSolver::calculate_clues() {
 
 std::pair<bool, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
 CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
-    LOG_DEBUG("  Checking uniqueness (max_nodes=" << max_nodes << ", seed=" << seed_offset << ")");
+    LOG_DEBUG("  Checking uniqueness using Logical Estimator...");
     
     std::unordered_map<std::pair<int, int>, int, PairHash> current_sol;
     for (Cell* c : board->white_cells) {

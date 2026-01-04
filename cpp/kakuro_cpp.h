@@ -8,11 +8,14 @@
 #include <optional>
 #include <unordered_set>
 #include <unordered_map>
+#include <map>
 #include <random>
 #include <deque>
 #include <utility>
 #include <algorithm>
+#include <cmath>
 #include <bitset>
+#include <functional>
 
 namespace kakuro {
 
@@ -180,33 +183,77 @@ private:
     std::unordered_map<std::pair<int, int>, int, PairHash> partition_cache;
 };
 
+struct SolveStep {
+    std::string technique;
+    float difficulty_weight;
+    int cells_affected;
+    SolveStep(std::string t, float w, int c) : technique(t), difficulty_weight(w), cells_affected(c) {}
+};
+
+struct DifficultyResult {
+    float score;
+    std::string rating;
+    std::map<std::string, int> techniques_used;
+    std::vector<SolveStep> solve_path;
+    int total_steps;
+    int solution_count;
+    std::string uniqueness;
+    std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
+    
+    DifficultyResult() : score(0.0f), total_steps(0), solution_count(0) {}
+};
+
 class KakuroDifficultyEstimator {
 public:
-    std::shared_ptr<KakuroBoard> board;
-    
-    KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard> b);
-    
+    explicit KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard> b);
+    DifficultyResult estimate_difficulty_detailed();
     float estimate_difficulty();
-
 private:
-    // 0x3FE = binary ...1111111110 (bits 1-9 set)
-    static const uint16_t ALL_CANDIDATES = 0x3FE; 
+    struct SectorInfo {
+        std::vector<Cell*> cells;
+        int clue;
+        bool is_horz;
+    };
+    std::shared_ptr<KakuroBoard> board;
+    std::vector<SolveStep> solve_log;
+    std::vector<std::unordered_map<Cell*, int>> found_solutions;
+    std::vector<SectorInfo> all_sectors;
+    std::unordered_set<Cell*> logged_singles;
+
+    // Using bitmasks (1 << value) for performance. 0x3FE = digits 1-9.
+    typedef std::unordered_map<Cell*, uint16_t> CandidateMap;
+    static constexpr uint16_t ALL_CANDIDATES = 0x3FE;
     
-    std::vector<std::vector<uint16_t>> candidates;
+    // Internal Logic Engine
+    void run_solve_loop(CandidateMap& candidates, bool silent);
+    bool apply_logic_pass(CandidateMap& candidates, bool silent, int iteration);
     
-    bool apply_sum_constraints(const std::vector<Cell*>& sector);
+    // Techniques
+    bool find_unique_intersections(CandidateMap& candidates, bool silent);
+    bool apply_simple_partitions(CandidateMap& candidates, bool silent);
+    bool apply_constraint_propagation(CandidateMap& candidates, bool silent);
+    bool find_hidden_singles(CandidateMap& candidates, bool silent);
+    bool find_naked_singles(CandidateMap& candidates, bool silent, int iteration);
+
+    // --- Complex Strategies ---
+    bool analyze_complex_intersections(CandidateMap& candidates, bool silent);
+    bool analyze_sector_pairs(CandidateMap& candidates);
+    bool test_value_propagation(Cell* target, int val, const CandidateMap& current_candidates);
+    std::vector<std::shared_ptr<std::vector<Cell*>>> find_highly_constrained_sectors(const CandidateMap& candidates);
+
+    // Infrastructure
+    bool apply_sector_constraints(const SectorInfo& sec, CandidateMap& candidates);
+    void discover_solutions(CandidateMap candidates, int limit);
+    bool try_bifurcation(CandidateMap& candidates);
     
-    void find_valid_permutations(
-        const std::vector<Cell*>& sector,
-        int index,
-        int current_sum,
-        int target_sum,
-        uint16_t used_numbers_mask,
-        std::vector<int>& path,
-        std::vector<uint16_t>& allowed_values_per_slot
-    );
+    // Helpers
+    std::optional<int> get_clue(const std::vector<Cell*>& sector, bool is_horz);
+    std::vector<std::vector<int>> get_partitions(int sum, int len);
+    int count_set_bits(uint16_t n) const;
+    bool verify_math(const std::unordered_map<Cell*, int>& sol) const;
+    std::vector<std::vector<std::optional<int>>> render_solution(const std::unordered_map<Cell*, int>& sol) const;
     
-    int count_set_bits(uint16_t n);
+    std::map<std::pair<int, int>, std::vector<std::vector<int>>> partition_cache;
 };
 
 } // namespace kakuro

@@ -154,6 +154,13 @@ class KakuroDifficultyEstimator:
         if self.board.use_cpp:
             return self._estimator.estimate_difficulty()
         else:
+            return self._estimator.estimate_difficulty()["score"]
+
+    def estimate_difficulty_detailed(self) -> dict:
+        """Returns the difficulty score and rating."""
+        if self.board.use_cpp:
+            return self._estimator.estimate_difficulty_detailed()
+        else:
             return self._estimator.estimate_difficulty()
 
 
