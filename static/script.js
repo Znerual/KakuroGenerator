@@ -1401,8 +1401,10 @@ function handleNoteInput(char) {
                 a.r !== b.r ? a.r - b.r : a.c - b.c
             );
             const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
-            const currentValue = state.cellNotes[boundaryKey] || '';
-            state.cellNotes[boundaryKey] = currentValue + char;
+            const oldValue = state.cellNotes[boundaryKey] || ''; // Define oldValue
+            const newValue = oldValue + char;                  // Define newValue
+
+            state.cellNotes[boundaryKey] = newValue;
 
             logInteraction('NOTE_BOUNDARY_ADD', {
                 row: first.r,
@@ -1462,11 +1464,13 @@ function deleteSelectedNotes() {
                 a.r !== b.r ? a.r - b.r : a.c - b.c
             );
             const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
-            const currentValue = state.cellNotes[boundaryKey] || '';
-            if (currentValue.length > 0) {
-                state.cellNotes[boundaryKey] = currentValue.slice(0, -1);
-                if (state.cellNotes[boundaryKey] === '') {
+            const oldValue = state.cellNotes[boundaryKey] || '';
+            if (oldValue.length > 0) {
+                const newValue = oldValue.slice(0, -1);
+                if (newValue === '') {
                     delete state.cellNotes[boundaryKey];
+                } else {
+                    state.cellNotes[boundaryKey] = newValue;
                 }
                 logInteraction('NOTE_BOUNDARY_REMOVE', {
                     row: first.r,
