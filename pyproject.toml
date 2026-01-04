@@ -1,6 +1,6 @@
 [project]
 name = "kakuro"
-version = "0.3.3"
+version = "0.3.4"
 description = "High-performance Kakuro puzzle generator with C++ acceleration"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,19 +21,22 @@ dependencies = [
     "PyJWT>=2.8.0",
     "email-validator>=2.1.0",
     "requests>=2.32.5",
-    "pybind11[global]>=3.0.1",
     "pytest>=9.0.2",
     "resend>=2.19.0",
     "python-dotenv>=1.2.1",
     "psutil>=7.2.1",
 ]
 
+[project.optional-dependencies]
+cpp = [
+    "pybind11[global]>=3.0.1",
+    "cmake>=3.12",
+]
+
 [build-system]
 requires = [
     "setuptools>=45",
     "wheel",
-    "pybind11[global]>=2.11.0",
-    "cmake>=3.12",
 ]
 build-backend = "setuptools.build_meta"
 
