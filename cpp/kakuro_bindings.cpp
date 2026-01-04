@@ -127,17 +127,22 @@ PYBIND11_MODULE(kakuro_cpp, m) {
             return result;
         });
 
+    py::class_<kakuro::CSPSolver::ValueConstraint>(m, "ValueConstraint")
+        .def(py::init<>())
+        .def_readwrite("cell", &kakuro::CSPSolver::ValueConstraint::cell)
+        .def_readwrite("values", &kakuro::CSPSolver::ValueConstraint::values);
+
     // Bind CSPSolver class
     py::class_<kakuro::CSPSolver>(m, "CSPSolver")
         .def(py::init<std::shared_ptr<kakuro::KakuroBoard>>())
         .def("generate_puzzle", &kakuro::CSPSolver::generate_puzzle,
              py::arg("difficulty") = "medium")
              
-        // FIX: Added initial_constraints and ignore_clues arguments
         .def("solve_fill", &kakuro::CSPSolver::solve_fill,
              py::arg("difficulty") = "medium",
              py::arg("max_nodes") = 30000,
-             py::arg("initial_constraints") = std::unordered_map<kakuro::Cell*, int>(),
+             py::arg("forced_assignments") = std::unordered_map<kakuro::Cell*, int>(),
+             py::arg("forbidden_constraints") = std::vector<kakuro::CSPSolver::ValueConstraint>(),
              py::arg("ignore_clues") = false)
              
         .def("calculate_clues", &kakuro::CSPSolver::calculate_clues)

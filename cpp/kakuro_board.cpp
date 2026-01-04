@@ -51,7 +51,7 @@ void KakuroBoard::set_white(int r, int c) {
     }
 }
 
-void KakuroBoard::generate_topology(double density, int max_sector_length, std::string difficulty) {
+bool KakuroBoard::generate_topology(double density, int max_sector_length, std::string difficulty) {
     const int MAX_RETRIES = 60;
 
     // Config based on difficulty
@@ -62,13 +62,13 @@ void KakuroBoard::generate_topology(double density, int max_sector_length, std::
     bool island_mode = false;
 
     if (difficulty == "very_easy") {
-        stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 2}};
+        stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {2, 2}};
         num_stamps = std::uniform_int_distribution<>(6, 12)(rng);
         min_cells = 16;
         max_run_len = 5;
         island_mode = true;
     } else if (difficulty == "easy") {
-        stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 5}, {5, 2}, {2, 6}, {6, 2}, {3, 3}};
+        stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {1, 5}, {5, 1}, {1, 6}, {6, 1}, {2,2}, {3, 3}};
         num_stamps = std::uniform_int_distribution<>(8, 15)(rng);
         min_cells = 22;
         max_run_len = 6;
@@ -133,9 +133,10 @@ void KakuroBoard::generate_topology(double density, int max_sector_length, std::
         if (!validate_clue_headers()) continue;
         
         identify_sectors();
-        return;
+        return true;
     }
     LOG_DEBUG("Failed to generate topology after retries");
+    return false;
 }
 
 bool KakuroBoard::place_random_seed() {
@@ -376,6 +377,7 @@ void KakuroBoard::prune_singles() {
 
 void KakuroBoard::break_single_runs() {
     bool changed = true;
+    bool any_change = false;
     while (changed) {
         changed = false;
         for (int r = 1; r < height - 1; r++) {
@@ -416,23 +418,29 @@ void KakuroBoard::break_single_runs() {
                         set_block(r, c);
                         set_block(height - 1 - r, width - 1 - c);
                         changed = true;
+                        any_change = true;
                     }
                 }
             }
         }
+    }
+    if (any_change) {
+        collect_white_cells();
+        identify_sectors();
     }
 }
 bool KakuroBoard::validate_clue_headers() {
     for (int r = 0; r < height; r++) {
         for (int c = 0; c < width; c++) {
             if (grid[r][c].type == CellType::WHITE) {
-                // Horizontal
-                if (c == 0) return false;
-                if (grid[r][c-1].type != CellType::BLOCK) return false;
-                
-                // Vertical
-                if (r == 0) return false;
-                if (grid[r-1][c].type != CellType::BLOCK) return false;
+                // Horizontal: If first in row or cell to left is NOT white, it must be a block
+                if (c == 0 || grid[r][c-1].type != CellType::WHITE) {
+                    if (c == 0 || grid[r][c-1].type != CellType::BLOCK) return false;
+                }
+                // Vertical: If first in col or cell above is NOT white, it must be a block
+                if (r == 0 || grid[r-1][c].type != CellType::WHITE) {
+                    if (r == 0 || grid[r-1][c].type != CellType::BLOCK) return false;
+                }
             }
         }
     }
@@ -705,38 +713,48 @@ void KakuroBoard::collect_white_cells() {
 }
 
 void KakuroBoard::identify_sectors() {
-    sectors_h.clear(); sectors_v.clear();
+    // Clear existing shared_ptr lists
+    sectors_h.clear(); 
+    sectors_v.clear();
     for(auto c : white_cells) { c->sector_h = nullptr; c->sector_v = nullptr; }
     
-    for(int r=0; r<height; r++) {
-        std::vector<Cell*> sec;
-        for(int c=0; c<width; c++) {
-            if(grid[r][c].type == CellType::WHITE) sec.push_back(&grid[r][c]);
-            else if(!sec.empty()) {
-                sectors_h.push_back(sec);
-                for(auto sc : sec) sc->sector_h = &sectors_h.back();
-                sec.clear();
+    // Horizontal
+    for(int r = 0; r < height; r++) {
+        auto current_sec = std::make_shared<std::vector<Cell*>>();
+        for(int c = 0; c < width; c++) {
+            if(grid[r][c].type == CellType::WHITE) {
+                current_sec->push_back(&grid[r][c]);
+            } else {
+                if(!current_sec->empty()) {
+                    sectors_h.push_back(current_sec);
+                    for(auto sc : *current_sec) sc->sector_h = current_sec;
+                    current_sec = std::make_shared<std::vector<Cell*>>();
+                }
             }
         }
-        if(!sec.empty()) {
-            sectors_h.push_back(sec);
-            for(auto sc : sec) sc->sector_h = &sectors_h.back();
+        if(!current_sec->empty()) {
+            sectors_h.push_back(current_sec);
+            for(auto sc : *current_sec) sc->sector_h = current_sec;
         }
     }
     
-    for(int c=0; c<width; c++) {
-        std::vector<Cell*> sec;
-        for(int r=0; r<height; r++) {
-            if(grid[r][c].type == CellType::WHITE) sec.push_back(&grid[r][c]);
-            else if(!sec.empty()) {
-                sectors_v.push_back(sec);
-                for(auto sc : sec) sc->sector_v = &sectors_v.back();
-                sec.clear();
+    // Vertical (Same logic for sectors_v...)
+    for(int c = 0; c < width; c++) {
+        auto current_sec = std::make_shared<std::vector<Cell*>>();
+        for(int r = 0; r < height; r++) {
+            if(grid[r][c].type == CellType::WHITE) {
+                current_sec->push_back(&grid[r][c]);
+            } else {
+                if(!current_sec->empty()) {
+                    sectors_v.push_back(current_sec);
+                    for(auto sc : *current_sec) sc->sector_v = current_sec;
+                    current_sec = std::make_shared<std::vector<Cell*>>();
+                }
             }
         }
-        if(!sec.empty()) {
-            sectors_v.push_back(sec);
-            for(auto sc : sec) sc->sector_v = &sectors_v.back();
+        if(!current_sec->empty()) {
+            sectors_v.push_back(current_sec);
+            for(auto sc : *current_sec) sc->sector_v = current_sec;
         }
     }
 }

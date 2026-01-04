@@ -53,6 +53,13 @@ If you have a pre-built executable:
 
 ---
 
+## Recompile Extensions
+
+if you want to recompile the extensions, run:
+```bash
+uv run python setup.py build_ext --inplace
+```
+
 ## 📦 Packaging (Build your own executable)
 
 If you want to create a standalone `.exe` for distribution:

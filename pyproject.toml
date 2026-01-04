@@ -1,6 +1,6 @@
 [project]
 name = "kakuro"
-version = "0.4.4"
+version = "0.4.5"
 description = "High-performance Kakuro puzzle generator with C++ acceleration"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -26,6 +26,7 @@ dependencies = [
     "resend>=2.19.0",
     "python-dotenv>=1.2.1",
     "psutil>=7.2.1",
+    "reportlab>=4.4.7",
 ]
 
 [build-system]

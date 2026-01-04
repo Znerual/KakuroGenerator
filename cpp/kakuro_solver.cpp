@@ -20,7 +20,12 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
 
     for (int topo_attempt = 0; topo_attempt < MAX_TOPOLOGY_RETRIES; topo_attempt++) {
         LOG_DEBUG("--- Topology attempt " << topo_attempt << " ---");
-        board->generate_topology(0.60, 9, difficulty);
+        bool success = board->generate_topology(0.60, 9, difficulty);
+
+        if (!success) {
+            LOG_DEBUG("Topology generation failed. Skipping.");
+            continue;
+        }
 
         if (board->white_cells.size() < 12) {
             LOG_DEBUG("Topology too small. Skipping.");
@@ -39,26 +44,36 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
             bool fill_success = false;
             std::unordered_map<std::pair<int, int>, int, PairHash> last_ambiguity;
             std::unordered_map<std::pair<int, int>, int, PairHash> previous_solution_state;
+            
             bool has_last_ambiguity = false;
             bool has_previous_state = false;
 
+            
             for (int fill_attempt = 0; fill_attempt < MAX_VALUE_RETRIES; fill_attempt++) {
                 LOG_DEBUG("    Fill attempt " << fill_attempt);
 
                 // Logic Fix 1: Generate constraints BEFORE reset
-                std::unordered_map<Cell*, int> constraints;
-                if (fill_attempt > 1 && has_last_ambiguity && has_previous_state) {
+                std::unordered_map<Cell*, int> forced;
+                std::vector<ValueConstraint> forbidden;
+
+                if (fill_attempt > 0 && has_last_ambiguity) {
                     LOG_DEBUG("    Generating breaking constraints");
-                    auto constraint_map = generate_breaking_constraints(last_ambiguity, previous_solution_state);
-                    for(auto& [c, val] : constraint_map) {
-                        constraints[c] = val;
+                    // Find a cell where the two solutions differ
+                    for (auto const& [coords, alt_val] : last_ambiguity) {
+                        int original_val = previous_solution_state[coords];
+                        if (original_val != alt_val) {
+                            Cell* target_cell = board->get_cell(coords.first, coords.second);
+                            // FORBID both values. This forces the solver to find a 3rd way.
+                            forbidden.push_back({target_cell, {original_val, alt_val}});
+                            break; 
+                        }
                     }
                 }
 
                 board->reset_values();
 
                 // Logic Fix 2: Pass ignore_clues=true
-                bool success = solve_fill(difficulty, 50000, constraints, true);
+                bool success = solve_fill(difficulty, 50000, forced, forbidden, true);
 
                 if (!success) {
                     LOG_DEBUG("    Fill failed, trying next");
@@ -149,17 +164,26 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
 }
 
 bool CSPSolver::solve_fill(const std::string& difficulty, 
-                           int max_nodes,
-                           const std::unordered_map<Cell*, int>& initial_constraints,
-                           bool ignore_clues) {
+                   int max_nodes, 
+                   const std::unordered_map<Cell*, int>& forced_assignments, 
+                   const std::vector<ValueConstraint>& forbidden_constraints,
+                   bool ignore_clues) {
     LOG_DEBUG("      solve_fill: difficulty=" << difficulty << ", max_nodes=" << max_nodes 
               << ", ignore_clues=" << ignore_clues);
     std::unordered_map<Cell*, int> assignment;
     int node_count = 0;
     
     // Apply constraints
-    for(auto& [cell, val] : initial_constraints) {
+    for(auto& [cell, val] : forced_assignments) {
         if(cell->type == CellType::WHITE) {
+            for (const auto& f : forbidden_constraints) {
+                if (f.cell == cell) {
+                    for (int f_val : f.values) {
+                        if (val == f_val) return false; // Impossible constraints
+                    }
+                }
+            }
+
             if(is_consistent_number(cell, val, assignment, ignore_clues)) {
                 assignment[cell] = val;
             } else {
@@ -186,17 +210,19 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
         partition_preference = "";
     }
     
-    bool result = backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues, partition_preference);
+    bool result = backtrack_fill(assignment, node_count, max_nodes, weights, 
+                          ignore_clues, partition_preference, forbidden_constraints);
     LOG_DEBUG("      solve_fill result: " << (result ? "SUCCESS" : "FAIL") << ", nodes explored: " << node_count);
     return result;
 }
 
 
-bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
-                               int& node_count, int max_nodes,
-                               const std::vector<int>& weights,
-                               bool ignore_clues,
-                               const std::string& partition_preference) {
+bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment, 
+                   int& node_count, int max_nodes, 
+                   const std::vector<int>& weights,
+                   bool ignore_clues,
+                   const std::string& partition_preference,
+                   const std::vector<ValueConstraint>& forbidden_constraints) {
     if (node_count > max_nodes) {
         LOG_DEBUG("        Max nodes exceeded (" << node_count << " > " << max_nodes << ")");
         return false;
@@ -235,10 +261,19 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
     }
     
     // MRV
-    Cell* var = *std::max_element(unassigned.begin(), unassigned.end(),
-        [this, &assignment](Cell* a, Cell* b) {
-            return count_neighbors_filled(a, assignment) < count_neighbors_filled(b, assignment);
-        });
+    Cell* var = nullptr;
+    int max_filled = -1;
+    for (Cell* c : board->white_cells) {
+        if (assignment.find(c) == assignment.end()) {
+            int filled = count_neighbors_filled(c, assignment);
+            if (filled > max_filled) {
+                max_filled = filled;
+                var = c;
+            }
+        }
+    }
+
+    if (!var) return true;
     
     std::vector<int> domain;
     
@@ -264,9 +299,22 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
     }
     
     for (int val : domain) {
+        // Check forbidden values from constraints
+        bool forbidden = false;
+        for (const auto& cons : forbidden_constraints) {
+            if (cons.cell == var) {
+                for (int f_val : cons.values) {
+                    if (val == f_val) { forbidden = true; break; }
+                }
+            }
+            if (forbidden) break;
+        }
+        if (forbidden) continue;
+
         if (is_consistent_number(var, val, assignment, ignore_clues)) {
             assignment[var] = val;
-            if (backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues, partition_preference)) {
+            if (backtrack_fill(assignment, node_count, max_nodes, weights, 
+                               ignore_clues, partition_preference, forbidden_constraints)) {
                 return true;
             }
             assignment.erase(var);
@@ -288,7 +336,7 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
         bool duplicate = false;
         
         if (cell->sector_h && !cell->sector_h->empty()) {
-            for (Cell* c : *cell->sector_h) {
+            for (Cell* c : *(cell->sector_h)) {
                 if (assignment.count(c) && assignment.at(c) == val) {
                     duplicate = true;
                     break;
@@ -297,7 +345,7 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
         }
         
         if (!duplicate && cell->sector_v && !cell->sector_v->empty()) {
-            for (Cell* c : *cell->sector_v) {
+            for (Cell* c : *(cell->sector_v)) {
                 if (assignment.count(c) && assignment.at(c) == val) {
                     duplicate = true;
                     break;
@@ -328,10 +376,15 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
     
     // Sort by score (lower = better), with some randomness
     std::uniform_real_distribution<> dist(0.0, 2.0);
+    for (auto& cand : candidates) {
+        cand.second += dist(rng);
+    }
+
+    // 2. Sort based on the now-static scores (Strict Weak Ordering satisfied)
     std::sort(candidates.begin(), candidates.end(), 
-             [this, &dist](const auto& a, const auto& b) mutable {
-                 return (a.second + dist(rng)) < (b.second + dist(rng));
-             });
+            [](const auto& a, const auto& b) {
+                return a.second < b.second;
+            });
     
     std::vector<int> result;
     for (auto& [val, score] : candidates) {
@@ -348,7 +401,7 @@ double CSPSolver::calculate_partition_score(
     char direction,
     const std::string& preference) {
     
-    std::vector<Cell*>* sector = (direction == 'h') ? cell->sector_h : cell->sector_v;
+    auto sector = (direction == 'h') ? cell->sector_h : cell->sector_v;
     
     // Safety check
     if (!sector || sector->empty()) return 0.0;
@@ -537,10 +590,10 @@ bool CSPSolver::validate_partition_difficulty(
     
     // Check horizontal sectors
     for (const auto& sector : board->sectors_h) {
-        if (sector.empty()) continue;
+        if (sector->empty()) continue;
         
         bool all_assigned = true;
-        for (Cell* c : sector) {
+        for (Cell* c : *(sector)) {
             if (assignment.find(c) == assignment.end()) {
                 all_assigned = false;
                 break;
@@ -550,11 +603,11 @@ bool CSPSolver::validate_partition_difficulty(
         
         total_clue_count++;
         int clue_sum = 0;
-        for (Cell* c : sector) {
+        for (Cell* c : *(sector)) {
             clue_sum += assignment.at(c);
         }
         
-        int num_partitions = count_partitions(clue_sum, (int)sector.size());
+        int num_partitions = count_partitions(clue_sum, (int)sector->size());
         
         if (preference == "unique" && num_partitions <= 2) {
             easy_clue_count++;
@@ -565,10 +618,10 @@ bool CSPSolver::validate_partition_difficulty(
     
     // Check vertical sectors
     for (const auto& sector : board->sectors_v) {
-        if (sector.empty()) continue;
+        if (sector->empty()) continue;
         
         bool all_assigned = true;
-        for (Cell* c : sector) {
+        for (Cell* c : *(sector)) {
             if (assignment.find(c) == assignment.end()) {
                 all_assigned = false;
                 break;
@@ -578,11 +631,11 @@ bool CSPSolver::validate_partition_difficulty(
         
         total_clue_count++;
         int clue_sum = 0;
-        for (Cell* c : sector) {
+        for (Cell* c : *(sector)) {
             clue_sum += assignment.at(c);
         }
         
-        int num_partitions = count_partitions(clue_sum, (int)sector.size());
+        int num_partitions = count_partitions(clue_sum, (int)sector->size());
         
         if (preference == "unique" && num_partitions <= 2) {
             easy_clue_count++;
@@ -641,7 +694,7 @@ bool CSPSolver::is_consistent_number(Cell* var, int value,
     if (var->sector_h) {
         int curr_sum = value;
         int filled = 1;
-        for (Cell* peer : *var->sector_h) {
+        for (Cell* peer : *(var->sector_h)) {
             if (assignment.count(peer)) {
                 int v = assignment.at(peer);
                 if (v == value) return false; // Duplicate check always on
@@ -650,7 +703,7 @@ bool CSPSolver::is_consistent_number(Cell* var, int value,
             }
         }
         if (!ignore_clues) {
-            Cell* start = (*var->sector_h)[0];
+            Cell* start = (*(var->sector_h))[0];
             if (start->c > 0) {
                 auto clue = board->grid[start->r][start->c-1].clue_h;
                 if (clue) {
@@ -664,7 +717,7 @@ bool CSPSolver::is_consistent_number(Cell* var, int value,
     if (var->sector_v) {
         int curr_sum = value;
         int filled = 1;
-        for (Cell* peer : *var->sector_v) {
+        for (Cell* peer : *(var->sector_v)) {
             if (assignment.count(peer)) {
                 int v = assignment.at(peer);
                 if (v == value) return false; 
@@ -673,7 +726,7 @@ bool CSPSolver::is_consistent_number(Cell* var, int value,
             }
         }
         if (!ignore_clues) {
-            Cell* start = (*var->sector_v)[0];
+            Cell* start = (*(var->sector_v))[0];
             if (start->r > 0) {
                 auto clue = board->grid[start->r-1][start->c].clue_v;
                 if (clue) {
@@ -693,13 +746,13 @@ void CSPSolver::calculate_clues() {
     // Horizontal sectors
     for (auto& sector : board->sectors_h) {
         int sum = 0;
-        for (Cell* c : sector) {
+        for (Cell* c : *(sector)) {
             if (c->value.has_value()) {
                 sum += c->value.value();
             }
         }
         
-        Cell* first = sector[0];
+        Cell* first = sector->at(0);
         if (first->c > 0) {
             board->grid[first->r][first->c - 1].clue_h = sum;
         }
@@ -708,13 +761,13 @@ void CSPSolver::calculate_clues() {
     // Vertical sectors
     for (auto& sector : board->sectors_v) {
         int sum = 0;
-        for (Cell* c : sector) {
+        for (Cell* c : *(sector)) {
             if (c->value.has_value()) {
                 sum += c->value.value();
             }
         }
         
-        Cell* first = sector[0];
+        Cell* first = sector->at(0);
         if (first->r > 0) {
             board->grid[first->r - 1][first->c].clue_v = sum;
         }
@@ -799,7 +852,7 @@ bool CSPSolver::is_valid_move(Cell* cell, int val) {
     // Horizontal
     if(cell->sector_h) {
         int sum = val; int filled = 1;
-        for(Cell* p : *cell->sector_h) {
+        for(Cell* p : *(cell->sector_h)) {
             if(p->value) {
                 if(*p->value == val) return false;
                 sum += *p->value;
@@ -814,7 +867,7 @@ bool CSPSolver::is_valid_move(Cell* cell, int val) {
     // Vertical
     if(cell->sector_v) {
         int sum = val; int filled = 1;
-        for(Cell* p : *cell->sector_v) {
+        for(Cell* p : *(cell->sector_v)) {
             if(p->value) {
                 if(*p->value == val) return false;
                 sum += *p->value;
@@ -860,6 +913,8 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
         board->set_block(board->height - 1 - target->r, board->width - 1 - target->c);
         
         board->prune_singles(); // Cascading prune
+        board->break_single_runs();
+        board->break_large_patches();
         
         // Validate
         board->collect_white_cells();
@@ -909,15 +964,20 @@ std::unordered_map<Cell*, int> CSPSolver::generate_breaking_constraints(
     
     if(!diffs.empty()) {
         Cell* target = diffs[std::uniform_int_distribution<>(0, (int)diffs.size()-1)(rng)];
-        int val_a = prev_sol.at({target->r, target->c});
-        int val_b = alt_sol.at({target->r, target->c});
+        auto it_prev = prev_sol.find({target->r, target->c});
+        auto it_alt = alt_sol.find({target->r, target->c});
         
-        std::vector<int> domain;
-        for(int i=1; i<=9; i++) if(i != val_a && i != val_b) domain.push_back(i);
+        if (it_prev != prev_sol.end() && it_alt != alt_sol.end()) {
+            int val_a = it_prev->second;
+            int val_b = it_alt->second;
         
-        if(!domain.empty()) {
-            int new_val = domain[std::uniform_int_distribution<>(0, (int)domain.size()-1)(rng)];
-            constraints[target] = new_val;
+            std::vector<int> domain;
+            for(int i=1; i<=9; i++) if(i != val_a && i != val_b) domain.push_back(i);
+            
+            if(!domain.empty()) {
+                int new_val = domain[std::uniform_int_distribution<>(0, (int)domain.size()-1)(rng)];
+                constraints[target] = new_val;
+            }
         }
     }
     return constraints;

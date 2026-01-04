@@ -16,7 +16,7 @@
 
 namespace kakuro {
 
-#define LOG_DEBUG(msg) do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0) //  do {} while(0) // 
+#define LOG_DEBUG(msg) do {} while(0) // do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0) //  
 
 enum class CellType {
     BLOCK,
@@ -32,8 +32,8 @@ struct Cell {
     std::optional<int> clue_v;  // Sum of the col below
     
     // Pointers to sectors (for fast access during solving)
-    std::vector<Cell*>* sector_h;
-    std::vector<Cell*>* sector_v;
+    std::shared_ptr<std::vector<Cell*>> sector_h;
+    std::shared_ptr<std::vector<Cell*>> sector_v;
     
     Cell(int row, int col, CellType t = CellType::WHITE)
         : r(row), c(col), type(t), value(std::nullopt), 
@@ -56,8 +56,8 @@ public:
     int height;
     std::vector<std::vector<Cell>> grid;
     std::vector<Cell*> white_cells;
-    std::deque<std::vector<Cell*>> sectors_h;  // Use deque to prevent pointer invalidation
-    std::deque<std::vector<Cell*>> sectors_v;  // Use deque to prevent pointer invalidation
+    std::vector<std::shared_ptr<std::vector<Cell*>>> sectors_h;
+    std::vector<std::shared_ptr<std::vector<Cell*>>> sectors_v;
     
     // Random number generator
     std::mt19937 rng;
@@ -70,7 +70,7 @@ public:
     void set_white(int r, int c);
     
     // Topology generation
-    void generate_topology(double density = 0.60, int max_sector_length = 9, std::string difficulty = "medium");
+    bool generate_topology(double density = 0.60, int max_sector_length = 9, std::string difficulty = "medium");
     bool generate_stamps(const std::vector<std::pair<int, int>>& shapes, int iterations);
     
     // Helper methods
@@ -85,10 +85,6 @@ public:
     bool check_connectivity();
     int count_white_neighbors(Cell* cell);
     
-    // Export to Python-friendly format
-    std::vector<std::vector<std::unordered_map<std::string, std::string>>> to_dict() const;
-    
-private:
     bool place_random_seed();
     void grow_lattice(double density, int max_sector_length);
     void break_large_patches(int size = 3);
@@ -97,6 +93,12 @@ private:
     void apply_slice(int fixed_idx, int start, int length, bool is_horz);
     void block_sym(Cell* cell);
     bool ensure_connectivity();
+    
+    // Export to Python-friendly format
+    std::vector<std::vector<std::unordered_map<std::string, std::string>>> to_dict() const;
+    
+private:
+    
     // bool limit_sector_lengths(int max_length);
     // int count_neighbors_filled(Cell* cell, const std::unordered_map<Cell*, int>& assignment);
     // bool is_connected(const std::unordered_set<std::pair<int, int>, 
@@ -109,9 +111,18 @@ public:
     std::mt19937 rng;
     
     CSPSolver(std::shared_ptr<KakuroBoard> b);
+
+    struct ValueConstraint {
+        Cell* cell;
+        std::vector<int> values;
+    };
     
     bool generate_puzzle(const std::string& difficulty = "medium");
-    bool solve_fill(const std::string& difficulty = "medium", int max_nodes = 30000, const std::unordered_map<Cell*, int>& initial_constraints = {}, bool ignore_clues = false);
+    bool solve_fill(const std::string& difficulty, 
+                   int max_nodes, 
+                   const std::unordered_map<Cell*, int>& forced_assignments = {}, 
+                    const std::vector<ValueConstraint>& forbidden_constraints = {},
+                   bool ignore_clues = false);
     void calculate_clues();
     std::pair<bool, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
     check_uniqueness(int max_nodes = 10000, int seed_offset = 0);
@@ -121,7 +132,8 @@ private:
                    int& node_count, int max_nodes, 
                    const std::vector<int>& weights,
                    bool ignore_clues,
-                   const std::string& partition_preference);
+                   const std::string& partition_preference,
+                   const std::vector<ValueConstraint>& forbidden_constraints);
     
     int count_neighbors_filled(Cell* cell, const std::unordered_map<Cell*, int>& assignment);
     bool is_consistent_number(Cell* var, int value, const std::unordered_map<Cell*, int>& assignment, bool ignore_clues);

@@ -2,6 +2,7 @@
 #include <vector>
 #include <numeric>
 #include <cmath>
+#include <algorithm>
 
 namespace kakuro {
 
@@ -18,7 +19,6 @@ int KakuroDifficultyEstimator::count_set_bits(uint16_t n) {
 }
 
 float KakuroDifficultyEstimator::estimate_difficulty() {
-    // 1. Initialize Candidates
     candidates.assign(board->height, std::vector<uint16_t>(board->width, 0));
     
     int total_white_cells = 0;
@@ -30,21 +30,16 @@ float KakuroDifficultyEstimator::estimate_difficulty() {
     int passes = 0;
     int solved_cells = 0;
     
-    // 2. Logic Loop
     while (solved_cells < total_white_cells) {
         passes++;
         bool changes = false;
         
-        // Combine sectors for iteration
-        // FIX: Explicit type to handle vector of pointers
-        std::vector<std::vector<Cell*>*> all_sectors;
-        for (auto& s : board->sectors_h) all_sectors.push_back(&s);
-        for (auto& s : board->sectors_v) all_sectors.push_back(&s);
-        
-        for (auto* sector_ptr : all_sectors) {
-            if (apply_sum_constraints(*sector_ptr)) {
-                changes = true;
-            }
+        // FIX: Collect the vectors inside the shared_ptrs
+        for (auto& s_ptr : board->sectors_h) {
+            if (apply_sum_constraints(*s_ptr)) changes = true;
+        }
+        for (auto& s_ptr : board->sectors_v) {
+            if (apply_sum_constraints(*s_ptr)) changes = true;
         }
         
         int current_solved = 0;
@@ -70,19 +65,18 @@ float KakuroDifficultyEstimator::estimate_difficulty() {
 bool KakuroDifficultyEstimator::apply_sum_constraints(const std::vector<Cell*>& sector) {
     if (sector.empty()) return false;
     
-    bool is_horz = (sector[0]->sector_h == &sector || 
-                   (sector.size() > 1 && sector[1]->sector_h == &sector));
+    // FIX: Use .get() to compare shared_ptr contents to the raw address of 'sector'
+    bool is_horz = (sector[0]->sector_h.get() == &sector);
                    
     int clue = 0;
-    // FIX: Correct optional access logic
     if (is_horz) {
-        auto& val = board->grid[sector[0]->r][sector[0]->c - 1].clue_h;
+        auto val = board->grid[sector[0]->r][sector[0]->c - 1].clue_h;
         if (!val.has_value()) return false;
-        clue = val.value();
+        clue = *val;
     } else {
-        auto& val = board->grid[sector[0]->r - 1][sector[0]->c].clue_v;
+        auto val = board->grid[sector[0]->r - 1][sector[0]->c].clue_v;
         if (!val.has_value()) return false;
-        clue = val.value();
+        clue = *val;
     }
     
     std::vector<uint16_t> allowed_values_per_slot(sector.size(), 0);
@@ -95,7 +89,6 @@ bool KakuroDifficultyEstimator::apply_sum_constraints(const std::vector<Cell*>& 
         Cell* c = sector[i];
         uint16_t current_mask = candidates[c->r][c->c];
         uint16_t allowed_mask = allowed_values_per_slot[i];
-        
         uint16_t new_mask = current_mask & allowed_mask;
         
         if (new_mask != current_mask) {
@@ -103,7 +96,6 @@ bool KakuroDifficultyEstimator::apply_sum_constraints(const std::vector<Cell*>& 
             changed = true;
         }
     }
-    
     return changed;
 }
 
@@ -127,15 +119,18 @@ void KakuroDifficultyEstimator::find_valid_permutations(
     
     if (current_sum >= target_sum) return;
     
-    int remaining_count = (int)sector.size() - index;
-    if (current_sum + remaining_count > target_sum) return;
+    // Optimization: check if remaining sum is even possible
+    int remaining_cells = (int)sector.size() - index;
+    // Min possible remaining sum: 1+2+...
+    // Max possible remaining sum: 9+8+... 
+    // (Simplified check for speed)
+    if (current_sum + remaining_cells > target_sum) return;
 
     Cell* current_cell = sector[index];
     uint16_t cell_candidates = candidates[current_cell->r][current_cell->c];
     
     for (int num = 1; num <= 9; ++num) {
         uint16_t num_bit = (1 << num);
-        
         if ((cell_candidates & num_bit) && !(used_numbers_mask & num_bit)) {
             path[index] = num;
             find_valid_permutations(sector, index + 1, current_sum + num, target_sum,

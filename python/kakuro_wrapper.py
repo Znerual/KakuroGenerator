@@ -10,7 +10,7 @@ import os
 # Try to import the C++ module
 try:
     # Look for the module in the python directory
-    import kakuro_cpp
+    import kakuro.kakuro_cpp as kakuro_cpp
     
     # Map C++ classes to local names
     _KakuroBoard = kakuro_cpp.KakuroBoard
