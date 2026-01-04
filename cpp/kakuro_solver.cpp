@@ -60,17 +60,43 @@ bool CSPSolver::generate_puzzle(const std::string& difficulty) {
                 // Logic Fix 2: Pass ignore_clues=true
                 bool success = solve_fill(difficulty, 50000, constraints, true);
 
-                if (success) {
-                    LOG_DEBUG("    Fill succeeded!");
-                    fill_success = true;
-                    // Store state
-                    previous_solution_state.clear();
-                    for(Cell* c : board->white_cells) {
-                        if(c->value) previous_solution_state[{c->r, c->c}] = *c->value;
-                    }
-                    has_previous_state = true;
-                    break;
+                if (!success) {
+                    LOG_DEBUG("    Fill failed, trying next");
+                    continue; // Try next fill attempt
                 }
+               
+                LOG_DEBUG("    Fill succeeded!");
+                fill_success = true;
+                // Store state
+                previous_solution_state.clear();
+                for(Cell* c : board->white_cells) {
+                    if(c->value) previous_solution_state[{c->r, c->c}] = *c->value;
+                }
+                has_previous_state = true;
+
+
+                // Calculate Clues based on this fill
+                calculate_clues();
+                
+                // Check Uniqueness using the clues
+                LOG_DEBUG("    Checking uniqueness (attempt " << fill_attempt << ")");
+                auto [unique, alt_sol] = check_uniqueness(10000, fill_attempt);
+                
+                if (unique) {
+                    LOG_DEBUG("    Puzzle appears unique, double-checking");
+                    auto [unique2, _] = check_uniqueness(10000, fill_attempt + 100);
+                    if (unique2) {
+                        LOG_DEBUG("=== SUCCESS! Unique puzzle generated ===");
+                        return true;
+                    }
+                }
+                
+                // Not unique, store ambiguity for next attempt
+                if (alt_sol.has_value()) {
+                    last_ambiguity = alt_sol.value();
+                    has_last_ambiguity = true;
+                }
+                
             }
 
             if (!fill_success) {
