@@ -172,10 +172,11 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
                                bool ignore_clues,
                                const std::string& partition_preference) {
     if (node_count > max_nodes) {
-        LOG_DEBUG("      backtrack_fill: Max nodes exceeded");
+        LOG_DEBUG("        Max nodes exceeded (" << node_count << " > " << max_nodes << ")");
         return false;
     }
     node_count++;
+    
     if (node_count % 1000 == 0) {
         LOG_DEBUG("        Backtrack progress: " << node_count << " nodes, " 
                   << assignment.size() << "/" << board->white_cells.size() << " assigned");
@@ -183,21 +184,27 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
     
     std::vector<Cell*> unassigned;
     for (Cell* c : board->white_cells) {
-        if (assignment.find(c) == assignment.end()) unassigned.push_back(c);
+        if (assignment.find(c) == assignment.end()) {
+            unassigned.push_back(c);
+        }
     }
     
     if (unassigned.empty()) {
-        LOG_DEBUG("      backtrack_fill: Solution found");
+        LOG_DEBUG("        All cells assigned!");
+        
         // FINAL VALIDATION for easy puzzles
         if (!partition_preference.empty() && !ignore_clues) {
+            LOG_DEBUG("        Validating partition difficulty for: " << partition_preference);
             if (!validate_partition_difficulty(assignment, partition_preference)) {
-                LOG_DEBUG("      backtrack_fill: Solution rejected");
+                LOG_DEBUG("        Partition difficulty validation FAILED");
                 return false;  // Reject this solution, backtrack
             }
-            LOG_DEBUG("      backtrack_fill: Solution accepted");
+            LOG_DEBUG("        Partition difficulty validation PASSED");
         }
         
-        for (auto& [cell, val] : assignment) cell->value = val;
+        for (auto& [cell, val] : assignment) {
+            cell->value = val;
+        }
         return true;
     }
     
@@ -211,6 +218,10 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
     
     if (!partition_preference.empty()) {
         domain = get_partition_aware_domain(var, assignment, partition_preference, weights);
+        if (node_count % 500 == 0) {
+            LOG_DEBUG("        Partition-aware domain for (" << var->r << "," << var->c 
+                      << "): size=" << domain.size());
+        }
     } else {
         // Original approach
         std::vector<std::pair<int, double>> weighted_domain;
@@ -221,14 +232,17 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
         std::sort(weighted_domain.begin(), weighted_domain.end(), 
                  [](const auto& a, const auto& b){ return a.second > b.second; });
         
-        for (auto& p : weighted_domain) domain.push_back(p.first);
+        for (auto& p : weighted_domain) {
+            domain.push_back(p.first);
+        }
     }
     
     for (int val : domain) {
         if (is_consistent_number(var, val, assignment, ignore_clues)) {
             assignment[var] = val;
-            if (backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues, partition_preference)) 
+            if (backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues, partition_preference)) {
                 return true;
+            }
             assignment.erase(var);
         }
     }
@@ -246,7 +260,8 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
     for (int val = 1; val <= 9; val++) {
         // Quick duplicate check
         bool duplicate = false;
-        if (cell->sector_h) {
+        
+        if (cell->sector_h && !cell->sector_h->empty()) {
             for (Cell* c : *cell->sector_h) {
                 if (assignment.count(c) && assignment.at(c) == val) {
                     duplicate = true;
@@ -254,7 +269,8 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
                 }
             }
         }
-        if (!duplicate && cell->sector_v) {
+        
+        if (!duplicate && cell->sector_v && !cell->sector_v->empty()) {
             for (Cell* c : *cell->sector_v) {
                 if (assignment.count(c) && assignment.at(c) == val) {
                     duplicate = true;
@@ -262,6 +278,7 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
                 }
             }
         }
+        
         if (duplicate) continue;
         
         // Calculate partition scores for both directions
@@ -269,10 +286,18 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
         double v_score = calculate_partition_score(cell, val, assignment, 'v', preference);
         
         // Combined score: lower is better (fewer partitions = easier)
-        double difficulty_weight = weights[val - 1];
+        double difficulty_weight = (double)weights[val - 1];
         double combined_score = (h_score + v_score) * (10.0 / std::max(difficulty_weight, 1.0));
         
         candidates.push_back({val, combined_score});
+    }
+    
+    if (candidates.empty()) {
+        LOG_DEBUG("          WARNING: No valid candidates for cell(" << cell->r << "," << cell->c << ")");
+        // Fallback: return all values 1-9 if no valid candidates found
+        std::vector<int> result;
+        for (int i = 1; i <= 9; i++) result.push_back(i);
+        return result;
     }
     
     // Sort by score (lower = better), with some randomness
@@ -283,9 +308,12 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
              });
     
     std::vector<int> result;
-    for (auto& p : candidates) result.push_back(p.first);
+    for (auto& [val, score] : candidates) {
+        result.push_back(val);
+    }
     return result;
 }
+
 
 double CSPSolver::calculate_partition_score(
     Cell* cell,
@@ -295,7 +323,9 @@ double CSPSolver::calculate_partition_score(
     const std::string& preference) {
     
     std::vector<Cell*>* sector = (direction == 'h') ? cell->sector_h : cell->sector_v;
-    if (!sector) return 0.0;
+    
+    // Safety check
+    if (!sector || sector->empty()) return 0.0;
     
     // Calculate current state of this sector
     int current_sum = value;
@@ -335,24 +365,32 @@ double CSPSolver::calculate_partition_score(
         // Get used digits
         std::unordered_set<int> used_digits;
         for (Cell* c : *sector) {
-            if (assignment.count(c)) used_digits.insert(assignment.at(c));
+            if (assignment.count(c)) {
+                used_digits.insert(assignment.at(c));
+            }
         }
         used_digits.insert(value);
         
         // Available digits
         std::vector<int> available;
         for (int d = 1; d <= 9; d++) {
-            if (!used_digits.count(d)) available.push_back(d);
+            if (used_digits.find(d) == used_digits.end()) {
+                available.push_back(d);
+            }
         }
         
         if ((int)available.size() < remaining_count) return 100.0;
         
         int min_remaining = 0;
-        for (int i = 0; i < remaining_count; i++) min_remaining += available[i];
+        for (int i = 0; i < remaining_count; i++) {
+            min_remaining += available[i];
+        }
         
         int max_remaining = 0;
-        for (int i = (int)available.size() - remaining_count; i < (int)available.size(); i++) 
+        int start_idx = (int)available.size() - remaining_count;
+        for (int i = start_idx; i < (int)available.size(); i++) {
             max_remaining += available[i];
+        }
         
         int min_final_sum = current_sum + min_remaining;
         int max_final_sum = current_sum + max_remaining;
@@ -367,6 +405,8 @@ double CSPSolver::calculate_partition_score(
                 sample_sums.push_back(s);
             }
         }
+        
+        if (sample_sums.empty()) return 5.0;  // Safety fallback
         
         double avg_partitions = 0;
         for (int s : sample_sums) {
@@ -389,6 +429,11 @@ double CSPSolver::calculate_partition_score(
 }
 
 int CSPSolver::count_partitions(int target_sum, int length) {
+    // Add bounds check
+    if (length <= 0 || length > 9 || target_sum <= 0 || target_sum > 45) {
+        return 0;
+    }
+    
     std::pair<int, int> key = {target_sum, length};
     if (partition_cache.count(key)) {
         return partition_cache[key];
@@ -397,8 +442,15 @@ int CSPSolver::count_partitions(int target_sum, int length) {
     std::unordered_set<int> used;
     int result = count_partitions_recursive(target_sum, length, 1, used);
     partition_cache[key] = result;
+    
+    if (result == 0 || result > 20) {
+        LOG_DEBUG("          Partition count: sum=" << target_sum << ", len=" << length 
+                  << " -> " << result << " partitions");
+    }
+    
     return result;
 }
+
 
 int CSPSolver::count_partitions_recursive(
     int remaining_sum,
@@ -415,18 +467,25 @@ int CSPSolver::count_partitions_recursive(
     // Get available digits
     std::vector<int> available;
     for (int d = min_digit; d <= 9; d++) {
-        if (!used.count(d)) available.push_back(d);
+        if (used.find(d) == used.end()) {
+            available.push_back(d);
+        }
     }
     
     if ((int)available.size() < remaining_length) return 0;
     
     // Feasibility check
     int min_possible = 0;
-    for (int i = 0; i < remaining_length; i++) min_possible += available[i];
+    for (int i = 0; i < remaining_length && i < (int)available.size(); i++) {
+        min_possible += available[i];
+    }
     
     int max_possible = 0;
-    for (int i = (int)available.size() - remaining_length; i < (int)available.size(); i++)
+    int start = (int)available.size() - remaining_length;
+    if (start < 0) start = 0;
+    for (int i = start; i < (int)available.size(); i++) {
         max_possible += available[i];
+    }
     
     if (remaining_sum < min_possible || remaining_sum > max_possible) return 0;
     
@@ -445,14 +504,18 @@ bool CSPSolver::validate_partition_difficulty(
     const std::unordered_map<Cell*, int>& assignment,
     const std::string& preference) {
     
+    LOG_DEBUG("          Validating partition difficulty...");
+    
     int easy_clue_count = 0;
     int total_clue_count = 0;
     
     // Check horizontal sectors
-    for (auto& sector : board->sectors_h) {
+    for (const auto& sector : board->sectors_h) {
+        if (sector.empty()) continue;
+        
         bool all_assigned = true;
         for (Cell* c : sector) {
-            if (!assignment.count(c)) {
+            if (assignment.find(c) == assignment.end()) {
                 all_assigned = false;
                 break;
             }
@@ -461,7 +524,9 @@ bool CSPSolver::validate_partition_difficulty(
         
         total_clue_count++;
         int clue_sum = 0;
-        for (Cell* c : sector) clue_sum += assignment.at(c);
+        for (Cell* c : sector) {
+            clue_sum += assignment.at(c);
+        }
         
         int num_partitions = count_partitions(clue_sum, (int)sector.size());
         
@@ -473,10 +538,12 @@ bool CSPSolver::validate_partition_difficulty(
     }
     
     // Check vertical sectors
-    for (auto& sector : board->sectors_v) {
+    for (const auto& sector : board->sectors_v) {
+        if (sector.empty()) continue;
+        
         bool all_assigned = true;
         for (Cell* c : sector) {
-            if (!assignment.count(c)) {
+            if (assignment.find(c) == assignment.end()) {
                 all_assigned = false;
                 break;
             }
@@ -485,7 +552,9 @@ bool CSPSolver::validate_partition_difficulty(
         
         total_clue_count++;
         int clue_sum = 0;
-        for (Cell* c : sector) clue_sum += assignment.at(c);
+        for (Cell* c : sector) {
+            clue_sum += assignment.at(c);
+        }
         
         int num_partitions = count_partitions(clue_sum, (int)sector.size());
         
@@ -496,14 +565,21 @@ bool CSPSolver::validate_partition_difficulty(
         }
     }
     
-    if (total_clue_count == 0) return true;
+    if (total_clue_count == 0) {
+        LOG_DEBUG("          No clues to validate");
+        return true;
+    }
     
     double ratio = (double)easy_clue_count / total_clue_count;
+    double required_ratio = (preference == "unique") ? 0.80 : 0.60;
+    
+    LOG_DEBUG("          Easy clues: " << easy_clue_count << "/" << total_clue_count 
+              << " = " << (ratio * 100) << "% (required: " << (required_ratio * 100) << "%)");
     
     if (preference == "unique") {
-        return ratio >= 0.80;  // At least 80% easy clues
+        return ratio >= 0.80;
     } else if (preference == "few") {
-        return ratio >= 0.60;  // At least 60% easy clues
+        return ratio >= 0.60;
     }
     
     return true;
@@ -585,6 +661,9 @@ bool CSPSolver::is_consistent_number(Cell* var, int value,
 }
 
 void CSPSolver::calculate_clues() {
+    LOG_DEBUG("  Calculating clues for " << board->sectors_h.size() << " H + " 
+              << board->sectors_v.size() << " V sectors");
+    
     // Horizontal sectors
     for (auto& sector : board->sectors_h) {
         int sum = 0;
@@ -618,8 +697,12 @@ void CSPSolver::calculate_clues() {
 
 std::pair<bool, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
 CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
+    LOG_DEBUG("  Checking uniqueness (max_nodes=" << max_nodes << ", seed=" << seed_offset << ")");
+    
     std::unordered_map<std::pair<int, int>, int, PairHash> current_sol;
-    for (Cell* c : board->white_cells) if(c->value) current_sol[{c->r, c->c}] = *c->value;
+    for (Cell* c : board->white_cells) {
+        if(c->value) current_sol[{c->r, c->c}] = *c->value;
+    }
     
     for (Cell* c : board->white_cells) c->value = std::nullopt;
     
@@ -629,9 +712,12 @@ CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
     
     for (Cell* c : board->white_cells) c->value = current_sol[{c->r, c->c}];
     
+    LOG_DEBUG("  Uniqueness check: nodes=" << node_count << ", alt_solutions=" << found.size());
+    
     if (found.empty()) return {true, std::nullopt};
     return {false, found[0]};
 }
+
 
 void CSPSolver::solve_for_uniqueness(
     std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>& found_solutions,
@@ -718,12 +804,16 @@ bool CSPSolver::is_valid_move(Cell* cell, int val) {
 }
 
 bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol) {
+    LOG_DEBUG("  Attempting topology repair");
+    
     std::vector<Cell*> diffs;
     for(Cell* c : board->white_cells) {
         if(c->value && alt_sol.count({c->r, c->c}) && alt_sol.at({c->r, c->c}) != *c->value) {
             diffs.push_back(c);
         }
     }
+    
+    LOG_DEBUG("  Found " << diffs.size() << " differing cells");
     if(diffs.empty()) return false;
     
     std::shuffle(diffs.begin(), diffs.end(), rng);
@@ -736,7 +826,10 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
     for(int r=0; r<board->height; r++)
         for(int c=0; c<board->width; c++) snapshot[r][c] = board->grid[r][c].type;
 
-    for(Cell* target : diffs) {
+    for(size_t i = 0; i < diffs.size(); i++) {
+        Cell* target = diffs[i];
+        LOG_DEBUG("    Trying to block cell(" << target->r << "," << target->c << ") [" << (i+1) << "/" << diffs.size() << "]");
+        
         board->set_block(target->r, target->c);
         board->set_block(board->height - 1 - target->r, board->width - 1 - target->c);
         
@@ -745,17 +838,31 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
         // Validate
         board->collect_white_cells();
         bool valid = true;
-        if(board->white_cells.size() < 12) valid = false;
-        if(valid && !board->check_connectivity()) valid = false;
-        if(valid && !board->validate_clue_headers()) valid = false;
+        if(board->white_cells.size() < 12) {
+            LOG_DEBUG("    Failed: too few cells (" << board->white_cells.size() << ")");
+            valid = false;
+        }
+        if(valid && !board->check_connectivity()) {
+            LOG_DEBUG("    Failed: connectivity check");
+            valid = false;
+        }
+        if(valid && !board->validate_clue_headers()) {
+            LOG_DEBUG("    Failed: clue headers check");
+            valid = false;
+        }
         
-        if(valid) return true;
+        if(valid) {
+            LOG_DEBUG("    Repair successful!");
+            return true;
+        }
         
         // Rollback
         for(int r=0; r<board->height; r++)
             for(int c=0; c<board->width; c++) board->grid[r][c].type = snapshot[r][c];
         board->collect_white_cells();
     }
+    
+    LOG_DEBUG("  Repair exhausted all options");
     return false;
 }
 
