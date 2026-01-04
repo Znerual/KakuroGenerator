@@ -381,18 +381,38 @@ void KakuroBoard::break_single_runs() {
         for (int r = 1; r < height - 1; r++) {
             for (int c = 1; c < width - 1; c++) {
                 if (grid[r][c].type == CellType::WHITE) {
-                    bool is_isolated = true;
-                    // Check neighbors in all 4 directions
-                    int dr[] = {0, 0, 1, -1};
-                    int dc[] = {1, -1, 0, 0};
-                    for(int i=0; i<4; ++i) {
-                         if(grid[r+dr[i]][c+dc[i]].type == CellType::WHITE) {
-                             is_isolated = false;
-                             break;
-                         }
+                    // Count horizontal run length (including this cell)
+                    int h_len = 1;
+                    // Look left
+                    int check_c = c - 1;
+                    while (check_c >= 0 && grid[r][check_c].type == CellType::WHITE) {
+                        h_len++;
+                        check_c--;
                     }
-
-                    if (is_isolated) {
+                    // Look right
+                    check_c = c + 1;
+                    while (check_c < width && grid[r][check_c].type == CellType::WHITE) {
+                        h_len++;
+                        check_c++;
+                    }
+                    
+                    // Count vertical run length (including this cell)
+                    int v_len = 1;
+                    // Look up
+                    int check_r = r - 1;
+                    while (check_r >= 0 && grid[check_r][c].type == CellType::WHITE) {
+                        v_len++;
+                        check_r--;
+                    }
+                    // Look down
+                    check_r = r + 1;
+                    while (check_r < height && grid[check_r][c].type == CellType::WHITE) {
+                        v_len++;
+                        check_r++;
+                    }
+                    
+                    // If this cell is part of a length-1 run in EITHER direction, remove it
+                    if (h_len == 1 || v_len == 1) {
                         set_block(r, c);
                         set_block(height - 1 - r, width - 1 - c);
                         changed = true;
@@ -400,10 +420,8 @@ void KakuroBoard::break_single_runs() {
                 }
             }
         }
-        if (changed) prune_singles();
     }
 }
-
 bool KakuroBoard::validate_clue_headers() {
     for (int r = 0; r < height; r++) {
         for (int c = 0; c < width; c++) {

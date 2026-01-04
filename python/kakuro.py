@@ -89,8 +89,8 @@ class KakuroBoard:
         # Adjust parameters based on difficulty
         if difficulty == "very_easy":
             stamps = [
-                (2, 3), (3, 2), 
-                (2, 4), (4, 2), 
+                (1, 3), (3, 1), 
+                (1, 4), (4, 1), 
                 (2, 2)          
             ]
             num_stamps = random.randint(6, 12) 
@@ -98,11 +98,12 @@ class KakuroBoard:
             max_run_length = 5
         elif difficulty == "easy":
             stamps = [
-                (2, 3), (3, 2), 
-                (2, 4), (4, 2), 
-                (2, 5), (5, 2),
-                (2, 6), (6, 2),
-                (3, 3), 
+                (1, 3), (3, 1), 
+                (1, 4), (4, 1), 
+                (1, 5), (5, 1),
+                (1, 6), (6, 1),
+                (2, 2), (2, 3), (3, 2),
+                (2, 4), (4, 2),
             ]
             num_stamps = random.randint(8, 15)
             min_cells = 22
@@ -180,24 +181,34 @@ class KakuroBoard:
                 for c in range(1, self.width - 1):
                     cell = self.grid[r][c]
                     if cell.type == CellType.WHITE:
-                        # Check horizontal run length
-                        h_len = 0
-                        if self.grid[r][c-1].type == CellType.WHITE: h_len += 1
-                        if self.grid[r][c+1].type == CellType.WHITE: h_len += 1
+                        # Count horizontal run length (including this cell)
+                        h_len = 1  # Start with current cell
+                        # Look left
+                        check_c = c - 1
+                        while check_c >= 0 and self.grid[r][check_c].type == CellType.WHITE:
+                            h_len += 1
+                            check_c -= 1
+                        # Look right
+                        check_c = c + 1
+                        while check_c < self.width and self.grid[r][check_c].type == CellType.WHITE:
+                            h_len += 1
+                            check_c += 1
                         
-                        # Check vertical run length
-                        v_len = 0
-                        if self.grid[r-1][c].type == CellType.WHITE: v_len += 1
-                        if self.grid[r+1][c].type == CellType.WHITE: v_len += 1
+                        # Count vertical run length (including this cell)
+                        v_len = 1  # Start with current cell
+                        # Look up
+                        check_r = r - 1
+                        while check_r >= 0 and self.grid[check_r][c].type == CellType.WHITE:
+                            v_len += 1
+                            check_r -= 1
+                        # Look down
+                        check_r = r + 1
+                        while check_r < self.height and self.grid[check_r][c].type == CellType.WHITE:
+                            v_len += 1
+                            check_r += 1
                         
-                        is_isolated = True
-                        for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
-                            nr, nc = r + dr, c + dc
-                            if self.grid[nr][nc].type == CellType.WHITE:
-                                is_isolated = False
-                                break
-                        
-                        if is_isolated:
+                        # If this cell is part of a length-1 run in EITHER direction, remove it
+                        if h_len == 1 or v_len == 1:
                             self.set_block(r, c)
                             self.set_block(self.height - 1 - r, self.width - 1 - c)
                             changed = True
