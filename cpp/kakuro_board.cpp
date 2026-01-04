@@ -62,13 +62,13 @@ void KakuroBoard::generate_topology(double density, int max_sector_length, std::
     bool island_mode = false;
 
     if (difficulty == "very_easy") {
-        stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {2, 2}};
+        stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 2}};
         num_stamps = std::uniform_int_distribution<>(6, 12)(rng);
         min_cells = 16;
         max_run_len = 5;
         island_mode = true;
     } else if (difficulty == "easy") {
-        stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {1, 5}, {5, 1}, {2, 3}, {3, 2}, {3, 3}, {2, 4}, {4, 2}};
+        stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 5}, {5, 2}, {2, 6}, {6, 2}, {3, 3}};
         num_stamps = std::uniform_int_distribution<>(8, 15)(rng);
         min_cells = 22;
         max_run_len = 6;

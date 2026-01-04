@@ -65,9 +65,6 @@ class KakuroBoard:
             cell.value = None
 
     def set_white(self, r: int, c: int):
-        # CRITICAL FIX: Prevent White cells on the border.
-        # White cells are only allowed from index 1 to Size-2.
-        # This guarantees every run has a Block at index-1 to hold the clue.
         if 1 <= r < self.height - 1 and 1 <= c < self.width - 1:
             self.grid[r][c].type = CellType.WHITE
 
@@ -87,34 +84,24 @@ class KakuroBoard:
         self.sectors_v = []
 
     def generate_topology(self, density: float = 0.60, max_sector_length: int = 9, difficulty: str = "medium"):
-        """
-        Generates a Kakuro grid using a 'Stitcher' growth algorithm with Robust Seeding.
-        Guarantees a non-empty board.
-
-        Easy: Jigged topology with small rectangular clusters connected by short paths
-        Medium: Balanced mix of structures
-        Hard: Dense regions with longer runs and more complex patterns
-        """
         MAX_RETRIES = 60
 
         # Adjust parameters based on difficulty
         if difficulty == "very_easy":
-            # 2x2, 2x3, 3x2, and 3x3 stamps
             stamps = [
-                (1, 3), (3, 1), # Short lines
-                (1, 4), (4, 1), # Medium lines
-                (2, 2)          # Hub/Corner (less frequent)
+                (2, 3), (3, 2), 
+                (2, 4), (4, 2), 
+                (2, 2)          
             ]
             num_stamps = random.randint(6, 12) 
             min_cells = 16 
             max_run_length = 5
         elif difficulty == "easy":
             stamps = [
-                (1, 3), (3, 1), 
-                (1, 4), (4, 1), 
-                (1, 5), (5, 1),
-                (2, 3), (3, 2),
-                (2, 4), (4, 2),
+                (2, 3), (3, 2), 
+                (2, 4), (4, 2), 
+                (2, 5), (5, 2),
+                (2, 6), (6, 2),
                 (3, 3), 
             ]
             num_stamps = random.randint(8, 15)
@@ -127,8 +114,8 @@ class KakuroBoard:
         elif difficulty == "hard":
             island_mode = False
             min_cells = 25
-            max_sector_length = 9  # Allow longest runs
-            density = min(0.70, density + 0.05)  # Denser
+            max_sector_length = 9
+            density = min(0.70, density + 0.05) 
         
         
         for attempt in range(MAX_RETRIES):
@@ -143,7 +130,6 @@ class KakuroBoard:
                 if self._place_random_seed():
                     self._grow_lattice(density, max_sector_length)
                     success = len(self.white_cells) > 0
-                #print(f"Original growth algorithm: {success}")
 
             if not success:
                 continue
@@ -204,24 +190,6 @@ class KakuroBoard:
                         if self.grid[r-1][c].type == CellType.WHITE: v_len += 1
                         if self.grid[r+1][c].type == CellType.WHITE: v_len += 1
                         
-                        # If it has NO neighbors in EITHER direction (is a 1x1 island)
-                        # OR if it's part of a horizontal run of length 1 AND vertical run of length 1
-                        # then break it.
-                        # A cell is a "single run" if it has at most 1 neighbor in *each* direction.
-                        
-                        # More simply: if a cell has only 1 neighbor TOTAL (e.g., EITHER left OR top)
-                        # This is not quite right.
-                        # The real condition is: does this cell START a sector of length 1?
-                        
-                        # Let's re-evaluate: A clue cell (block) should NEVER have a sector of length 1 adjacent to it.
-                        # And a white cell should not be *isolated* such that it forms a sector of length 1.
-
-                        # Correct approach: Check if this cell is part of a run of length 1.
-                        # A run of length 1 means cell[r][c] is WHITE, BUT
-                        # cell[r][c-1] is BLOCK AND cell[r][c+1] is BLOCK AND
-                        # cell[r-1][c] is BLOCK AND cell[r+1][c] is BLOCK.
-                        # That means it has ZERO white neighbors.
-                        
                         is_isolated = True
                         for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
                             nr, nc = r + dr, c + dc
@@ -233,8 +201,6 @@ class KakuroBoard:
                             self.set_block(r, c)
                             self.set_block(self.height - 1 - r, self.width - 1 - c)
                             changed = True
-            # After potentially blocking cells, the sectors might become invalid (length 1).
-            # The loop will re-run _prune_singles and then _break_single_runs again.
         
     def _generate_stamps(self, shapes: List[Tuple[int, int]], iterations: int) -> bool:
         """
@@ -267,8 +233,6 @@ class KakuroBoard:
             left_c = anchor.c + offset_c
             
             # BOUNDS CHECKING
-            # Ensure the stamp stays within [1, Height-2]
-            # This ensures Row 0 and Row H-1 remain BLOCKS for clues.
             if (top_r >= 1 and 
                 left_c >= 1 and 
                 top_r + h < self.height - 1 and 
@@ -379,14 +343,10 @@ class KakuroBoard:
                 if self.grid[r][c].type == CellType.WHITE:
                     
                     # 1. Check Horizontal Header
-                    # If this is the start of a run (cell to left is not white)
                     if c > 0 and self.grid[r][c-1].type != CellType.WHITE:
-                        # The cell to the left MUST be a BLOCK
                         if self.grid[r][c-1].type != CellType.BLOCK:
                             return False 
                     elif c == 0:
-                        # A white cell at c=0 is impossible given our bounds check, 
-                        # but if it happened, it's a headless run.
                         return False
 
                     # 2. Check Vertical Header
@@ -484,7 +444,6 @@ class KakuroBoard:
             new_len = random.randint(2, max_sector_length)
             
             # Try to stitch a line through (r,c)
-            # We shuffle shifts to avoid bias
             shifts = list(range(new_len))
             random.shuffle(shifts)
             
