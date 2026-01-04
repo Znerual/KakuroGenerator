@@ -109,13 +109,27 @@ PYBIND11_MODULE(kakuro_cpp, m) {
             [](const kakuro::KakuroBoard& b) {
                 return b.white_cells;
             })
-        .def_property_readonly("sectors_h",
-            [](const kakuro::KakuroBoard& b) {
-                return b.sectors_h;
+        .def_property_readonly("sectors_h", [](const kakuro::KakuroBoard& b) {
+                // Convert vector<shared_ptr<vector<Cell*>>> 
+                // to vector<vector<Cell*>> for Python
+                std::vector<std::vector<kakuro::Cell*>> result;
+                for (const auto& sector_ptr : b.sectors_h) {
+                    if (sector_ptr) {
+                        result.push_back(*sector_ptr); // Dereference shared_ptr to copy vector
+                    }
+                }
+                return result; // Pybind11 converts this to list of lists of Cells automatically
             })
-        .def_property_readonly("sectors_v",
-            [](const kakuro::KakuroBoard& b) {
-                return b.sectors_v;
+        .def_property_readonly("sectors_v", [](const kakuro::KakuroBoard& b) {
+                // Convert vector<shared_ptr<vector<Cell*>>> 
+                // to vector<vector<Cell*>> for Python
+                std::vector<std::vector<kakuro::Cell*>> result;
+                for (const auto& sector_ptr : b.sectors_v) {
+                    if (sector_ptr) {
+                        result.push_back(*sector_ptr); // Dereference shared_ptr to copy vector
+                    }
+                }
+                return result; // Pybind11 converts this to list of lists of Cells automatically
             })
         .def("get_grid", [](const kakuro::KakuroBoard& b) {
             py::list result;
