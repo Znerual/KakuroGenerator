@@ -912,9 +912,9 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
         board->set_block(target->r, target->c);
         board->set_block(board->height - 1 - target->r, board->width - 1 - target->c);
         
+        board->break_large_patches();
         board->prune_singles(); // Cascading prune
         board->break_single_runs();
-        board->break_large_patches();
         
         // Validate
         board->collect_white_cells();
@@ -934,6 +934,7 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
         
         if(valid) {
             LOG_DEBUG("    Repair successful!");
+            board->identify_sectors();
             return true;
         }
         
@@ -941,6 +942,7 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
         for(int r=0; r<board->height; r++)
             for(int c=0; c<board->width; c++) board->grid[r][c].type = snapshot[r][c];
         board->collect_white_cells();
+        board->identify_sectors();
     }
     
     LOG_DEBUG("  Repair exhausted all options");

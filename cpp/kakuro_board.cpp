@@ -562,6 +562,9 @@ void KakuroBoard::stabilize_grid(bool gentle) {
         if (gentle) { if(fix_invalid_runs_gentle()) changed = true; }
         else { if(fix_invalid_runs()) changed = true; }
         if (ensure_connectivity()) changed = true;
+
+        break_single_runs(); 
+        
         iterations++;
     }
     collect_white_cells();
