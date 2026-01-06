@@ -131,6 +131,10 @@ class CSPSolver:
         """Calculate clues based on current board state."""
         self._solver.calculate_clues()
 
+    def generate_random_puzzle(self):
+        """Generates a puzzle with randomized parameters."""
+        return self._solver.generate_random_puzzle()
+
 
 class KakuroDifficultyEstimator:
     """Python wrapper for Difficulty Estimator."""
@@ -190,6 +194,42 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
     
     print(f"Failed to generate puzzle with difficulty {difficulty}")
     return board
+
+def generate_random_kakuro(use_cpp: bool = True):
+    """
+    Generates a random Kakuro puzzle and returns (board, difficulty_info).
+    Supports both C++ and Python implementations.
+    """
+    # Create an initial board
+    board = KakuroBoard(8, 8, use_cpp=use_cpp) # Placeholder size
+    solver = CSPSolver(board)
+    
+    if board.use_cpp:
+        # C++ path returns GeneratedPuzzle struct
+        gen_result = solver.generate_random_puzzle()
+        if gen_result.difficulty.solution_count == 0:
+            return None, None
+            
+        # Re-initialize board with correct dimensions
+        board = KakuroBoard(gen_result.width, gen_result.height, use_cpp=True)
+        grid = board.get_grid()
+        for r in range(gen_result.height):
+            for c in range(gen_result.width):
+                p_cell = gen_result.grid[r][c]
+                target = grid[r][c]
+                target.type = p_cell.type
+                target.clue_h = p_cell.clue_h
+                target.clue_v = p_cell.clue_v
+                target.value = p_cell.solution
+        
+        return board, gen_result.difficulty
+    else:
+        # Python path returns (success, difficulty_info)
+        success, diff = solver.generate_random_puzzle()
+        if success:
+            return board, diff
+        return None, None
+
 
 
 def export_to_json(board: KakuroBoard) -> dict:

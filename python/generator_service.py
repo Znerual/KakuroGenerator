@@ -5,7 +5,7 @@ import random
 from sqlalchemy.orm import Session
 from .database import SessionLocal
 from .models import PuzzleTemplate
-from .kakuro_wrapper import KakuroBoard, CSPSolver
+from .kakuro_wrapper import KakuroBoard, CSPSolver, generate_random_kakuro
 
 logger = logging.getLogger("kakuro_generator")
 
@@ -96,6 +96,7 @@ class GeneratorService:
     def _check_and_refill_pools(self):
         """Check database for fresh puzzle counts and generate if needed."""
         with SessionLocal() as db:
+            any_low = False
             for difficulty in DIFFICULTY_LEVELS:
                 if self._stop_event.is_set():
                     return
@@ -110,71 +111,63 @@ class GeneratorService:
                 ).count()
 
                 self._current_counts[difficulty] = fresh_count
-
                 if fresh_count < POOL_TARGET_SIZE:
-                    needed = POOL_TARGET_SIZE - fresh_count
-                    generate_count = min(needed, BATCH_SIZE)
+                    any_low = True
 
-                    logger.info(
-                        f"Fresh pool '{difficulty}' low ({fresh_count}/{POOL_TARGET_SIZE}, "
-                        f"threshold={threshold}). Generating batch..."
-                    )
+            if any_low:
+                logger.info("Some pools are low. Starting randomized generation batch...")
+                start_t = time.perf_counter()
+                self._generate_random_batch(db, BATCH_SIZE)
+                duration_ms = (time.perf_counter() - start_t) * 1000
+                
+                try:
+                    from .performance import record_metric
+                    record_metric(db, "gen_random_batch_time_ms", duration_ms, "ms")
+                except ImportError:
+                    pass
                     
-                    start_t = time.perf_counter()
-                    self._generate_batch(db, difficulty, generate_count)
-                    duration_ms = (time.perf_counter() - start_t) * 1000
-
-                    # Optional: Log the performance metric using a local import
-                    try:
-                        from .performance import record_metric
-                        record_metric(db, "gen_batch_time_ms", duration_ms, "ms", {"difficulty": difficulty})
-                    except ImportError:
-                        pass
-                    
-    def _generate_batch(self, db: Session, difficulty: str, count: int):
-        from main import MIN_CELLS_MAP, DIFFICULTY_SIZE_RANGES
-
+    def _generate_random_batch(self, db: Session, count: int):
+        """Generates random puzzles and categorizes them by estimated difficulty."""
         generated = 0
-        min_white = MIN_CELLS_MAP.get(difficulty, 12)
-        min_s, max_s = DIFFICULTY_SIZE_RANGES.get(difficulty, (10, 10))
+        
+        # Mapping from Estimator Rating (C++) to DB Difficulty
+        RATING_MAP = {
+            "Very Easy": "very_easy",
+            "Easy": "easy",
+            "Medium": "medium",
+            "Hard": "hard",
+            "Extreme": "hard" # Or maybe we support extreme later
+        }
 
         for _ in range(count):
             if self._stop_event.is_set():
                 break
 
-            w = random.randint(min_s, max_s)
-            h = random.randint(min_s, max_s)
-
-            # Retry logic for a single puzzle
-            for attempt in range(20):
-                board = KakuroBoard(w, h)
-                solver = CSPSolver(board)
+            # Use C++ implementation for speed and better difficulty metrics
+            board, diff_info = generate_random_kakuro(use_cpp=True)
+            
+            if board and diff_info:
+                # Success - Map Rating
+                rating_str = diff_info.rating
+                internal_diff = RATING_MAP.get(rating_str, "medium")
                 
-                if solver.generate_puzzle(difficulty=difficulty):
-                    if len(board.white_cells) >= min_white:
-                        # Success - Convert to Dict
-                        grid_data = []
-                        for r in range(h):
-                            row_data = []
-                            for c in range(w):
-                                cell = board.get_cell(r, c)
-                                row_data.append(cell.to_dict())
-                            grid_data.append(row_data)
+                # Export board to Dict
+                grid_data = board.to_dict()
 
-                        # Save to DB
-                        tmpl = PuzzleTemplate(
-                            width=w,
-                            height=h,
-                            difficulty=difficulty,
-                            grid=grid_data
-                        )
-                        db.add(tmpl)
-                        generated += 1
-                        break # Break inner retry loop
+                # Save to DB
+                tmpl = PuzzleTemplate(
+                    width=board.width,
+                    height=board.height,
+                    difficulty=internal_diff,
+                    grid=grid_data
+                )
+                db.add(tmpl)
+                generated += 1
+                logger.info(f"Generated {rating_str} puzzle ({board.width}x{board.height})")
         
         if generated > 0:
             db.commit()
-            logger.info(f"Generated {generated} puzzles for '{difficulty}'")
+            logger.info(f"Batch completed: {generated} random puzzles saved.")
 
 # Singleton instance
 generator_service = GeneratorService()

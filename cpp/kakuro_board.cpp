@@ -53,75 +53,70 @@ void KakuroBoard::set_white(int r, int c) {
 
 bool KakuroBoard::generate_topology(double density, int max_sector_length, std::string difficulty) {
     TopologyParams params;
+    params.difficulty = difficulty;
     params.density = density;
     params.max_sector_length = max_sector_length;
-    params.difficulty = difficulty;
+    apply_topology_defaults(params);
     return generate_topology(params);
+}
+
+void KakuroBoard::apply_topology_defaults(TopologyParams& params) {
+    int area = (width - 2) * (height - 2);
+    std::string difficulty = params.difficulty;
+
+    if (difficulty == "very_easy") {
+        if (!params.stamps.has_value()) params.stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {2, 2}};
+        if (!params.num_stamps.has_value()) params.num_stamps = std::uniform_int_distribution<>(6, 12)(rng) * area / 100;
+        if (!params.min_cells.has_value()) params.min_cells = 16;
+        if (!params.max_run_len.has_value()) params.max_run_len = 5;
+        if (!params.max_patch_size.has_value()) params.max_patch_size = 3;
+        if (!params.island_mode.has_value()) params.island_mode = true;
+    } else if (difficulty == "easy") {
+        if (!params.stamps.has_value()) params.stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {1, 5}, {5, 1}, {1, 6}, {6, 1}, {2,2}, {3, 3}};
+        if (!params.num_stamps.has_value()) params.num_stamps = std::uniform_int_distribution<>(8, 15)(rng) * area / 100;
+        if (!params.min_cells.has_value()) params.min_cells = 22;
+        if (!params.max_run_len.has_value()) params.max_run_len = 6;
+        if (!params.max_patch_size.has_value()) params.max_patch_size = 3;
+        if (!params.island_mode.has_value()) params.island_mode = true;
+    } else if (difficulty == "medium") {
+        if (!params.stamps.has_value()) params.stamps = {{1, 3}, {3, 1}, {2,2},  {1, 5}, {5, 1}, {2, 4}, {4, 2}, {3, 3}};
+        if (!params.num_stamps.has_value()) params.num_stamps = std::uniform_int_distribution<>(9, 16)(rng) * area / 100;
+        if (!params.min_cells.has_value()) params.min_cells = (int)(area * 0.25);
+        if (!params.max_run_len.has_value()) params.max_run_len = 8;
+        if (!params.max_patch_size.has_value()) params.max_patch_size = 3;
+    } else if (difficulty == "hard") {
+        if (!params.stamps.has_value()) params.stamps = {{1, 3}, {3, 1}, {2,2}, {1, 6}, {6, 1}, {2, 5}, {5, 2}, {3, 4}, {4, 3}};
+        if (!params.num_stamps.has_value()) params.num_stamps = std::uniform_int_distribution<>(10, 18)(rng) * area / 100;
+        if (!params.min_cells.has_value()) params.min_cells = (int)(area * 0.25);
+        if (!params.max_run_len.has_value()) params.max_run_len = 9;
+        if (!params.max_patch_size.has_value()) params.max_patch_size = 3;
+    } else if (difficulty == "very_hard") {
+        if (!params.stamps.has_value()) params.stamps = {{1, 3}, {3, 1}, {2,2}, {1, 8}, {8, 1}, {2, 6}, {6, 2}, {3, 5}, {5, 3}, {4, 4}};
+        if (!params.num_stamps.has_value()) params.num_stamps = std::uniform_int_distribution<>(12, 20)(rng) * area / 100;
+        if (!params.min_cells.has_value()) params.min_cells = (int)(area * 0.25);
+        if (!params.max_run_len.has_value()) params.max_run_len = 9;
+        if (!params.max_patch_size.has_value()) params.max_patch_size = 4;
+    } else if (difficulty == "extreme") {
+        if (!params.stamps.has_value()) params.stamps = {{1, 3}, {3, 1}, {2,2}, {2, 5}, {5, 2}, {3, 3}, {4, 4}, {1, 9}, {9, 1}};
+        if (!params.num_stamps.has_value()) params.num_stamps = std::uniform_int_distribution<>(14, 25)(rng) * area / 100;
+        if (!params.min_cells.has_value()) params.min_cells = (int)(area * 0.3);
+        if (!params.max_run_len.has_value()) params.max_run_len = 9;
+        if (!params.max_patch_size.has_value()) params.max_patch_size = 5;
+    }
 }
 
 bool KakuroBoard::generate_topology(const TopologyParams& params) {
     const int MAX_RETRIES = 60;
-    int area = (width - 2) * (height - 2);
     
-    // Config based on difficulty
-    std::vector<std::pair<int, int>> stamps;
-    int num_stamps = 0;
-    int max_run_len = 9;
-    int min_cells = 12;
-    int max_patch_size = 5;
-    bool island_mode = true;
+    // Baseline Defaults (only if NOT in ANY difficulty block or provided in params)
+    std::vector<std::pair<int, int>> stamps = params.stamps.value_or(std::vector<std::pair<int, int>>{{1, 3}, {3, 1}, {2, 2}, {3, 3}});
+    int num_stamps = params.num_stamps.value_or(20);
+    int min_cells = params.min_cells.value_or(12);
+    int max_run_len = params.max_run_len.value_or(9);
+    int max_patch_size = params.max_patch_size.value_or(5);
+    bool island_mode = params.island_mode.value_or(true);
     double density = params.density.value_or(0.60);
     int max_sector_length = params.max_sector_length.value_or(9);
-
-    std::string difficulty = params.difficulty;
-
-    if (difficulty == "very_easy") {
-        stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {2, 2}};
-        num_stamps = std::uniform_int_distribution<>(6, 12)(rng) * area / 100;
-        min_cells = 16;
-        max_run_len = 5;
-        max_patch_size = 3;
-        island_mode = true;
-    } else if (difficulty == "easy") {
-        stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {1, 5}, {5, 1}, {1, 6}, {6, 1}, {2,2}, {3, 3}};
-        num_stamps = std::uniform_int_distribution<>(8, 15)(rng) * area / 100;
-        min_cells = 22;
-        max_run_len = 6;
-        max_patch_size = 3;
-        island_mode = true;
-    } else if (difficulty == "medium") {
-        stamps = {{1, 3}, {3, 1}, {2,2},  {1, 5}, {5, 1}, {2, 4}, {4, 2}, {3, 3}};
-        num_stamps = std::uniform_int_distribution<>(9, 16)(rng) * area / 100;
-        min_cells = (int)(area * 0.25);
-        max_run_len = 8;
-        max_patch_size = 3;
-    } else if (difficulty == "hard") { // Hard
-        stamps = {{1, 3}, {3, 1}, {2,2}, {1, 6}, {6, 1}, {2, 5}, {5, 2}, {3, 4}, {4, 3}};
-        num_stamps = std::uniform_int_distribution<>(10, 18)(rng) * area / 100;
-        min_cells = (int)(area * 0.25);
-        max_run_len = 9;
-        max_patch_size = 3;
-    } else if (difficulty == "very_hard") {
-        stamps = {{1, 3}, {3, 1}, {2,2}, {1, 8}, {8, 1}, {2, 6}, {6, 2}, {3, 5}, {5, 3}, {4, 4}};
-        num_stamps = std::uniform_int_distribution<>(12, 20)(rng) * area / 100;
-        min_cells = (int)(area * 0.25);
-        max_run_len = 9;
-        max_patch_size = 4;
-    } else if (difficulty == "extreme") {
-        stamps = {{1, 3}, {3, 1}, {2,2}, {2, 5}, {5, 2}, {3, 3}, {4, 4}, {1, 9}, {9, 1}};
-        num_stamps = std::uniform_int_distribution<>(14, 25)(rng) * area / 100;
-        min_cells = (int)(area * 0.3);
-        max_run_len = 9;
-        max_patch_size = 5;
-    }
-
-    // Apply Overrides
-    if (params.stamps.has_value()) stamps = *params.stamps;
-    if (params.num_stamps.has_value()) num_stamps = *params.num_stamps;
-    if (params.min_cells.has_value()) min_cells = *params.min_cells;
-    if (params.max_run_len.has_value()) max_run_len = *params.max_run_len;
-    if (params.max_patch_size.has_value()) max_patch_size = *params.max_patch_size;
-    if (params.island_mode.has_value()) island_mode = *params.island_mode;
     
     for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
         white_cells.clear();

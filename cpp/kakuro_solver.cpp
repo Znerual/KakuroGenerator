@@ -11,9 +11,14 @@ CSPSolver::CSPSolver(std::shared_ptr<KakuroBoard> b)
     : board(b), rng(std::random_device{}()) {}
 
 bool CSPSolver::generate_puzzle(const std::string& difficulty) {
-    FillParams params;
-    params.difficulty = difficulty;
-    return generate_puzzle(params);
+    FillParams fill_params;
+    fill_params.difficulty = difficulty;
+    
+    TopologyParams topo_params;
+    topo_params.difficulty = difficulty;
+    board->apply_topology_defaults(topo_params);
+    
+    return generate_puzzle(fill_params, topo_params);
 }
 
 bool CSPSolver::generate_puzzle(const FillParams& params, const TopologyParams& topo_params) {
@@ -30,6 +35,72 @@ bool CSPSolver::generate_puzzle(const FillParams& params, const TopologyParams& 
 
     LOG_ERROR("=== FAILURE: Maximum topology retries (" << MAX_TOPOLOGY_RETRIES << ") exceeded for difficulty " << params.difficulty << " ===");
     return false;
+}
+
+GeneratedPuzzle CSPSolver::generate_random_puzzle() {
+    std::uniform_int_distribution<int> dist_w(8, 18);
+    std::uniform_int_distribution<int> dist_h(8, 16);
+    std::uniform_real_distribution<double> dist_density(0.55, 0.68);
+    std::uniform_int_distribution<int> dist_num_stamps(8, 20); // Normalized by area in board
+    std::uniform_int_distribution<int> dist_pref(0, 2);
+    
+    int w = dist_w(rng);
+    int h = dist_h(rng);
+    board = std::make_shared<KakuroBoard>(w, h);
+    int area = (w-2)*(h-2);
+    
+    TopologyParams topo;
+    topo.density = dist_density(rng);
+    topo.num_stamps = dist_num_stamps(rng) * area / 100;
+    topo.max_sector_length = 9;
+    topo.island_mode = true;
+    topo.min_cells = (int)(area * std::uniform_real_distribution<double>(0.18, 0.35)(rng));
+    topo.max_run_len = std::uniform_int_distribution<>(6, 9)(rng);
+    topo.max_patch_size = std::uniform_int_distribution<>(2, 4)(rng);
+
+    // Random stamps subset
+    std::vector<std::pair<int, int>> all_stamps = {
+        {1, 3}, {3, 1}, {2, 2}, {1, 4}, {4, 1}, {2, 3}, {3, 2},
+        {1, 5}, {5, 1}, {2, 4}, {4, 2}, {3, 3}, {1, 6}, {6, 1},
+        {2, 5}, {5, 2}, {3, 4}, {1, 7}, {7, 1}, {1, 8}, {8, 1}
+    };
+    std::shuffle(all_stamps.begin(), all_stamps.end(), rng);
+    int n_stamps = std::uniform_int_distribution<>(5, 12)(rng);
+    topo.stamps = std::vector<std::pair<int, int>>(all_stamps.begin(), all_stamps.begin() + std::min(n_stamps, (int)all_stamps.size()));
+    
+    FillParams fill;
+    int pref = dist_pref(rng);
+    if (pref == 0) fill.partition_preference = "";
+    else if (pref == 1) fill.partition_preference = "few";
+    else fill.partition_preference = "unique";
+    
+    for (int retry = 0; retry < 5; retry++) {
+        if (generate_puzzle(fill, topo)) {
+            KakuroDifficultyEstimator estimator(board);
+            GeneratedPuzzle res;
+            res.difficulty = estimator.estimate_difficulty_detailed();
+            res.width = board->width;
+            res.height = board->height;
+            
+            res.grid.resize(h, std::vector<PuzzleCell>(w));
+            for (int r = 0; r < h; r++) {
+                for (int c = 0; c < w; c++) {
+                    auto& src = board->grid[r][c];
+                    auto& dst = res.grid[r][c];
+                    dst.type = src.type;
+                    dst.clue_h = src.clue_h;
+                    dst.clue_v = src.clue_v;
+                    dst.solution = src.value;
+                }
+            }
+            return res;
+        }
+        // retry with more density
+        topo.density = std::min(0.75, *topo.density + 0.05);
+        topo.num_stamps = (int)(*topo.num_stamps * 1.2);
+    }
+    
+    return GeneratedPuzzle();
 }
 
 

@@ -103,6 +103,7 @@ public:
     // Topology generation
     bool generate_topology(const TopologyParams& params = TopologyParams());
     bool generate_topology(double density = 0.60, int max_sector_length = 9, std::string difficulty = "medium"); // Legacy
+    void apply_topology_defaults(TopologyParams& params);
     bool generate_stamps(const std::vector<std::pair<int, int>>& shapes, int iterations);
     bool validate_topology_structure();
     // Helper methods
@@ -137,6 +138,47 @@ private:
     //                   std::hash<std::pair<int, int>>>& coords);
 };
 
+enum class TechniqueTier {
+    VERY_EASY = 1,  // Intersection of two masks, naked singles
+    EASY = 2,       // Simple partitions (only 1 valid combination)
+    MEDIUM = 3,     // Hidden singles, basic constraint propagation
+    HARD = 4,       // Complex intersections, multi-sector lookahead
+    EXTREME = 5     // Trial and Error / Bifurcation
+};
+
+struct SolveStep {
+    std::string technique;
+    float difficulty_weight;
+    int cells_affected;
+    SolveStep(std::string t, float w, int c) : technique(t), difficulty_weight(w), cells_affected(c) {}
+};
+
+struct DifficultyResult {
+    float score = 0;      // Factor 2: Persistence (Sum of effort)
+    std::string rating;          // Factor 1: Capability (Hardest technique)
+    TechniqueTier max_tier = TechniqueTier::VERY_EASY;
+    
+    int total_steps = 0;
+    int solution_count = 0;
+    std::string uniqueness;
+    std::vector<SolveStep> solve_path;
+    std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
+};
+
+struct PuzzleCell {
+    CellType type;
+    std::optional<int> clue_h;
+    std::optional<int> clue_v;
+    std::optional<int> solution;
+};
+
+struct GeneratedPuzzle {
+    DifficultyResult difficulty;
+    int width;
+    int height;
+    std::vector<std::vector<PuzzleCell>> grid;
+};
+
 class CSPSolver {
 public:
     std::shared_ptr<KakuroBoard> board;
@@ -151,6 +193,7 @@ public:
     
     bool generate_puzzle(const FillParams& params = FillParams(), const TopologyParams& topo_params = TopologyParams());
     bool generate_puzzle(const std::string& difficulty = "medium"); // Legacy
+    GeneratedPuzzle generate_random_puzzle();
     bool solve_fill(const FillParams& params,
                    const std::unordered_map<Cell*, int>& forced_assignments = {}, 
                     const std::vector<ValueConstraint>& forbidden_constraints = {},
@@ -219,32 +262,7 @@ private:
     std::unordered_map<std::pair<int, int>, int, PairHash> partition_cache;
 };
 
-struct SolveStep {
-    std::string technique;
-    float difficulty_weight;
-    int cells_affected;
-    SolveStep(std::string t, float w, int c) : technique(t), difficulty_weight(w), cells_affected(c) {}
-};
-
-enum class TechniqueTier {
-    VERY_EASY = 1,  // Intersection of two masks, naked singles
-    EASY = 2,       // Simple partitions (only 1 valid combination)
-    MEDIUM = 3,     // Hidden singles, basic constraint propagation
-    HARD = 4,       // Complex intersections, multi-sector lookahead
-    EXTREME = 5     // Trial and Error / Bifurcation
-};
-
-struct DifficultyResult {
-    float score = 0;      // Factor 2: Persistence (Sum of effort)
-    std::string rating;          // Factor 1: Capability (Hardest technique)
-    TechniqueTier max_tier = TechniqueTier::VERY_EASY;
-    
-    int total_steps = 0;
-    int solution_count = 0;
-    std::string uniqueness;
-    std::vector<SolveStep> solve_path;
-    std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
-};
+ 
 
 
 

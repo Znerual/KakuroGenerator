@@ -12,6 +12,67 @@ class CSPSolver:
     def __init__(self, board: KakuroBoard):
         self.board = board
 
+    def generate_random_puzzle(self):
+        """
+        Generates a puzzle with randomized parameters and returns (Success, DifficultyResult).
+        """
+        import random
+        w = random.randint(8, 18)
+        h = random.randint(8, 16)
+        self.board.width = w
+        self.board.height = h
+        self.board._reset_grid()
+        self.board.grid = [[Cell(r, c) for c in range(w)] for r in range(h)]
+        
+        area = (w-2)*(h-2)
+        
+        density = random.uniform(0.55, 0.68)
+        num_stamps = random.randint(8, 22) * area // 100
+        
+        all_stamps = [
+            (1, 3), (3, 1), (2, 2), (1, 4), (4, 1), (2, 3), (3, 2),
+            (1, 5), (5, 1), (2, 4), (4, 2), (3, 3), (1, 6), (6, 1),
+            (2, 5), (5, 2), (3, 4), (1, 7), (7, 1), (1, 8), (8, 1)
+        ]
+        random.shuffle(all_stamps)
+        n_stamps = random.randint(5, 12)
+        stamps = all_stamps[:n_stamps]
+        
+        topo_params = {
+            "density": density,
+            "num_stamps": num_stamps,
+            "stamps": stamps,
+            "island_mode": True,
+            "min_cells": int(area * random.uniform(0.18, 0.35)),
+            "max_run_length": random.randint(6, 9),
+            "max_patch_size": random.randint(2, 4)
+        }
+        
+        pref = random.choice(["", "few", "unique"])
+        
+        for retry in range(5):
+            success = self.board.generate_topology(**topo_params)
+            if success:
+                self.board._collect_white_cells()
+                self.board._identify_sectors()
+                
+                # Try to fill
+                fill_success = False
+                for fill_attempt in range(5):
+                    self.board.reset_values()
+                    if self.solve_fill(partition_preference=pref, ignore_clues=True):
+                        self.calculate_clues()
+                        is_unique, _ = self.check_uniqueness()
+                        if is_unique:
+                            estimator = KakuroDifficultyEstimator(self.board)
+                            return True, estimator.estimate_difficulty_detailed()
+                
+            # retry with higher density
+            topo_params["density"] = min(0.75, topo_params["density"] + 0.05)
+            topo_params["num_stamps"] = int(topo_params["num_stamps"] * 1.2)
+            
+        return False, None
+
     def generate_puzzle(self, difficulty: str = "medium") -> bool:
         """
         Main Pipeline:

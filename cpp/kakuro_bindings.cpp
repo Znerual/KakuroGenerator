@@ -195,6 +195,8 @@ PYBIND11_MODULE(kakuro_cpp, m) {
              static_cast<bool (kakuro::CSPSolver::*)(const std::string&)>(&kakuro::CSPSolver::generate_puzzle),
              py::arg("difficulty") = "medium")
              
+        .def("generate_random_puzzle", &kakuro::CSPSolver::generate_random_puzzle)
+             
         .def("solve_fill", 
              static_cast<bool (kakuro::CSPSolver::*)(const kakuro::FillParams&, const std::unordered_map<kakuro::Cell*, int>&, const std::vector<kakuro::CSPSolver::ValueConstraint>&, bool)>(&kakuro::CSPSolver::solve_fill),
              py::arg("params"),
@@ -227,6 +229,18 @@ PYBIND11_MODULE(kakuro_cpp, m) {
                 << "cells_affected=" << s.cells_affected << ">";
             return oss.str();
         });
+
+    py::class_<kakuro::PuzzleCell>(m, "PuzzleCell")
+        .def_readwrite("type", &kakuro::PuzzleCell::type)
+        .def_readwrite("clue_h", &kakuro::PuzzleCell::clue_h)
+        .def_readwrite("clue_v", &kakuro::PuzzleCell::clue_v)
+        .def_readwrite("solution", &kakuro::PuzzleCell::solution);
+
+    py::class_<kakuro::GeneratedPuzzle>(m, "GeneratedPuzzle")
+        .def_readwrite("difficulty", &kakuro::GeneratedPuzzle::difficulty)
+        .def_readwrite("width", &kakuro::GeneratedPuzzle::width)
+        .def_readwrite("height", &kakuro::GeneratedPuzzle::height)
+        .def_readwrite("grid", &kakuro::GeneratedPuzzle::grid);
 
     py::class_<kakuro::DifficultyResult>(m, "DifficultyResult")
         .def_readwrite("score", &kakuro::DifficultyResult::score)

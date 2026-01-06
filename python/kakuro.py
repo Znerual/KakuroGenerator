@@ -83,91 +83,96 @@ class KakuroBoard:
         self.sectors_h = []
         self.sectors_v = []
 
-    def generate_topology(self, density: float = 0.60, max_sector_length: int = 9, difficulty: str = "medium"):
+    def generate_topology(self, density: float = 0.60, max_sector_length: int = 9, difficulty: str = "medium", **kwargs):
         MAX_RETRIES = 60
+        area = (self.width - 2) * (self.height - 2)
+        
+        # Default Parameters
+        stamps = [(1, 3), (3, 1), (2, 2), (3, 3)]
+        num_stamps = 10
+        min_cells = 12
+        max_run_length = 9
+        max_patch_size = 5
+        island_mode = False
 
         # Adjust parameters based on difficulty
         if difficulty == "very_easy":
-            stamps = [
-                (1, 3), (3, 1), 
-                #(1, 4), (4, 1), 
-                (2, 2)          
-            ]
-            num_stamps = random.randint(6, 12) 
+            island_mode = True
+            stamps = [(1, 3), (3, 1), (2, 2)]
+            num_stamps = random.randint(6, 12) * area // 100
             min_cells = 16 
             max_run_length = 5
+            max_patch_size = 3
         elif difficulty == "easy":
-            stamps = [
-                (1, 3), (3, 1), 
-                (1, 4), (4, 1), 
-                (1, 5), (5, 1),
-                (1, 6), (6, 1),
-                (2, 2), (2, 3), (3, 2),
-                (2, 4), (4, 2),
-            ]
-            num_stamps = random.randint(8, 15)
+            island_mode = True
+            stamps = [(1, 3), (3, 1), (1, 4), (4, 1), (1, 5), (5, 1), (1, 6), (6, 1), (2, 2), (2, 3), (3, 2), (2, 4), (4, 2)]
+            num_stamps = random.randint(8, 15) * area // 100
             min_cells = 22
             max_run_length = 6
+            max_patch_size = 3
         elif difficulty == "medium":
             island_mode = False
             max_sector_length = 7
             min_cells = 22
+            max_patch_size = 3
         elif difficulty == "hard":
             island_mode = False
             min_cells = 25
             max_sector_length = 9
             density = min(0.70, density + 0.05) 
+            max_patch_size = 4
         
+        # Apply Overrides
+        if "stamps" in kwargs: stamps = kwargs["stamps"]
+        if "num_stamps" in kwargs: num_stamps = kwargs["num_stamps"]
+        if "min_cells" in kwargs: min_cells = kwargs["min_cells"]
+        if "max_run_length" in kwargs: max_run_length = kwargs["max_run_length"]
+        if "max_patch_size" in kwargs: max_patch_size = kwargs["max_patch_size"]
+        if "island_mode" in kwargs: island_mode = kwargs["island_mode"]
+        if "density" in kwargs: density = kwargs["density"]
+        if "max_sector_length" in kwargs: max_sector_length = kwargs["max_sector_length"]
         
         for attempt in range(MAX_RETRIES):
             # 1. Clear Grid (All Block)
             self._reset_grid()
            
-            # 2. Generate based on difficulty
+            # 2. Generate
             success = False
-            if difficulty in ["very_easy", "easy"]:
+            if island_mode:
                 success = self._generate_stamps(stamps, num_stamps)
             else:
                 if self._place_random_seed():
                     self._grow_lattice(density, max_sector_length)
-                    success = len(self.white_cells) > 0
+                    success = len(self._collect_white_cells()) > 0
 
             if not success:
                 continue
           
             # 3. Filters & Stabilization
-            if difficulty in ["hard"]:
-                self._break_large_patches(size=4)
+            if not island_mode:
+                self._break_large_patches(size=max_patch_size)
                 self._stabilize_grid(gentle=False)
-            elif difficulty in ["medium"]:
-                self._break_large_patches(size=3)
-                self._stabilize_grid(gentle=False)
-            elif difficulty in ["very_easy", "easy"]:
+            else:
                 self._slice_long_runs(max_run_length)
+                self._break_large_patches(size=max_patch_size)
                 self._prune_singles()
                 self._break_single_runs()
             
             self._collect_white_cells()
             
-            # 4. Final Count Check
+            # Final Validation
             if len(self.white_cells) < min_cells:
                 continue
-
-            # 5. Connectivity Check (Critical final gate)
             if not self._check_connectivity():
-                logger.info("Topology failed connectivity check")
                 continue
-
             if not self._validate_clue_headers():
-                logger.info("Topology failed clue header check")
                 continue
             
             self._identify_sectors()
-            logger.info(f"Topology generated on attempt {attempt} ({difficulty})")
-            return
+            return True
         
-        # If we failed 10 times, we just leave whatever we have (likely small board issue)
-        logger.info("Topology failed after maximum retries")
+        return False
+
 
     def _break_single_runs(self):
         """
