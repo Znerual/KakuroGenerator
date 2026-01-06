@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, select, desc
+from sqlalchemy import func, select, desc, case, cast, Float
 import os
 import sys
 import webbrowser
@@ -79,12 +79,19 @@ async def performance_middleware(request: Request, call_next):
     Middleware to track request duration and active request count.
     """
     import time
-    from python.database import SessionLocal
+    from kakuro.database import SessionLocal
+    from kakuro.auth import decode_access_token # Assuming you have this helper
+    from kakuro.models import User
+
+    # 1. Skip tracking for static files (prevents DB bloat and saves performance)
+    if request.url.path.startswith("/static") or request.url.path == "/favicon.ico":
+        return await call_next(request)
+
     
     # Increment active requests
     performance.ACTIVE_REQUESTS += 1
-    
     start_time = time.perf_counter()
+    
     try:
         response = await call_next(request)
         duration = (time.perf_counter() - start_time) * 1000 # ms
@@ -93,6 +100,24 @@ async def performance_middleware(request: Request, call_next):
         # To avoid blocking the response, we could use BackgroundTasks, but here we'll just do it simply
         # or skip if it's too much overhead. For now, let's log everything.
         with SessionLocal() as db:
+            current_user = None
+            auth_header = request.headers.get("Authorization")
+            
+            if auth_header and auth_header.startswith("Bearer "):
+                try:
+                    token = auth_header.split(" ")[1]
+                    # We only need the user ID to differentiate, no need for full auth logic
+                    payload = decode_access_token(token) 
+                    user_id = payload.get("sub")
+                    if user_id:
+                        current_user = db.query(User).filter(User.id == user_id).first()
+                except Exception:
+                    # Token might be expired or invalid; treat as anonymous
+                    pass
+
+            # 3. Record the metric with the User object
+            # This will now automatically set 'auth_status' in your metadata
+            scheme = request.url.scheme
             record_metric(
                 db, 
                 "api_request_duration_ms", 
@@ -101,8 +126,10 @@ async def performance_middleware(request: Request, call_next):
                 {
                     "path": request.url.path, 
                     "method": request.method,
-                    "status_code": response.status_code
-                }
+                    "status_code": response.status_code,
+                    "secure": scheme == "https"
+                },
+                user=current_user
             )
         
         return response
@@ -156,6 +183,16 @@ def startup_event():
             if "total_score" not in columns:
                 logger.info("Migrating database: Adding total_score to users table")
                 conn.execute(text("ALTER TABLE users ADD COLUMN total_score INTEGER DEFAULT 0"))
+        
+        # Add times_used column to puzzle_templates for freshness tracking
+        if "puzzle_templates" in table_names:
+            columns = [c["name"] for c in inspector.get_columns("puzzle_templates")]
+            if "times_used" not in columns:
+                logger.info("Migrating database: Adding times_used to puzzle_templates table")
+                conn.execute(text("ALTER TABLE puzzle_templates ADD COLUMN times_used INTEGER DEFAULT 0"))
+            if "times_skipped" not in columns:
+                logger.info("Migrating database: Adding times_skipped to puzzle_templates table")
+                conn.execute(text("ALTER TABLE puzzle_templates ADD COLUMN times_skipped INTEGER DEFAULT 0"))
         
         # Create score_records table if it doesn't exist
         if "score_records" not in table_names:
@@ -295,6 +332,27 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
     # All retries failed
     raise HTTPException(status_code=500, detail="Failed to generate valid puzzle after multiple attempts. Try a different difficulty or size.")
 
+class SkipRequest(BaseModel):
+    template_id: str
+
+@app.post("/skip")
+def skip_puzzle(
+    request: SkipRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """Track when a user skips a puzzle without completing it."""
+    if not request.template_id:
+        return {"status": "ignored", "reason": "no_template_id"}
+    
+    template = db.query(PuzzleTemplate).filter(PuzzleTemplate.id == request.template_id).first()
+    if template:
+        template.times_skipped = (template.times_skipped or 0) + 1
+        db.commit()
+        return {"status": "tracked"}
+
+    return {"status": "ignored", "reason": "template_not_found"}
+
 class SaveRequest(BaseModel):
     id: str
     width: int
@@ -319,7 +377,7 @@ def save_puzzle_endpoint(
     current_user: Optional[User] = Depends(get_current_user)
 ):
     """Save a puzzle. If user is authenticated, associates with their account."""
-    with Timer(db, "puzzle_save_duration_ms"):
+    with Timer(db, "puzzle_save_duration_ms", user=current_user):
         if current_user:
             # Database storage for authenticated users
             puzzle = db.query(Puzzle).filter(Puzzle.id == request.id).first()
@@ -498,7 +556,7 @@ def log_user_interaction(
         # We generally only track logged-in users, but could expand this to anonymous if needed
         return {"status": "ignored"}
 
-    with Timer(db, "interaction_log_duration_ms"):
+    with Timer(db, "interaction_log_duration_ms", user=user):
         log_interaction(
             db=db,
             user_id=user.id,
@@ -542,11 +600,19 @@ def get_puzzle_feed(
     Returns a feed of puzzles from the pre-generated pool.
     """
     puzzles_to_return = []
-    
+    MIN_USES_FOR_QUALITY = 5   # Minimum uses before evaluating skip ratio
+    MAX_SKIP_RATIO = 0.5       # Max 50% skip rate
+
     # query pool
     query = db.query(PuzzleTemplate).filter(
-        PuzzleTemplate.difficulty == difficulty
+    PuzzleTemplate.difficulty == difficulty,
+    # Filter out low-quality puzzles (high skip ratio)
+    # Only apply when times_used >= MIN_USES_FOR_QUALITY
+    ~(
+        (PuzzleTemplate.times_used >= MIN_USES_FOR_QUALITY) &
+        (cast(PuzzleTemplate.times_skipped, Float) / PuzzleTemplate.times_used > MAX_SKIP_RATIO)
     )
+)
 
     if current_user:
         # Subquery to find template_ids that the user has already interacted with
@@ -562,6 +628,9 @@ def get_puzzle_feed(
     existing_templates = query.order_by(func.random()).limit(limit).all()
     
     for tmpl in existing_templates:
+        # Increment usage counter to track freshness
+        tmpl.times_used = (tmpl.times_used or 0) + 1
+        
         puzzles_to_return.append({
             "id": str(uuid.uuid4()), # New instance ID for the user to start
             "template_id": tmpl.id,
@@ -573,6 +642,10 @@ def get_puzzle_feed(
             "timestamp": datetime.datetime.now().isoformat(),
             "source": "pool"
         })
+    
+    # Commit the times_used increments
+    if existing_templates:
+        db.commit()
     
     # 2. GENERATE FALLBACK if pool is empty or user exhausted it
     needed = limit - len(puzzles_to_return)
