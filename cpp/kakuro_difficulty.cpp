@@ -13,11 +13,21 @@ KakuroDifficultyEstimator::KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard
 
     for (auto& s : board->sectors_h) {
         auto clue = get_clue_internal(*s, true);
-        if (clue) all_sectors.push_back({*s, *clue, true});
+        if (clue) {
+            all_sectors.push_back({*s, *clue, true});
+            for (Cell* c : *s) {
+                cell_to_h[c] = {*clue, (int)s->size()};
+            }
+        }
     }
     for (auto& s : board->sectors_v) {
         auto clue = get_clue_internal(*s, false);
-        if (clue) all_sectors.push_back({*s, *clue, false});
+        if (clue) {
+            all_sectors.push_back({*s, *clue, false});
+            for (Cell* c : *s) {
+                cell_to_v[c] = {*clue, (int)s->size()};
+            }
+        }
     }
 }
 
@@ -27,15 +37,27 @@ DifficultyResult KakuroDifficultyEstimator::estimate_difficulty_detailed() {
     partition_cache.clear();
     logged_singles.clear();
 
+    // Reset limits
+    nodes_explored = 0;
+    search_aborted = false;
+    start_time = std::chrono::steady_clock::now();
+
     if (board->white_cells.empty() || all_sectors.empty()) return DifficultyResult();
 
-    CandidateMap initial_candidates;
-    for (Cell* c : board->white_cells) initial_candidates[c] = ALL_CANDIDATES;
+    CandidateMap logic_state;
+    for (Cell* c : board->white_cells) {
+        logic_state[c] = ALL_CANDIDATES;
+    }
 
-    CandidateMap logic_state = initial_candidates;
+    
     run_solve_loop(logic_state, false);
+   
 
-    discover_solutions(initial_candidates, 3);
+    // Now check solutions. Use 1-9 mask for search, NOT logic_state.
+    CandidateMap search_start;
+    for (Cell* c : board->white_cells) search_start[c] = ALL_CANDIDATES;
+    discover_solutions(search_start, 3);
+
 
     DifficultyResult res;
     for (const auto& step : solve_log) {
@@ -52,25 +74,30 @@ DifficultyResult KakuroDifficultyEstimator::estimate_difficulty_detailed() {
     else if (res.score < 60) res.rating = "Hard";
     else res.rating = "Expert";
 
+    if (search_aborted) {
+        res.rating = "Extreme / Unsolvable";
+        res.uniqueness = "Inconclusive (Timeout)";
+    }
+
     for (const auto& sol : found_solutions) res.solutions.push_back(render_solution(sol));
     return res;
 }
 
 void KakuroDifficultyEstimator::run_solve_loop(CandidateMap& candidates, bool silent) {
-    for (int it = 1; it <= 50; ++it) {
-        if (!apply_logic_pass(candidates, silent, it)) {
-            if (!silent) {
-                bool solved = true;
-                for (auto* c : board->white_cells) if (count_set_bits(candidates.at(c)) > 1) solved = false;
-                if (!solved) {
-                    solve_log.emplace_back("trial_and_error", 20.0f, 0);
-                    if (!try_bifurcation(candidates)) break;
-                } else break;
-            } else break;
-        }
-        bool solved = true;
-        for (auto* c : board->white_cells) if (count_set_bits(candidates.at(c)) != 1) solved = false;
-        if (solved) return;
+    bool changed = true;
+    int iterations = 0;
+    while (changed && iterations < 100) {
+        if (is_limit_exceeded()) return;
+        changed = apply_logic_pass(candidates, silent, ++iterations);
+    }
+
+    // Only if logic is stuck, try one level of bifurcation
+    bool solved = true;
+    for (auto* c : board->white_cells) if (count_set_bits(candidates[c]) > 1) solved = false;
+    
+    if (!solved && !silent && !is_limit_exceeded()) {
+        solve_log.emplace_back("trial_and_error", 20.0f, 0);
+        try_bifurcation(candidates);
     }
 }
 
@@ -118,34 +145,97 @@ bool KakuroDifficultyEstimator::find_naked_singles(CandidateMap& candidates, boo
 }
 
 bool KakuroDifficultyEstimator::apply_sector_constraints(const SectorInfo& sec, CandidateMap& candidates) {
-    std::vector<uint16_t> allowed(sec.cells.size(), 0);
-    auto partitions = get_partitions(sec.clue, (int)sec.cells.size());
-    bool found = false;
-    for (auto p : partitions) {
-        std::sort(p.begin(), p.end());
-        do {
-            bool ok = true;
-            for (size_t i = 0; i < sec.cells.size(); ++i) {
-                if (!(candidates.at(sec.cells[i]) & (1 << p[i]))) { ok = false; break; }
-            }
-            if (ok) {
-                found = true;
-                for (size_t i = 0; i < sec.cells.size(); ++i) allowed[i] |= (1 << p[i]);
-            }
-        } while (std::next_permutation(p.begin(), p.end()));
-    }
-    if (!found) { for (auto* c : sec.cells) candidates[c] = 0; return false; }
+    if (search_aborted) return false;
+
     bool changed = false;
-    for (size_t i = 0; i < sec.cells.size(); ++i) {
-        uint16_t old = candidates.at(sec.cells[i]);
-        candidates[sec.cells[i]] &= allowed[i];
-        if (candidates.at(sec.cells[i]) != old) changed = true;
+    int n = (int)sec.cells.size();
+
+    // STEP 1: Bitmask Filter (Instant)
+    // Eliminate digits that don't exist in ANY mathematical partition for this clue/length.
+    uint16_t sector_allowed_mask = get_partition_bits(sec.clue, n);
+    for (auto* c : sec.cells) {
+        uint16_t old = candidates[c];
+        candidates[c] &= sector_allowed_mask;
+        if (candidates[c] != old) changed = true;
     }
+
+    // STEP 2: Reachability Math (O(N))
+    // For each cell, check if its current values can actually reach the clue sum 
+    // given the min/max possibilities of the other cells in the sector.
+    if (n > 1) {
+        // We pre-calculate the min and max for all cells to avoid redundant loops
+        std::vector<int> c_mins(n), c_maxs(n);
+        int total_min = 0, total_max = 0;
+
+        for (int i = 0; i < n; ++i) {
+            int mi = 10, ma = 0;
+            uint16_t mask = candidates[sec.cells[i]];
+            for (int v = 1; v <= 9; ++v) {
+                if (mask & (1 << v)) {
+                    if (v < mi) mi = v;
+                    if (v > ma) ma = v;
+                }
+            }
+            c_mins[i] = mi;
+            c_maxs[i] = ma;
+            total_min += mi;
+            total_max += ma;
+        }
+
+        for (int i = 0; i < n; ++i) {
+            uint16_t mask = candidates[sec.cells[i]];
+            uint16_t new_mask = mask;
+            
+            // The "others" are the sum of everything except the current cell
+            int others_min = total_min - c_mins[i];
+            int others_max = total_max - c_maxs[i];
+
+            for (int v = 1; v <= 9; ++v) {
+                if (mask & (1 << v)) {
+                    // If I pick value 'v', can the rest of the cells fill the gap?
+                    // Gap required = Clue - v
+                    if (v + others_min > sec.clue || v + others_max < sec.clue) {
+                        new_mask &= ~(1 << v);
+                    }
+                }
+            }
+
+            if (new_mask != mask) {
+                candidates[sec.cells[i]] = new_mask;
+                changed = true;
+                // If we pruned a value, we should update the total_min/max 
+                // for the next cell in this loop, but even without doing that, 
+                // the next logic pass will catch it.
+            }
+        }
+    }
+
+    // STEP 3: Unique Value Check (Sudoku style)
+    // If a value is already "solved" in one cell, no other cell in the sector can have it.
+    uint16_t solved_mask = 0;
+    for (auto* c : sec.cells) {
+        if (count_set_bits(candidates[c]) == 1) solved_mask |= candidates[c];
+    }
+    for (auto* c : sec.cells) {
+        if (count_set_bits(candidates[c]) > 1) {
+            uint16_t old = candidates[c];
+            candidates[c] &= ~solved_mask;
+            if (candidates[c] != old) changed = true;
+        }
+    }
+
     return changed;
 }
 
+int KakuroDifficultyEstimator::mask_to_digit(uint16_t mask) const {
+    for (int v = 1; v <= 9; ++v) {
+        if (mask == (1 << v)) return v;
+    }
+    return 0;
+}
+
 void KakuroDifficultyEstimator::discover_solutions(CandidateMap candidates, int limit) {
-    if (found_solutions.size() >= limit) return;
+    if (found_solutions.size() >= limit || is_limit_exceeded()) return;
     for (int i = 0; i < 3; ++i) {
         bool progress = false;
         for (auto& sec : all_sectors) if (apply_sector_constraints(sec, candidates)) progress = true;
@@ -159,13 +249,27 @@ void KakuroDifficultyEstimator::discover_solutions(CandidateMap candidates, int 
     }
     if (!mrv) {
         std::unordered_map<Cell*, int> sol;
-        for (auto* c : board->white_cells) sol[c] = (int)std::log2(candidates.at(c));
-        if (verify_math(sol)) found_solutions.push_back(sol);
+        for (auto* c : board->white_cells) {
+            int digit = mask_to_digit(candidates.at(c));
+            if (digit == 0) return; // Should not happen if count_set_bits was 1
+            sol[c] = digit;
+        }
+        if (verify_math(sol)) {
+            // Check for duplicates before adding
+            bool exists = false;
+            for(auto& existing : found_solutions) {
+                bool match = true;
+                for(auto* cell : board->white_cells) if(existing[cell] != sol[cell]) { match = false; break; }
+                if(match) { exists = true; break; }
+            }
+            if(!exists) found_solutions.push_back(sol);
+        }
         return;
     }
     uint16_t mask = candidates.at(mrv);
     for (int v = 1; v <= 9; ++v) {
         if (mask & (1 << v)) {
+            if (search_aborted) break;
             CandidateMap branch = candidates;
             branch[mrv] = (1 << v);
             discover_solutions(branch, limit);
@@ -175,28 +279,30 @@ void KakuroDifficultyEstimator::discover_solutions(CandidateMap candidates, int 
 }
 
 bool KakuroDifficultyEstimator::find_unique_intersections(CandidateMap& candidates, bool silent) {
-    bool ch = false; int sol = 0;
-    for (auto* c : board->white_cells) {
-        if (count_set_bits(candidates.at(c)) <= 1) continue;
-        uint16_t rm = 0, cm = 0; bool h = false, v = false;
-        for (auto& sec : all_sectors) {
-            bool in = false; for (auto* sc : sec.cells) if (sc == c) in = true;
-            if (in) {
-                uint16_t m = 0;
-                for (auto& p : get_partitions(sec.clue, (int)sec.cells.size())) for (int val : p) m |= (1 << val);
-                if (sec.is_horz) { rm = m; h = true; } else { cm = m; v = true; }
-            }
-        }
-        if (h && v) {
-            uint16_t inter = rm & cm & candidates.at(c);
-            if (inter != 0 && inter != candidates.at(c)) {
-                candidates[c] = inter; ch = true;
-                if (count_set_bits(inter) == 1) sol++;
-            }
+    bool changed = false;
+    int affected = 0;
+
+    for (auto* cell : board->white_cells) {
+        if (count_set_bits(candidates[cell]) <= 1) continue;
+
+        // O(1) Lookup: No more looping through all_sectors!
+        SectorMetadata& h = cell_to_h[cell];
+        SectorMetadata& v = cell_to_v[cell];
+
+        uint16_t h_mask = get_partition_bits(h.clue, h.length);
+        uint16_t v_mask = get_partition_bits(v.clue, v.length);
+
+        uint16_t combined_constraint = h_mask & v_mask;
+        uint16_t new_candidates = candidates[cell] & combined_constraint;
+
+        if (new_candidates != candidates[cell]) {
+            candidates[cell] = new_candidates;
+            changed = true;
+            if (count_set_bits(new_candidates) == 1) affected++;
         }
     }
-    if (sol > 0 && !silent) solve_log.emplace_back("unique_intersection", 0.5f, sol);
-    return ch;
+    if (affected > 0 && !silent) solve_log.emplace_back("unique_intersection", 0.5f, affected);
+    return changed;
 }
 
 bool KakuroDifficultyEstimator::apply_simple_partitions(CandidateMap& candidates, bool silent) {
@@ -249,6 +355,8 @@ bool KakuroDifficultyEstimator::analyze_complex_intersections(CandidateMap& cand
 }
 
 bool KakuroDifficultyEstimator::try_bifurcation(CandidateMap& candidates) {
+    if (is_limit_exceeded()) return false;
+    
     Cell* target = nullptr; int min_b = 10;
     for (auto* c : board->white_cells) {
         int b = count_set_bits(candidates.at(c));
@@ -258,6 +366,7 @@ bool KakuroDifficultyEstimator::try_bifurcation(CandidateMap& candidates) {
     uint16_t mask = candidates.at(target);
     for (int v = 1; v <= 9; ++v) {
         if (mask & (1 << v)) {
+            if (is_limit_exceeded()) return false;
             CandidateMap test = candidates; test[target] = (1 << v);
             run_solve_loop(test, true);
             bool ok = true;
@@ -277,6 +386,18 @@ std::vector<std::vector<int>> KakuroDifficultyEstimator::get_partitions(int sum,
     };
     bt(sum, len, 1);
     return partition_cache[{sum, len}] = res;
+}
+
+uint16_t KakuroDifficultyEstimator::get_partition_bits(int sum, int len) {
+    uint32_t key = (sum << 8) | len;
+    if (partition_mask_cache.count(key)) return partition_mask_cache[key];
+
+    uint16_t mask = 0;
+    auto partitions = get_partitions(sum, len); // Use your existing logic once
+    for (const auto& p : partitions) {
+        for (int v : p) mask |= (1 << v);
+    }
+    return partition_mask_cache[key] = mask;
 }
 
 bool KakuroDifficultyEstimator::verify_math(const std::unordered_map<Cell*, int>& sol) const {
