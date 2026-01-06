@@ -6,21 +6,36 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal
 from .models import PuzzleTemplate
 from .kakuro_wrapper import KakuroBoard, CSPSolver
-from .performance import Timer
 
 logger = logging.getLogger("kakuro_generator")
 
 # Configuration
 DIFFICULTY_LEVELS = ["very_easy", "easy", "medium", "hard"]
-POOL_TARGET_SIZE = 50  # Keep at least 50 puzzles per difficulty
+POOL_TARGET_SIZE = 50  # Keep at least 50 fresh puzzles per difficulty
 BATCH_SIZE = 5         # Generate 5 at a time to yield lock frequently
 CHECK_INTERVAL_SECONDS = 10
+FRESHNESS_BUFFER = 20  # Buffer above max user completions for freshness threshold
 
 class GeneratorService:
     def __init__(self):
         self._stop_event = threading.Event()
         self._thread = None
         self.running = False
+        self._current_counts = {diff: 0 for diff in DIFFICULTY_LEVELS}
+
+    @property
+    def status(self) -> dict:
+        """Returns current pool counts for the Admin Dashboard."""
+        return self._current_counts
+
+    @property
+    def settings(self) -> dict:
+        """Returns config for the Admin Dashboard."""
+        return {
+            "target_count": POOL_TARGET_SIZE,
+            "threshold": 10, # Fixed threshold for UI or calculate dynamically
+            "batch_size": BATCH_SIZE
+        }
 
     def start(self):
         """Start the background generation thread."""
@@ -57,27 +72,65 @@ class GeneratorService:
                     break
                 time.sleep(0.5)
 
+    def _get_freshness_threshold(self, db: Session, difficulty: str) -> int:
+        """
+        Calculate dynamic threshold based on user completion stats.
+        A template is 'fresh' if times_used < threshold.
+        
+        Logic: threshold = max(user completions for difficulty) + buffer
+        This ensures power users always have novel content.
+        """
+        from sqlalchemy import func
+        from .models import Puzzle
+        
+        # Find max completions per user for this difficulty
+        max_completions = db.query(func.count(Puzzle.id))\
+            .filter(Puzzle.difficulty == difficulty, Puzzle.status == "solved")\
+            .group_by(Puzzle.user_id)\
+            .order_by(func.count(Puzzle.id).desc())\
+            .limit(1).scalar()
+        
+        # Default to 1 if no completions, add buffer
+        return (max_completions or 0) + FRESHNESS_BUFFER
+
     def _check_and_refill_pools(self):
-        """Check database for puzzle counts and generate if needed."""
+        """Check database for fresh puzzle counts and generate if needed."""
         with SessionLocal() as db:
             for difficulty in DIFFICULTY_LEVELS:
                 if self._stop_event.is_set():
                     return
 
-                # Check current count
-                count = db.query(PuzzleTemplate).filter(
-                    PuzzleTemplate.difficulty == difficulty
+                # Get dynamic freshness threshold
+                threshold = self._get_freshness_threshold(db, difficulty)
+                
+                # Count 'fresh' templates (times_used below threshold)
+                fresh_count = db.query(PuzzleTemplate).filter(
+                    PuzzleTemplate.difficulty == difficulty,
+                    PuzzleTemplate.times_used < threshold
                 ).count()
 
-                if count < POOL_TARGET_SIZE:
-                    needed = POOL_TARGET_SIZE - count
-                    logger.info(f"Pool '{difficulty}' low ({count}/{POOL_TARGET_SIZE}). Generating batch...")
-                    
-                    # Generate a small batch
-                    generate_count = min(needed, BATCH_SIZE)
-                    with Timer(db, "queue_fill_batch_time", metadata={"difficulty": difficulty, "count": generate_count}):
-                        self._generate_batch(db, difficulty, generate_count)
+                self._current_counts[difficulty] = fresh_count
 
+                if fresh_count < POOL_TARGET_SIZE:
+                    needed = POOL_TARGET_SIZE - fresh_count
+                    generate_count = min(needed, BATCH_SIZE)
+
+                    logger.info(
+                        f"Fresh pool '{difficulty}' low ({fresh_count}/{POOL_TARGET_SIZE}, "
+                        f"threshold={threshold}). Generating batch..."
+                    )
+                    
+                    start_t = time.perf_counter()
+                    self._generate_batch(db, difficulty, generate_count)
+                    duration_ms = (time.perf_counter() - start_t) * 1000
+
+                    # Optional: Log the performance metric using a local import
+                    try:
+                        from .performance import record_metric
+                        record_metric(db, "gen_batch_time_ms", duration_ms, "ms", {"difficulty": difficulty})
+                    except ImportError:
+                        pass
+                    
     def _generate_batch(self, db: Session, difficulty: str, count: int):
         from main import MIN_CELLS_MAP, DIFFICULTY_SIZE_RANGES
 
