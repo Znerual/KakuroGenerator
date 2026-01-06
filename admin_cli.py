@@ -2,9 +2,9 @@ import argparse
 import sys
 import uuid
 from sqlalchemy.orm import Session
-from python.models import User
-from python.database import SessionLocal
-from python.auth import hash_password
+from kakuro.models import User, PuzzleTemplate, PuzzleInteraction, ScoreRecord, UserSession, Puzzle
+from kakuro.database import SessionLocal
+from kakuro.auth import hash_password
 from datetime import datetime, timezone
 
 def get_db():
@@ -35,6 +35,45 @@ def create_user(username, email, password, is_admin=False):
         db.add(new_user)
         db.commit()
         print(f"User '{username}' created successfully (Admin: {is_admin}).")
+    finally:
+        db.close()
+
+def reset_puzzles():
+    """Clears all puzzle-related data while keeping User accounts."""
+    db = SessionLocal()
+    print("!!! WARNING !!!")
+    print("This will delete ALL Puzzle Templates, User Progress, Interactions, and Scores.")
+    print("User accounts will be kept, but their stats (solved count/score) will be reset to 0.")
+    
+    confirm = input("\nType 'RESET' to confirm this action: ")
+    if confirm != "RESET":
+        print("Reset aborted.")
+        return
+
+    try:
+        print("Cleaning up database...")
+        
+        # 1. Delete dependent records first (Foreign Key constraints)
+        db.query(PuzzleInteraction).delete()
+        db.query(ScoreRecord).delete()
+        
+        # 2. Delete user puzzle instances
+        db.query(Puzzle).delete()
+        
+        # 3. Delete master templates
+        db.query(PuzzleTemplate).delete()
+        
+        # 4. Reset User statistics so leaderboards are fresh
+        db.query(User).update({
+            User.kakuros_solved: 0,
+            User.total_score: 0
+        })
+        
+        db.commit()
+        print("Successfully reset the system. Puzzles cleared and user stats zeroed.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error during reset: {e}")
     finally:
         db.close()
 
@@ -128,6 +167,8 @@ def main():
     delete_parser = subparsers.add_parser("delete", help="Delete a user")
     delete_parser.add_argument("user", help="ID or Username")
 
+    # Reset System
+    subparsers.add_parser("reset-system", help="Clear all puzzles, templates, and scores (Keep users)")
 
     args = parser.parse_args()
 
@@ -141,6 +182,8 @@ def main():
         edit_user(args.user, args.password, args.email)
     elif args.command == "delete":
         delete_user(args.user)
+    elif args.command == "reset-system":
+        reset_puzzles()
     else:
         parser.print_help()
 
