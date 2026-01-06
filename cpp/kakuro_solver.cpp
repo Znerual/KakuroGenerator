@@ -11,24 +11,30 @@ CSPSolver::CSPSolver(std::shared_ptr<KakuroBoard> b)
     : board(b), rng(std::random_device{}()) {}
 
 bool CSPSolver::generate_puzzle(const std::string& difficulty) {
-    const int MAX_TOPOLOGY_RETRIES = 30;
-    LOG_DEBUG("Starting puzzle generation. Difficulty: " << difficulty);
+    FillParams params;
+    params.difficulty = difficulty;
+    return generate_puzzle(params);
+}
+
+bool CSPSolver::generate_puzzle(const FillParams& params, const TopologyParams& topo_params) {
+    const int MAX_TOPOLOGY_RETRIES = 50;
+    LOG_DEBUG("Starting puzzle generation. Difficulty: " << params.difficulty);
 
     for (int topo_attempt = 0; topo_attempt < MAX_TOPOLOGY_RETRIES; topo_attempt++) {
-        if (!prepare_new_topology(difficulty)) continue;
+        if (!prepare_new_topology(topo_params)) continue;
 
-        if (attempt_fill_and_validate(difficulty)) {
+        if (attempt_fill_and_validate(params)) {
             return true;
         }
     }
 
-    LOG_DEBUG("=== FAILURE: Maximum topology retries exceeded ===");
+    LOG_ERROR("=== FAILURE: Maximum topology retries (" << MAX_TOPOLOGY_RETRIES << ") exceeded for difficulty " << params.difficulty << " ===");
     return false;
 }
 
 
-bool CSPSolver::prepare_new_topology(const std::string& difficulty) {
-    bool success = board->generate_topology(0.60, 9, difficulty);
+bool CSPSolver::prepare_new_topology(const TopologyParams& topo_params) {
+    bool success = board->generate_topology(topo_params);
     if (!success || board->white_cells.size() < 12) {
         return false;
     }
@@ -37,15 +43,15 @@ bool CSPSolver::prepare_new_topology(const std::string& difficulty) {
     return true;
 }
 
-bool CSPSolver::attempt_fill_and_validate(const std::string& difficulty) {
-    const int MAX_FILL_ATTEMPTS = 5;
+bool CSPSolver::attempt_fill_and_validate(const FillParams& params) {
+    const int MAX_FILL_ATTEMPTS = 50;
     int consecutive_repair_failures = 0;
 
     for (int fill_attempt = 0; fill_attempt < MAX_FILL_ATTEMPTS; fill_attempt++) {
         board->reset_values();
         
         // 1. Fill the board with values
-        if (!solve_fill(difficulty, 200000, {}, {}, true)) continue;
+        if (!solve_fill(params, {}, {}, true)) continue;
         
         // 2. Sync clues to the filled values
         calculate_clues();
@@ -82,6 +88,7 @@ bool CSPSolver::attempt_fill_and_validate(const std::string& difficulty) {
             }
         }
     }
+    LOG_DEBUG("=== FAILURE: Maximum fill attempts (" << MAX_FILL_ATTEMPTS << ") reached without a unique solution for difficulty " << params.difficulty << " ===");
     return false;
 }
 
@@ -103,7 +110,18 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
                    const std::unordered_map<Cell*, int>& forced_assignments, 
                    const std::vector<ValueConstraint>& forbidden_constraints,
                    bool ignore_clues) {
-    LOG_DEBUG("      solve_fill: difficulty=" << difficulty << ", max_nodes=" << max_nodes 
+    FillParams params;
+    params.difficulty = difficulty;
+    params.max_nodes = max_nodes;
+    return solve_fill(params, forced_assignments, forbidden_constraints, ignore_clues);
+}
+
+bool CSPSolver::solve_fill(const FillParams& params,
+                   const std::unordered_map<Cell*, int>& forced_assignments, 
+                   const std::vector<ValueConstraint>& forbidden_constraints,
+                   bool ignore_clues) {
+    int max_nodes = params.max_nodes.value_or(30000);
+    LOG_DEBUG("      solve_fill: difficulty=" << params.difficulty << ", max_nodes=" << max_nodes 
               << ", ignore_clues=" << ignore_clues);
     std::unordered_map<Cell*, int> assignment;
     int node_count = 0;
@@ -131,6 +149,7 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
     std::vector<int> weights;
     std::string partition_preference = "";
     
+    std::string difficulty = params.difficulty;
     if (difficulty == "very_easy") {
         weights = {20, 15, 5, 1, 1, 1, 5, 15, 20};
         partition_preference = "unique";
@@ -144,6 +163,10 @@ bool CSPSolver::solve_fill(const std::string& difficulty,
         weights = {5, 5, 5, 5, 5, 5, 5, 5, 5};
         partition_preference = "";
     }
+
+    // Overrides
+    if (params.weights.has_value()) weights = *params.weights;
+    if (params.partition_preference.has_value()) partition_preference = *params.partition_preference;
     
     bool result = backtrack_fill(assignment, node_count, max_nodes, weights, 
                           ignore_clues, partition_preference, forbidden_constraints);

@@ -15,6 +15,35 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         .value("WHITE", kakuro::CellType::WHITE)
         .export_values();
 
+    py::enum_<kakuro::TechniqueTier>(m, "TechniqueTier")
+        .value("VERY_EASY", kakuro::TechniqueTier::VERY_EASY)
+        .value("EASY", kakuro::TechniqueTier::EASY)
+        .value("MEDIUM", kakuro::TechniqueTier::MEDIUM)
+        .value("HARD", kakuro::TechniqueTier::HARD)
+        .value("EXTREME", kakuro::TechniqueTier::EXTREME)
+        .export_values();
+
+    // Bind TopologyParams struct
+    py::class_<kakuro::TopologyParams>(m, "TopologyParams")
+        .def(py::init<>())
+        .def_readwrite("difficulty", &kakuro::TopologyParams::difficulty)
+        .def_readwrite("density", &kakuro::TopologyParams::density)
+        .def_readwrite("max_sector_length", &kakuro::TopologyParams::max_sector_length)
+        .def_readwrite("num_stamps", &kakuro::TopologyParams::num_stamps)
+        .def_readwrite("min_cells", &kakuro::TopologyParams::min_cells)
+        .def_readwrite("max_run_len", &kakuro::TopologyParams::max_run_len)
+        .def_readwrite("max_patch_size", &kakuro::TopologyParams::max_patch_size)
+        .def_readwrite("island_mode", &kakuro::TopologyParams::island_mode)
+        .def_readwrite("stamps", &kakuro::TopologyParams::stamps);
+
+    // Bind FillParams struct
+    py::class_<kakuro::FillParams>(m, "FillParams")
+        .def(py::init<>())
+        .def_readwrite("difficulty", &kakuro::FillParams::difficulty)
+        .def_readwrite("weights", &kakuro::FillParams::weights)
+        .def_readwrite("partition_preference", &kakuro::FillParams::partition_preference)
+        .def_readwrite("max_nodes", &kakuro::FillParams::max_nodes);
+
     // Bind Cell class
     py::class_<kakuro::Cell>(m, "Cell")
         .def(py::init<int, int, kakuro::CellType>(),
@@ -96,11 +125,17 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         .def("set_block", &kakuro::KakuroBoard::set_block)
         .def("set_white", &kakuro::KakuroBoard::set_white)
         
-        // FIX: Added difficulty argument
-        .def("generate_topology", &kakuro::KakuroBoard::generate_topology,
+        // New parameter-driven overload
+        .def("generate_topology", 
+             static_cast<bool (kakuro::KakuroBoard::*)(const kakuro::TopologyParams&)>(&kakuro::KakuroBoard::generate_topology),
+             py::arg("params") = kakuro::TopologyParams())
+             
+        // Legacy overload for backward compatibility
+        .def("generate_topology", 
+             static_cast<bool (kakuro::KakuroBoard::*)(double, int, std::string)>(&kakuro::KakuroBoard::generate_topology),
              py::arg("density") = 0.60,
              py::arg("max_sector_length") = 9,
-             py::arg("difficulty") = "medium") 
+             py::arg("difficulty") = "medium")
              
         .def("collect_white_cells", &kakuro::KakuroBoard::collect_white_cells)
         .def("identify_sectors", &kakuro::KakuroBoard::identify_sectors)
@@ -151,10 +186,24 @@ PYBIND11_MODULE(kakuro_cpp, m) {
     // Bind CSPSolver class
     py::class_<kakuro::CSPSolver>(m, "CSPSolver")
         .def(py::init<std::shared_ptr<kakuro::KakuroBoard>>())
-        .def("generate_puzzle", &kakuro::CSPSolver::generate_puzzle,
+        .def("generate_puzzle", 
+             static_cast<bool (kakuro::CSPSolver::*)(const kakuro::FillParams&, const kakuro::TopologyParams&)>(&kakuro::CSPSolver::generate_puzzle),
+             py::arg("params") = kakuro::FillParams(),
+             py::arg("topo_params") = kakuro::TopologyParams())
+             
+        .def("generate_puzzle", 
+             static_cast<bool (kakuro::CSPSolver::*)(const std::string&)>(&kakuro::CSPSolver::generate_puzzle),
              py::arg("difficulty") = "medium")
              
-        .def("solve_fill", &kakuro::CSPSolver::solve_fill,
+        .def("solve_fill", 
+             static_cast<bool (kakuro::CSPSolver::*)(const kakuro::FillParams&, const std::unordered_map<kakuro::Cell*, int>&, const std::vector<kakuro::CSPSolver::ValueConstraint>&, bool)>(&kakuro::CSPSolver::solve_fill),
+             py::arg("params"),
+             py::arg("forced_assignments") = std::unordered_map<kakuro::Cell*, int>(),
+             py::arg("forbidden_constraints") = std::vector<kakuro::CSPSolver::ValueConstraint>(),
+             py::arg("ignore_clues") = false)
+
+        .def("solve_fill", 
+             static_cast<bool (kakuro::CSPSolver::*)(const std::string&, int, const std::unordered_map<kakuro::Cell*, int>&, const std::vector<kakuro::CSPSolver::ValueConstraint>&, bool)>(&kakuro::CSPSolver::solve_fill),
              py::arg("difficulty") = "medium",
              py::arg("max_nodes") = 30000,
              py::arg("forced_assignments") = std::unordered_map<kakuro::Cell*, int>(),
@@ -170,15 +219,23 @@ PYBIND11_MODULE(kakuro_cpp, m) {
     py::class_<kakuro::SolveStep>(m, "SolveStep")
         .def_readwrite("technique", &kakuro::SolveStep::technique)
         .def_readwrite("difficulty_weight", &kakuro::SolveStep::difficulty_weight)
-        .def_readwrite("cells_affected", &kakuro::SolveStep::cells_affected);
+        .def_readwrite("cells_affected", &kakuro::SolveStep::cells_affected)
+        .def("__repr__", [](const kakuro::SolveStep &s) {
+            std::ostringstream oss;
+            oss << "<SolveStep technique='" << s.technique << "', "
+                << "difficulty_weight=" << s.difficulty_weight << ", "
+                << "cells_affected=" << s.cells_affected << ">";
+            return oss.str();
+        });
 
     py::class_<kakuro::DifficultyResult>(m, "DifficultyResult")
         .def_readwrite("score", &kakuro::DifficultyResult::score)
         .def_readwrite("rating", &kakuro::DifficultyResult::rating)
-        .def_readwrite("uniqueness", &kakuro::DifficultyResult::uniqueness)
+        .def_readwrite("max_tier", &kakuro::DifficultyResult::max_tier)
+        .def_readwrite("total_steps", &kakuro::DifficultyResult::total_steps)
         .def_readwrite("solution_count", &kakuro::DifficultyResult::solution_count)
+        .def_readwrite("uniqueness", &kakuro::DifficultyResult::uniqueness)
         .def_readwrite("solve_path", &kakuro::DifficultyResult::solve_path)
-        .def_readwrite("techniques_used", &kakuro::DifficultyResult::techniques_used)
         .def_readwrite("solutions", &kakuro::DifficultyResult::solutions)
         .def("__repr__", [](const kakuro::DifficultyResult &r) {
             std::ostringstream oss;

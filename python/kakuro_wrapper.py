@@ -172,7 +172,7 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
     #print(f"Generating {width}x{height} {difficulty} puzzle (C++={use_cpp})...")
     
     # Try up to 20 times to get a valid puzzle
-    for i in range(20):
+    for i in range(50):
         board = KakuroBoard(width, height, use_cpp=use_cpp)
         solver = CSPSolver(board)
         
@@ -181,12 +181,14 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
         if success:
             # Estimate actual difficulty
             estimator = KakuroDifficultyEstimator(board)
-            score = estimator.estimate_difficulty()
+            score = estimator.estimate_difficulty_detailed()
             
+            if score.uniqueness != 'Unique':
+                continue 
             #print(f"✓ Generated puzzle successfully. Score: {score} ({type(score)})")
             return board
     
-    print(f"⚠ Failed to generate puzzle with difficulty {difficulty}")
+    print(f"Failed to generate puzzle with difficulty {difficulty}")
     return board
 
 

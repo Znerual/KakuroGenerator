@@ -52,6 +52,14 @@ void KakuroBoard::set_white(int r, int c) {
 }
 
 bool KakuroBoard::generate_topology(double density, int max_sector_length, std::string difficulty) {
+    TopologyParams params;
+    params.density = density;
+    params.max_sector_length = max_sector_length;
+    params.difficulty = difficulty;
+    return generate_topology(params);
+}
+
+bool KakuroBoard::generate_topology(const TopologyParams& params) {
     const int MAX_RETRIES = 60;
     int area = (width - 2) * (height - 2);
     
@@ -61,8 +69,11 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
     int max_run_len = 9;
     int min_cells = 12;
     int max_patch_size = 5;
-
     bool island_mode = true;
+    double density = params.density.value_or(0.60);
+    int max_sector_length = params.max_sector_length.value_or(9);
+
+    std::string difficulty = params.difficulty;
 
     if (difficulty == "very_easy") {
         stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {2, 2}};
@@ -103,9 +114,16 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
         max_run_len = 9;
         max_patch_size = 5;
     }
+
+    // Apply Overrides
+    if (params.stamps.has_value()) stamps = *params.stamps;
+    if (params.num_stamps.has_value()) num_stamps = *params.num_stamps;
+    if (params.min_cells.has_value()) min_cells = *params.min_cells;
+    if (params.max_run_len.has_value()) max_run_len = *params.max_run_len;
+    if (params.max_patch_size.has_value()) max_patch_size = *params.max_patch_size;
+    if (params.island_mode.has_value()) island_mode = *params.island_mode;
     
     for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
-
         white_cells.clear();
         sectors_h.clear(); // Clear sectors explicitly to prevent pointer invalidation issues
         sectors_v.clear();
@@ -126,7 +144,6 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
         if (island_mode) {
             // Place initial seed in center to guarantee core connectivity
             stamp_rect(height/2 - 1, width/2 - 1, 2, 2);
-
             success = generate_stamps(stamps, num_stamps);
         } else {
             if (place_random_seed()) {
@@ -140,7 +157,7 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
 
         // Filters & Stabilization
         if (!island_mode) {
-            break_large_patches(difficulty == "medium" ? 3 : 4);
+            break_large_patches(max_patch_size);
             stabilize_grid(false);
         } else {
             slice_long_runs(max_run_len);
@@ -165,7 +182,7 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
         
         return true;
     }
-    LOG_DEBUG("Failed to generate topology after retries");
+    LOG_ERROR("Failed to generate topology after " << MAX_RETRIES << " retries. min_cells=" << min_cells << ", target_density=" << density);
     return false;
 }
 
@@ -443,7 +460,8 @@ void KakuroBoard::apply_slice(int fixed_idx, int start, int length, bool is_horz
 
 void KakuroBoard::prune_singles() {
     bool changed = true;
-    while (changed) {
+    int safety_limit = 100;
+    while (changed && --safety_limit > 0) {
         changed = false;
         for (int r = 1; r < height - 1; r++) {
             for (int c = 1; c < width - 1; c++) {
@@ -465,6 +483,7 @@ void KakuroBoard::prune_singles() {
             }
         }
     }
+    if (safety_limit == 0) LOG_ERROR("prune_singles reached safety limit");
 }
 
 void KakuroBoard::break_single_runs() {

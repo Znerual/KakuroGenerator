@@ -60,20 +60,53 @@ DifficultyResult KakuroDifficultyEstimator::estimate_difficulty_detailed() {
 
 
     DifficultyResult res;
+    TechniqueTier highest_tier = TechniqueTier::VERY_EASY;
+    float cumulative_effort = 0;
+
     for (const auto& step : solve_log) {
-        res.score += step.difficulty_weight;
-        res.techniques_used[step.technique]++;
+        // Map technique names to Tiers and Weights
+        TechniqueTier current_tier;
+        float weight;
+
+        if (step.technique == "unique_intersection" || step.technique == "elimination_singles") {
+            current_tier = TechniqueTier::VERY_EASY;
+            weight = 1.0f;
+        } else if (step.technique == "simple_partition") {
+            current_tier = TechniqueTier::EASY;
+            weight = 2.5f;
+        } else if (step.technique == "hidden_singles" || step.technique == "constraint_propagation") {
+            current_tier = TechniqueTier::MEDIUM;
+            weight = 5.0f;
+        } else if (step.technique == "complex_intersection") {
+            current_tier = TechniqueTier::HARD;
+            weight = 12.0f;
+        } else { // trial_and_error
+            current_tier = TechniqueTier::EXTREME;
+            weight = 50.0f;
+        }
+
+        if ((int)current_tier > (int)highest_tier) highest_tier = current_tier;
+        
+        // Scalar Score Calculation: Weight * Number of cells/sectors affected
+        cumulative_effort += (weight * step.cells_affected);
     }
+
+    switch (highest_tier) {
+        case TechniqueTier::VERY_EASY: res.rating = "Very Easy"; break;
+        case TechniqueTier::EASY:      res.rating = "Easy"; break;
+        case TechniqueTier::MEDIUM:    res.rating = "Medium"; break;
+        case TechniqueTier::HARD:      res.rating = "Hard"; break;
+        case TechniqueTier::EXTREME:   res.rating = "Extreme"; break;
+    }
+
+    res.score = cumulative_effort;
+    res.max_tier = highest_tier;
     res.solve_path = solve_log;
+
     res.total_steps = (int)solve_log.size();
     res.solution_count = (int)found_solutions.size();
     res.uniqueness = (res.solution_count == 1) ? "Unique" : (res.solution_count > 1 ? "Multiple" : "No Solution");
     
-    if (res.score < 15) res.rating = "Easy";
-    else if (res.score < 30) res.rating = "Medium";
-    else if (res.score < 60) res.rating = "Hard";
-    else res.rating = "Expert";
-
     if (search_aborted) {
         res.rating = "Extreme / Unsolvable";
         res.uniqueness = "Inconclusive (Timeout)";
@@ -102,29 +135,43 @@ void KakuroDifficultyEstimator::run_solve_loop(CandidateMap& candidates, bool si
 }
 
 bool KakuroDifficultyEstimator::apply_logic_pass(CandidateMap& candidates, bool silent, int iteration) {
+    // Tier 1: Very Easy    
     if (find_unique_intersections(candidates, silent)) return true;
-    if (apply_simple_partitions(candidates, silent)) return true;
-    if (apply_constraint_propagation(candidates, silent)) return true;
     if (find_naked_singles(candidates, silent, iteration)) return true;
+
+    // Tier 2: Easy
+    if (apply_simple_partitions(candidates, silent)) return true;
+
+    // Tier 3: Medium
     if (find_hidden_singles(candidates, silent)) return true;
-    if (iteration > 3 && analyze_complex_intersections(candidates, silent)) return true;
+    if (apply_constraint_propagation(candidates, silent)) return true;
+    
+    // Tier 4: Hard
+    if (iteration > 2 && analyze_complex_intersections(candidates, silent)) return true;
+    
+    // Tier 5: Extreme
     return false;
 }
 
 bool KakuroDifficultyEstimator::find_hidden_singles(CandidateMap& candidates, bool silent) {
-    bool changed = false; int affected = 0;
+    int affected = 0;
     for (auto& sec : all_sectors) {
         for (int v = 1; v <= 9; ++v) {
             Cell* target = nullptr; int count = 0;
-            for (auto* c : sec.cells) if (candidates.at(c) & (1 << v)) { count++; target = c; }
+            for (auto* c : sec.cells) {
+                if (candidates.at(c) & (1 << v)) { count++; target = c; }
+            }
             if (count == 1 && count_set_bits(candidates.at(target)) > 1) {
                 candidates[target] = (1 << v);
-                changed = true; affected++;
+                affected++;
             }
         }
     }
-    if (affected > 0 && !silent) solve_log.emplace_back("hidden_singles", 3.0f, affected);
-    return changed;
+    if (affected > 0) {
+        if (!silent) solve_log.emplace_back("hidden_singles", 5.0f, affected);
+        return true;
+    }
+    return false;
 }
 
 bool KakuroDifficultyEstimator::find_naked_singles(CandidateMap& candidates, bool silent, int iteration) {
@@ -323,10 +370,19 @@ bool KakuroDifficultyEstimator::apply_simple_partitions(CandidateMap& candidates
 }
 
 bool KakuroDifficultyEstimator::apply_constraint_propagation(CandidateMap& candidates, bool silent) {
-    bool ch = false; int aff = 0;
-    for (auto& sec : all_sectors) if (apply_sector_constraints(sec, candidates)) { ch = true; aff++; }
-    if (ch && !silent) solve_log.emplace_back("constraint_propagation", 4.0f, aff);
-    return ch;
+    bool changed = false;
+    int affected_cells = 0;
+    for (auto& sec : all_sectors) {
+        if (apply_sector_constraints(sec, candidates)) {
+            changed = true;
+            affected_cells += (int)sec.cells.size();
+        }
+    }
+    if (changed && !silent) {
+        // High scalar weight because this requires checking sums repeatedly
+        solve_log.emplace_back("constraint_propagation", 4.0f, affected_cells);
+    }
+    return changed;
 }
 
 bool KakuroDifficultyEstimator::analyze_complex_intersections(CandidateMap& candidates, bool silent) {

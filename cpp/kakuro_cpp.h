@@ -20,7 +20,9 @@
 
 namespace kakuro {
 
-#define LOG_DEBUG(msg)  do {} while(0) // do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0) //  
+#define LOG_DEBUG(msg) do {} while(0) // do { std::cerr << "[DEBUG] " << msg << std::endl; } while(0)
+#define LOG_INFO(msg)   do {} while(0) //do { std::cerr << "[INFO] " << msg << std::endl; } while(0)
+#define LOG_ERROR(msg)  do {} while(0) //do { std::cerr << "[ERROR] " << msg << std::endl; } while(0)
 
 enum class CellType {
     BLOCK,
@@ -60,6 +62,25 @@ struct PairHash {
     }
 };
 
+struct TopologyParams {
+    std::string difficulty = "medium";
+    std::optional<double> density;
+    std::optional<int> max_sector_length;
+    std::optional<int> num_stamps;
+    std::optional<int> min_cells;
+    std::optional<int> max_run_len;
+    std::optional<int> max_patch_size;
+    std::optional<bool> island_mode;
+    std::optional<std::vector<std::pair<int, int>>> stamps;
+};
+
+struct FillParams {
+    std::string difficulty = "medium";
+    std::optional<std::vector<int>> weights;
+    std::optional<std::string> partition_preference;
+    std::optional<int> max_nodes;
+};
+
 class KakuroBoard {
 public:
     int width;
@@ -80,7 +101,8 @@ public:
     void set_white(int r, int c);
     
     // Topology generation
-    bool generate_topology(double density = 0.60, int max_sector_length = 9, std::string difficulty = "medium");
+    bool generate_topology(const TopologyParams& params = TopologyParams());
+    bool generate_topology(double density = 0.60, int max_sector_length = 9, std::string difficulty = "medium"); // Legacy
     bool generate_stamps(const std::vector<std::pair<int, int>>& shapes, int iterations);
     bool validate_topology_structure();
     // Helper methods
@@ -127,12 +149,17 @@ public:
         std::vector<int> values;
     };
     
-    bool generate_puzzle(const std::string& difficulty = "medium");
+    bool generate_puzzle(const FillParams& params = FillParams(), const TopologyParams& topo_params = TopologyParams());
+    bool generate_puzzle(const std::string& difficulty = "medium"); // Legacy
+    bool solve_fill(const FillParams& params,
+                   const std::unordered_map<Cell*, int>& forced_assignments = {}, 
+                    const std::vector<ValueConstraint>& forbidden_constraints = {},
+                   bool ignore_clues = false);
     bool solve_fill(const std::string& difficulty, 
                    int max_nodes, 
                    const std::unordered_map<Cell*, int>& forced_assignments = {}, 
                     const std::vector<ValueConstraint>& forbidden_constraints = {},
-                   bool ignore_clues = false);
+                   bool ignore_clues = false); // Legacy
     void calculate_clues();
     std::pair<UniquenessResult, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
     check_uniqueness(int max_nodes = 10000, int seed_offset = 0);
@@ -144,8 +171,8 @@ private:
                    bool ignore_clues,
                    const std::string& partition_preference,
                    const std::vector<ValueConstraint>& forbidden_constraints);
-    bool attempt_fill_and_validate(const std::string& difficulty);
-    bool prepare_new_topology(const std::string& difficulty);
+    bool attempt_fill_and_validate(const FillParams& params);
+    bool prepare_new_topology(const TopologyParams& topo_params);
     UniquenessResult perform_robust_uniqueness_check();
     int count_neighbors_filled(Cell* cell, const std::unordered_map<Cell*, int>& assignment);
     bool is_consistent_number(Cell* var, int value, const std::unordered_map<Cell*, int>& assignment, bool ignore_clues);
@@ -199,17 +226,24 @@ struct SolveStep {
     SolveStep(std::string t, float w, int c) : technique(t), difficulty_weight(w), cells_affected(c) {}
 };
 
+enum class TechniqueTier {
+    VERY_EASY = 1,  // Intersection of two masks, naked singles
+    EASY = 2,       // Simple partitions (only 1 valid combination)
+    MEDIUM = 3,     // Hidden singles, basic constraint propagation
+    HARD = 4,       // Complex intersections, multi-sector lookahead
+    EXTREME = 5     // Trial and Error / Bifurcation
+};
+
 struct DifficultyResult {
-    float score;
-    std::string rating;
-    std::map<std::string, int> techniques_used;
-    std::vector<SolveStep> solve_path;
-    int total_steps;
-    int solution_count;
-    std::string uniqueness;
-    std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
+    float score = 0;      // Factor 2: Persistence (Sum of effort)
+    std::string rating;          // Factor 1: Capability (Hardest technique)
+    TechniqueTier max_tier = TechniqueTier::VERY_EASY;
     
-    DifficultyResult() : score(0.0f), total_steps(0), solution_count(0) {}
+    int total_steps = 0;
+    int solution_count = 0;
+    std::string uniqueness;
+    std::vector<SolveStep> solve_path;
+    std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
 };
 
 
