@@ -11,173 +11,92 @@ CSPSolver::CSPSolver(std::shared_ptr<KakuroBoard> b)
     : board(b), rng(std::random_device{}()) {}
 
 bool CSPSolver::generate_puzzle(const std::string& difficulty) {
-    const int MAX_TOPOLOGY_RETRIES = 20;
-    const int MAX_REPAIR_ATTEMPTS = 5;
-    const int MAX_VALUE_RETRIES = 5;
-
-    
+    const int MAX_TOPOLOGY_RETRIES = 30;
     LOG_DEBUG("Starting puzzle generation. Difficulty: " << difficulty);
 
     for (int topo_attempt = 0; topo_attempt < MAX_TOPOLOGY_RETRIES; topo_attempt++) {
-        LOG_DEBUG("--- Topology attempt " << topo_attempt << " ---");
-        bool success = board->generate_topology(0.60, 9, difficulty);
+        if (!prepare_new_topology(difficulty)) continue;
 
-        if (!success) {
-            LOG_DEBUG("Topology generation failed. Skipping.");
-            continue;
-        }
-
-        if (board->white_cells.size() < 12) {
-            LOG_DEBUG("Topology too small. Skipping.");
-            continue;
-        }
-        
-        // Force synchronization
-        board->collect_white_cells();
-        board->identify_sectors();
-
-        
-        int repair_count = 0;
-        while (repair_count < MAX_REPAIR_ATTEMPTS) {
-            LOG_DEBUG("--- Repair attempt " << repair_count << " ---");
-
-            bool fill_success = false;
-            std::unordered_map<std::pair<int, int>, int, PairHash> last_ambiguity;
-            std::unordered_map<std::pair<int, int>, int, PairHash> previous_solution_state;
-            
-            bool has_last_ambiguity = false;
-            bool has_previous_state = false;
-
-            
-            for (int fill_attempt = 0; fill_attempt < MAX_VALUE_RETRIES; fill_attempt++) {
-                LOG_DEBUG("    Fill attempt " << fill_attempt);
-
-                // Logic Fix 1: Generate constraints BEFORE reset
-                std::unordered_map<Cell*, int> forced;
-                std::vector<ValueConstraint> forbidden;
-
-                if (fill_attempt > 0 && has_last_ambiguity) {
-                    LOG_DEBUG("    Generating breaking constraints");
-                    // Find a cell where the two solutions differ
-                    for (auto const& [coords, alt_val] : last_ambiguity) {
-                        int original_val = previous_solution_state[coords];
-                        if (original_val != alt_val) {
-                            Cell* target_cell = board->get_cell(coords.first, coords.second);
-                            // FORBID both values. This forces the solver to find a 3rd way.
-                            forbidden.push_back({target_cell, {original_val, alt_val}});
-                            break; 
-                        }
-                    }
-                }
-
-                board->reset_values();
-
-                // Logic Fix 2: Pass ignore_clues=true
-                bool success = solve_fill(difficulty, 50000, forced, forbidden, true);
-
-                if (!success) {
-                    LOG_DEBUG("    Fill failed, trying next");
-                    continue; // Try next fill attempt
-                }
-               
-                LOG_DEBUG("    Fill succeeded!");
-                fill_success = true;
-                // Store state
-                previous_solution_state.clear();
-                for(Cell* c : board->white_cells) {
-                    if(c->value) previous_solution_state[{c->r, c->c}] = *c->value;
-                }
-                has_previous_state = true;
-
-
-                // Calculate Clues based on this fill
-                calculate_clues();
-                
-                // Check Uniqueness using the clues
-                LOG_DEBUG("    Checking uniqueness (attempt " << fill_attempt << ")");
-                auto [unique, alt_sol] = check_uniqueness(10000, fill_attempt);
-                
-                if (unique) {
-                    LOG_DEBUG("    Puzzle appears unique, double-checking");
-                    KakuroDifficultyEstimator estimator(board);
-                    DifficultyResult diff = estimator.estimate_difficulty_detailed();
-
-                    if (diff.solution_count <= 1) {
-                        LOG_DEBUG("=== SUCCESS! Unique " << diff.rating << " puzzle generated ===");
-                        return true;
-                    } else if (diff.solution_count > 1) {
-                        LOG_DEBUG("    Non-unique. Found " << diff.solution_count << " solutions.");
-                        
-                        // Extract the alternative solution from the estimator
-                        std::unordered_map<std::pair<int, int>, int, PairHash> alt_sol;
-                        for (int r = 0; r < board->height; ++r) {
-                            for (int c = 0; c < board->width; ++c) {
-                                if (diff.solutions[1][r][c].has_value()) 
-                                    alt_sol[{r, c}] = diff.solutions[1][r][c].value();
-                            }
-                        }
-                        last_ambiguity = alt_sol;
-                        has_last_ambiguity = true;
-                        // The loop continues and will try to repair based on this ambiguity
-                    }
-                }
-                
-                // Not unique, store ambiguity for next attempt
-                if (alt_sol.has_value()) {
-                    last_ambiguity = alt_sol.value();
-                    has_last_ambiguity = true;
-                }
-                
-            }
-
-            if (!fill_success) {
-                LOG_DEBUG("    Fill failed. Discarding topology.");
-                break; // discard topology
-            }
-
-            calculate_clues();
-
-            // Check Uniqueness (seed logic can be handled by offset)
-            auto [unique, alt_sol] = check_uniqueness(10000, 0);
-            
-            if (unique) {
-                // Double check
-                LOG_DEBUG("  Puzzle appears unique, double-checking");
-                auto [unique2, _] = check_uniqueness(10000, 100);
-                if (unique2) {
-                    LOG_DEBUG("  Puzzle is unique!");
-                    return true;
-                }
-            }
-
-            if (alt_sol.has_value()) {
-                last_ambiguity = alt_sol.value();
-                has_last_ambiguity = true;
-                LOG_DEBUG("    Ambiguity detected. Repairing...");
-                
-                // Repair
-                if (repair_topology_robust(last_ambiguity)) {
-                    LOG_DEBUG("    Repair succeeded!");
-                    // Force complete re-sync
-                    board->collect_white_cells();
-                    board->identify_sectors();
-                    repair_count++;
-                    continue; // Loop back to refill
-                } else {
-                    LOG_DEBUG("    Repair failed.");
-                    break; // Repair failed
-                }
-            } else {
-                // Should be unique if alt_sol is empty, but double check logic might have failed
-                LOG_DEBUG("  Puzzle is not unique. Discarding topology.");
-                break; 
-            }
+        if (attempt_fill_and_validate(difficulty)) {
+            return true;
         }
     }
 
     LOG_DEBUG("=== FAILURE: Maximum topology retries exceeded ===");
     return false;
 }
+
+
+bool CSPSolver::prepare_new_topology(const std::string& difficulty) {
+    bool success = board->generate_topology(0.60, 9, difficulty);
+    if (!success || board->white_cells.size() < 12) {
+        return false;
+    }
+    board->collect_white_cells();
+    board->identify_sectors();
+    return true;
+}
+
+bool CSPSolver::attempt_fill_and_validate(const std::string& difficulty) {
+    const int MAX_FILL_ATTEMPTS = 5;
+    int consecutive_repair_failures = 0;
+
+    for (int fill_attempt = 0; fill_attempt < MAX_FILL_ATTEMPTS; fill_attempt++) {
+        board->reset_values();
+        
+        // 1. Fill the board with values
+        if (!solve_fill(difficulty, 200000, {}, {}, true)) continue;
+        
+        // 2. Sync clues to the filled values
+        calculate_clues();
+
+        // 3. Robust Uniqueness Check (The "Multi-Check")
+        UniquenessResult result = perform_robust_uniqueness_check();
+
+        if (result == UniquenessResult::UNIQUE) {
+            // Final check with Estimator to ensure it meets difficulty targets
+            KakuroDifficultyEstimator estimator(board);
+            DifficultyResult diff = estimator.estimate_difficulty_detailed();
+            
+            if (diff.solution_count == 1) {
+                LOG_DEBUG("=== SUCCESS! Unique " << diff.rating << " puzzle ===");
+                return true;
+            }
+            // If estimator finds multiple solutions but CSP didn't, CSP was inconclusive
+            result = UniquenessResult::MULTIPLE; 
+        }
+
+        // 4. Handle Repairs
+        if (result == UniquenessResult::MULTIPLE) {
+            if (consecutive_repair_failures >= 3) break;
+            
+            // Try to find an alternative solution to guide repair
+            auto [status, alt_sol] = check_uniqueness(100000, fill_attempt);
+            if (alt_sol && repair_topology_robust(*alt_sol)) {
+                board->collect_white_cells();
+                board->identify_sectors();
+                fill_attempt = -1; // Restart fill loop for new topology
+                consecutive_repair_failures = 0;
+            } else {
+                consecutive_repair_failures++;
+            }
+        }
+    }
+    return false;
+}
+
+UniquenessResult CSPSolver::perform_robust_uniqueness_check() {
+    // We check 3 times with different search seeds. 
+    // This catches "symmetric" solutions that a single search might miss.
+    for (int i = 0; i < 3; i++) {
+        auto [status, alt_sol] = check_uniqueness(150000, 42 + (i * 100));
+        
+        if (status == UniquenessResult::MULTIPLE) return UniquenessResult::MULTIPLE;
+        if (status == UniquenessResult::INCONCLUSIVE) return UniquenessResult::INCONCLUSIVE;
+    }
+    return UniquenessResult::UNIQUE;
+}
+
 
 bool CSPSolver::solve_fill(const std::string& difficulty, 
                    int max_nodes, 
@@ -278,14 +197,20 @@ bool CSPSolver::backtrack_fill(std::unordered_map<Cell*, int>& assignment,
     
     // MRV
     Cell* var = nullptr;
-    int max_filled = -1;
+    int min_domain = 10;
+
     for (Cell* c : board->white_cells) {
         if (assignment.find(c) == assignment.end()) {
-            int filled = count_neighbors_filled(c, assignment);
-            if (filled > max_filled) {
-                max_filled = filled;
+            // Use the assignment map for filling phase
+            int d_size = get_domain_size(c, &assignment, ignore_clues);
+            
+            if (d_size == 0) return false; // Dead end
+
+            if (d_size < min_domain) {
+                min_domain = d_size;
                 var = c;
             }
+            if (min_domain == 1) break;
         }
     }
 
@@ -706,204 +631,217 @@ int CSPSolver::count_neighbors_filled(Cell* cell,
 bool CSPSolver::is_consistent_number(Cell* var, int value, 
                                      const std::unordered_map<Cell*, int>& assignment, 
                                      bool ignore_clues) {
-    // Horizontal
-    if (var->sector_h) {
-        int curr_sum = value;
-        int filled = 1;
-        for (Cell* peer : *(var->sector_h)) {
-            if (assignment.count(peer)) {
-                int v = assignment.at(peer);
-                if (v == value) return false; // Duplicate check always on
-                curr_sum += v;
-                filled++;
+    if (ignore_clues) {
+        // Simple duplicate check for the filling phase
+        auto has_dupe = [&](std::shared_ptr<std::vector<Cell*>> sector) {
+            if (!sector) return false;
+            for (Cell* p : *sector) {
+                if (p == var) continue;
+                if (assignment.count(p) && assignment.at(p) == value) return true;
+                if (p->value.has_value() && *p->value == value) return true;
             }
-        }
-        if (!ignore_clues) {
-            Cell* start = (*(var->sector_h))[0];
-            if (start->c > 0) {
-                auto clue = board->grid[start->r][start->c-1].clue_h;
-                if (clue) {
-                    if (curr_sum > *clue) return false;
-                    if (filled == (int)var->sector_h->size() && curr_sum != *clue) return false;
-                }
-            }
-        }
+            return false;
+        };
+        return !has_dupe(var->sector_h) && !has_dupe(var->sector_v);
     }
-    // Vertical
-    if (var->sector_v) {
-        int curr_sum = value;
-        int filled = 1;
-        for (Cell* peer : *(var->sector_v)) {
-            if (assignment.count(peer)) {
-                int v = assignment.at(peer);
-                if (v == value) return false; 
-                curr_sum += v;
-                filled++;
-            }
-        }
-        if (!ignore_clues) {
-            Cell* start = (*(var->sector_v))[0];
-            if (start->r > 0) {
-                auto clue = board->grid[start->r-1][start->c].clue_v;
-                if (clue) {
-                    if (curr_sum > *clue) return false;
-                    if (filled == (int)var->sector_v->size() && curr_sum != *clue) return false;
-                }
-            }
-        }
-    }
-    return true;
+
+    // Comprehensive check for the uniqueness phase
+    return is_valid_move(var, value, &assignment, ignore_clues);
 }
 
 void CSPSolver::calculate_clues() {
-    LOG_DEBUG("  Calculating clues for " << board->sectors_h.size() << " H + " 
-              << board->sectors_v.size() << " V sectors");
-    
-    // Horizontal sectors
-    for (auto& sector : board->sectors_h) {
-        int sum = 0;
-        for (Cell* c : *(sector)) {
-            if (c->value.has_value()) {
-                sum += c->value.value();
-            }
-        }
-        
-        Cell* first = sector->at(0);
-        if (first->c > 0) {
-            board->grid[first->r][first->c - 1].clue_h = sum;
+    // 1. Fully Clear
+    for (int r = 0; r < board->height; r++) {
+        for (int c = 0; c < board->width; c++) {
+            board->grid[r][c].clue_h = std::nullopt;
+            board->grid[r][c].clue_v = std::nullopt;
         }
     }
-    
-    // Vertical sectors
+
+    // 2. Refresh sectors to ensure white_cells and sectors match the topology
+    board->identify_sectors();
+
+    // 3. Assign Clues
+    for (auto& sector : board->sectors_h) {
+        int sum = 0;
+        for (Cell* c : *sector) sum += c->value.value_or(0);
+        Cell* first = (*sector)[0];
+        board->grid[first->r][first->c - 1].clue_h = sum;
+    }
     for (auto& sector : board->sectors_v) {
         int sum = 0;
-        for (Cell* c : *(sector)) {
-            if (c->value.has_value()) {
-                sum += c->value.value();
-            }
-        }
-        
-        Cell* first = sector->at(0);
-        if (first->r > 0) {
-            board->grid[first->r - 1][first->c].clue_v = sum;
-        }
+        for (Cell* c : *sector) sum += c->value.value_or(0);
+        Cell* first = (*sector)[0];
+        board->grid[first->r - 1][first->c].clue_v = sum;
     }
 }
 
-std::pair<bool, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
+std::pair<UniquenessResult, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
 CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
     LOG_DEBUG("  Checking uniqueness using Logical Estimator...");
     
-    std::unordered_map<std::pair<int, int>, int, PairHash> current_sol;
+    // 1. Back up current solution
+    std::unordered_map<std::pair<int, int>, int, PairHash> original_sol;
     for (Cell* c : board->white_cells) {
-        if(c->value) current_sol[{c->r, c->c}] = *c->value;
+        if(c->value) original_sol[{c->r, c->c}] = *c->value;
+        c->value = std::nullopt; // Clear for solving
     }
-    
-    for (Cell* c : board->white_cells) c->value = std::nullopt;
     
     std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found;
     int node_count = 0;
-    solve_for_uniqueness(found, current_sol, node_count, max_nodes, seed_offset);
+    bool timed_out = false;
     
-    for (Cell* c : board->white_cells) c->value = current_sol[{c->r, c->c}];
+    solve_for_uniqueness(found, original_sol, node_count, max_nodes, seed_offset, timed_out);
     
-    LOG_DEBUG("  Uniqueness check: nodes=" << node_count << ", alt_solutions=" << found.size());
+    for (Cell* c : board->white_cells) {
+        c->value = original_sol[{c->r, c->c}];
+    }
     
-    if (found.empty()) return {true, std::nullopt};
-    return {false, found[0]};
+    if (!found.empty()) return {UniquenessResult::MULTIPLE, found[0]};
+    if (timed_out) return {UniquenessResult::INCONCLUSIVE, std::nullopt};
+    return {UniquenessResult::UNIQUE, std::nullopt};
 }
 
 
 void CSPSolver::solve_for_uniqueness(
     std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>& found_solutions,
     const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol,
-    int& node_count, int max_nodes, int seed) {
+    int& node_count, int max_nodes, int seed, bool& timed_out) {
     
-    if (!found_solutions.empty() || node_count > max_nodes) return;
+    if (!found_solutions.empty()) return;
+    if (node_count > max_nodes) {
+        timed_out = true;
+        return;
+    }
     node_count++;
     
-    std::vector<Cell*> unassigned;
-    for(Cell* c : board->white_cells) if(!c->value) unassigned.push_back(c);
-    
-    if(unassigned.empty()) {
-        bool diff = false;
-        std::unordered_map<std::pair<int, int>, int, PairHash> sol;
-        for(Cell* c : board->white_cells) {
-            sol[{c->r, c->c}] = *c->value;
-            if(avoid_sol.at({c->r, c->c}) != *c->value) diff = true;
+    Cell* var = nullptr;
+    int min_domain = 10;
+
+    // MRV Selection
+    for (Cell* c : board->white_cells) {
+        if (!c->value.has_value()) {
+            int d_size = get_domain_size(c, nullptr, false);
+            if (d_size == 0) return; 
+            if (d_size < min_domain) {
+                min_domain = d_size;
+                var = c;
+            }
+            if (min_domain == 1) break; 
         }
-        if(diff) found_solutions.push_back(sol);
+    }
+
+    if (!var) {
+        // Found A solution. Is it different?
+        std::unordered_map<std::pair<int, int>, int, PairHash> sol;
+        bool is_different = false;
+        for (Cell* c : board->white_cells) {
+            int val = c->value.value_or(0);
+            sol[{c->r, c->c}] = val;
+            if (val != avoid_sol.at({c->r, c->c})) is_different = true;
+        }
+        if (is_different) found_solutions.push_back(sol);
         return;
     }
     
-    Cell* var = *std::min_element(unassigned.begin(), unassigned.end(),
-        [this](Cell* a, Cell* b){ return get_domain_size(a) < get_domain_size(b); });
+    std::vector<int> vals = {1,2,3,4,5,6,7,8,9};
+    int target_val = avoid_sol.at({var->r, var->c});
     
-    std::vector<int> vals(9);
-    std::iota(vals.begin(), vals.end(), 1);
     std::shuffle(vals.begin(), vals.end(), std::default_random_engine(seed + node_count));
     
+    // Move the 'avoid' value to the end of the list
+    std::partition(vals.begin(), vals.end(), [&](int v) { return v != target_val; });
+    
     for(int v : vals) {
-        // false = DO NOT ignore clues (we are checking uniqueness against clues)
-        if(is_valid_move(var, v)) {
+        if(is_valid_move(var, v, nullptr, false)) {
             var->value = v;
-            solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes, seed);
-            if(!found_solutions.empty()) return;
+            solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes, seed, timed_out);
             var->value = std::nullopt;
+            if(!found_solutions.empty() || timed_out) return;
         }
     }
 }
 
-int CSPSolver::get_domain_size(Cell* cell) {
+int CSPSolver::get_domain_size(Cell* cell, const std::unordered_map<Cell*, int>* assignment, bool ignore_clues) {
     int count = 0;
     for (int v = 1; v <= 9; v++) {
-        if (is_valid_move(cell, v)) {
+        if (is_valid_move(cell, v, assignment, ignore_clues)) {
             count++;
         }
     }
     return count;
 }
 
-bool CSPSolver::is_valid_move(Cell* cell, int val) {
-    // Horizontal
-    if(cell->sector_h) {
-        int sum = val; int filled = 1;
-        for(Cell* p : *(cell->sector_h)) {
-            if(p->value) {
-                if(*p->value == val) return false;
-                sum += *p->value;
-                filled++;
+bool CSPSolver::is_valid_move(Cell* cell, int val, const std::unordered_map<Cell*, int>* assignment, bool ignore_clues) {
+    auto check_sector = [&](std::shared_ptr<std::vector<Cell*>> sector, bool is_horz) {
+        if (!sector || sector->empty()) return true;
+
+        int sum = val;
+        int filled_count = 1;
+        uint16_t used_mask = (1 << val);
+
+        for (Cell* p : *sector) {
+            if (p == cell) continue;
+            int v = 0;
+            if (assignment && assignment->count(p)) v = assignment->at(p);
+            else if (p->value.has_value()) v = *p->value;
+
+            if (v > 0) {
+                if (v == val) return false; 
+                sum += v;
+                used_mask |= (1 << v);
+                filled_count++;
             }
         }
-        if((*cell->sector_h)[0]->c > 0) {
-            auto clue = board->grid[(*cell->sector_h)[0]->r][(*cell->sector_h)[0]->c-1].clue_h;
-            if(clue && (sum > *clue || (filled == (int)cell->sector_h->size() && sum != *clue))) return false;
-        }
-    }
-    // Vertical
-    if(cell->sector_v) {
-        int sum = val; int filled = 1;
-        for(Cell* p : *(cell->sector_v)) {
-            if(p->value) {
-                if(*p->value == val) return false;
-                sum += *p->value;
-                filled++;
+
+        // If we are ignoring clues (Filling Phase), we stop here after the duplicate check
+        if (ignore_clues) return true;
+
+        // FIND THE CLUE (Robust Indexing)
+        Cell* first = (*sector)[0];
+        int clue_r = is_horz ? first->r : first->r - 1;
+        int clue_c = is_horz ? first->c - 1 : first->c;
+        
+        // Safety bounds check
+        if (clue_r < 0 || clue_c < 0) return false; 
+        
+        auto& clue_cell = board->grid[clue_r][clue_c];
+        std::optional<int> clue_opt = is_horz ? clue_cell.clue_h : clue_cell.clue_v;
+
+        // CRITICAL: If no clue is found, this move is INVALID (not "anything goes")
+        if (!clue_opt.has_value()) return false; 
+
+        int target = *clue_opt;
+        int remaining_cells = (int)sector->size() - filled_count;
+
+        if (sum > target) return false; 
+        if (remaining_cells > 0) {
+            int min_rem = 0, max_rem = 0, f_min = 0, f_max = 0;
+            for (int i = 1; i <= 9 && f_min < remaining_cells; ++i) {
+                if (!(used_mask & (1 << i))) { min_rem += i; f_min++; }
             }
-        }
-        if((*cell->sector_v)[0]->r > 0) {
-            auto clue = board->grid[(*cell->sector_v)[0]->r-1][(*cell->sector_v)[0]->c].clue_v;
-            if(clue && (sum > *clue || (filled == (int)cell->sector_v->size() && sum != *clue))) return false;
-        }
-    }
-    return true;
+            for (int i = 9; i >= 1 && f_max < remaining_cells; --i) {
+                if (!(used_mask & (1 << i))) { max_rem += i; f_max++; }
+            }
+            if (sum + min_rem > target || sum + max_rem < target) return false;
+        } else if (sum != target) return false;
+        
+        return true;
+    };
+
+    return check_sector(cell->sector_h, true) && check_sector(cell->sector_v, false);
 }
 
-bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol) {
+bool CSPSolver::repair_topology_robust(
+    const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol) {
+    
     LOG_DEBUG("  Attempting topology repair");
     
+    // Find cells where solutions differ
     std::vector<Cell*> diffs;
     for(Cell* c : board->white_cells) {
-        if(c->value && alt_sol.count({c->r, c->c}) && alt_sol.at({c->r, c->c}) != *c->value) {
+        if(c->value && alt_sol.count({c->r, c->c}) && 
+           alt_sol.at({c->r, c->c}) != *c->value) {
             diffs.push_back(c);
         }
     }
@@ -911,57 +849,91 @@ bool CSPSolver::repair_topology_robust(const std::unordered_map<std::pair<int, i
     LOG_DEBUG("  Found " << diffs.size() << " differing cells");
     if(diffs.empty()) return false;
     
+    // Sort by neighbor count (prefer blocking high-connectivity cells)
     std::shuffle(diffs.begin(), diffs.end(), rng);
     std::sort(diffs.begin(), diffs.end(), [this](Cell* a, Cell* b){
         return board->count_white_neighbors(a) > board->count_white_neighbors(b);
     });
     
-    // Snapshot types
-    std::vector<std::vector<CellType>> snapshot(board->height, std::vector<CellType>(board->width));
-    for(int r=0; r<board->height; r++)
-        for(int c=0; c<board->width; c++) snapshot[r][c] = board->grid[r][c].type;
-
-    for(size_t i = 0; i < diffs.size(); i++) {
+    // Calculate minimum acceptable size
+    int current_size = (int)board->white_cells.size();
+    int min_required = std::max(12, current_size - (current_size / 4)); // Allow 25% reduction
+    
+    LOG_DEBUG("  Current size: " << current_size << ", min required: " << min_required);
+    
+    // Snapshot current state
+    std::vector<std::vector<CellType>> snapshot(board->height, 
+                                                 std::vector<CellType>(board->width));
+    for(int r = 0; r < board->height; r++) {
+        for(int c = 0; c < board->width; c++) {
+            snapshot[r][c] = board->grid[r][c].type;
+        }
+    }
+    
+    // Try blocking each differing cell (limit attempts)
+    int max_attempts = std::min(5, (int)diffs.size());
+    
+    for(int i = 0; i < max_attempts; i++) {
         Cell* target = diffs[i];
-        LOG_DEBUG("    Trying to block cell(" << target->r << "," << target->c << ") [" << (i+1) << "/" << diffs.size() << "]");
+        LOG_DEBUG("    Trying cell(" << target->r << "," << target->c << ") [" 
+                  << (i+1) << "/" << max_attempts << "]");
         
+        // Restore snapshot
+        for(int r = 0; r < board->height; r++) {
+            for(int c = 0; c < board->width; c++) {
+                board->grid[r][c].type = snapshot[r][c];
+            }
+        }
+        
+        // Block the target cell
         board->set_block(target->r, target->c);
         board->set_block(board->height - 1 - target->r, board->width - 1 - target->c);
         
-        board->break_large_patches();
-        board->prune_singles(); // Cascading prune
+        // Apply stabilization
+        board->break_large_patches(3);
+        board->prune_singles();
         board->break_single_runs();
         
         // Validate
         board->collect_white_cells();
-        bool valid = true;
-        if(board->white_cells.size() < 12) {
+        
+        if((int)board->white_cells.size() < min_required) {
             LOG_DEBUG("    Failed: too few cells (" << board->white_cells.size() << ")");
-            valid = false;
+            continue;
         }
-        if(valid && !board->check_connectivity()) {
+        
+        if(!board->check_connectivity()) {
             LOG_DEBUG("    Failed: connectivity check");
-            valid = false;
+            continue;
         }
-        if(valid && !board->validate_clue_headers()) {
+        
+        if(!board->validate_clue_headers()) {
             LOG_DEBUG("    Failed: clue headers check");
-            valid = false;
+            continue;
         }
         
-        if(valid) {
-            LOG_DEBUG("    Repair successful!");
-            board->identify_sectors();
-            return true;
-        }
-        
-        // Rollback
-        for(int r=0; r<board->height; r++)
-            for(int c=0; c<board->width; c++) board->grid[r][c].type = snapshot[r][c];
-        board->collect_white_cells();
         board->identify_sectors();
+        
+        // Additional check: make sure we still have enough sectors
+        if(board->sectors_h.size() + board->sectors_v.size() < 6) {
+            LOG_DEBUG("    Failed: too few sectors");
+            continue;
+        }
+        
+        LOG_DEBUG("    Repair successful!");
+        return true;
     }
     
-    LOG_DEBUG("  Repair exhausted all options");
+    // Restore original state if all repairs failed
+    for(int r = 0; r < board->height; r++) {
+        for(int c = 0; c < board->width; c++) {
+            board->grid[r][c].type = snapshot[r][c];
+        }
+    }
+    board->collect_white_cells();
+    board->identify_sectors();
+    
+    LOG_DEBUG("  All repair attempts failed");
     return false;
 }
 
