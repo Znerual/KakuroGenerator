@@ -5,9 +5,10 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
-from .models import PerformanceMetric, AuthLog
+from sqlalchemy import func, cast, Float
+from .models import PerformanceMetric, AuthLog, PuzzleTemplate
 from datetime import datetime, timezone
 import time
 import os
@@ -22,15 +23,25 @@ def record_metric(
     name: str, 
     value: float, 
     unit: Optional[str] = None, 
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
+    user: Optional[Any] = None
 ):
     """Saves a performance metric to the database."""
     try:
+        final_metadata = metadata or {}
+
+        if user:
+            # Check if user is authenticated (assuming user object from models.py)
+            final_metadata["user_type"] = "authenticated"
+            final_metadata["user_id"] = getattr(user, "id", None)
+        else:
+            final_metadata["user_type"] = "anonymous"
+
         metric = PerformanceMetric(
             metric_name=name,
             value=value,
             unit=unit,
-            metadata_json=metadata
+            metadata_json=final_metadata
         )
         db.add(metric)
         db.commit()
@@ -69,11 +80,19 @@ def log_auth_attempt(
 
 class Timer:
     """Context manager for timing code blocks."""
-    def __init__(self, db: Session, name: str, unit: str = "ms", metadata: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, 
+        db: Session, 
+        name: str, 
+        unit: str = "ms", 
+        metadata: Optional[Dict[str, Any]] = None,
+        user: Optional[Any] = None
+    ):
         self.db = db
         self.name = name
         self.unit = unit
         self.metadata = metadata or {}
+        self.user = user
         self.start_time = None
 
     def __enter__(self):
@@ -89,7 +108,7 @@ class Timer:
         else:
             val = duration
             
-        record_metric(self.db, self.name, val, self.unit, self.metadata)
+        record_metric(self.db, self.name, val, self.unit, self.metadata, user=self.user)
 
 def get_system_metrics() -> Dict[str, Any]:
     """Collects current CPU and Memory usage."""
@@ -121,6 +140,63 @@ def get_system_metrics() -> Dict[str, Any]:
         logger.error(f"Failed to collect system metrics: {e}")
         return {}
 
+def log_puzzle_quality_metrics(db: Session):
+    """Calculates and logs aggregate skip rates and puzzle quality."""
+    try:
+        # Calculate overall skip rate across all templates
+        stats = db.query(
+            func.sum(PuzzleTemplate.times_used).label("total_uses"),
+            func.sum(PuzzleTemplate.times_skipped).label("total_skips")
+        ).first()
+
+        if stats and stats.total_uses and stats.total_uses > 0:
+            skip_rate = (stats.total_skips / stats.total_uses) * 100
+            record_metric(db, "aggregate_skip_rate", skip_rate, "%")
+            record_metric(db, "total_puzzle_uses", float(stats.total_uses), "count")
+
+        # Log skip rate per difficulty
+        diff_stats = db.query(
+            PuzzleTemplate.difficulty,
+            func.sum(PuzzleTemplate.times_used),
+            func.sum(PuzzleTemplate.times_skipped)
+        ).group_by(PuzzleTemplate.difficulty).all()
+
+        for diff, uses, skips in diff_stats:
+            if uses > 0:
+                rate = (skips / uses) * 100
+                record_metric(db, f"skip_rate_{diff}", rate, "%", {"difficulty": diff})
+
+    except Exception as e:
+        logger.error(f"Error logging quality metrics: {e}")
+
+def log_generator_status(db: Session):
+    """Logs the state of the background generator service."""
+    try:
+        from .generator_service import generator_service
+        # 1. Fill Level & Thresholds (from generator_service)
+        # Using the .status property which returns {difficulty: count}
+        current_counts = generator_service.status 
+        target = generator_service.settings.get("target_count", 50)
+        threshold = generator_service.settings.get("threshold", 10)
+
+        
+        for difficulty, count in current_counts.items():
+            fill_percentage = (count / target) * 100 if target > 0 else 0
+            record_metric(db, f"gen_fill_{difficulty}", fill_percentage, "%", {
+                "count": count,
+                "target": target,
+                "threshold": threshold,
+                "is_low": count <= threshold
+            })
+
+        # 2. Pool Freshness (Average usage of templates in DB)
+        # Low average = Fresh pool; High average = Stale pool (users seeing repeats)
+        avg_uses = db.query(func.avg(PuzzleTemplate.times_used)).scalar() or 0
+        record_metric(db, "pool_freshness_index", float(avg_uses), "avg_uses")
+
+    except Exception as e:
+        logger.warning(f"Could not log generator status: {e}")
+
 def log_system_performance(db_session_factory):
     """Utility to be run in a background task to log system performance periodically."""
     metrics = get_system_metrics()
@@ -138,3 +214,9 @@ def log_system_performance(db_session_factory):
         # Log active requests as a proxy for load
         global ACTIVE_REQUESTS
         record_metric(db, "active_requests_count", float(ACTIVE_REQUESTS), "count")
+
+        # 3. New: Quality & Skip Metrics
+        log_puzzle_quality_metrics(db)
+
+        # 4. New: Generator State Metrics
+        log_generator_status(db)
