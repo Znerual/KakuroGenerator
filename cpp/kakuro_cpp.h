@@ -16,14 +16,21 @@
 #include <cmath>
 #include <bitset>
 #include <functional>
+#include <chrono>
 
 namespace kakuro {
 
-#define LOG_DEBUG(msg) do {} while(0) // do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0) //  
+#define LOG_DEBUG(msg)  do {} while(0) // do { std::cerr << "[CPP] " << msg << std::endl; std::cerr.flush(); } while(0) //  
 
 enum class CellType {
     BLOCK,
     WHITE
+};
+
+enum class UniquenessResult {
+    UNIQUE,
+    MULTIPLE,
+    INCONCLUSIVE
 };
 
 struct Cell {
@@ -75,7 +82,7 @@ public:
     // Topology generation
     bool generate_topology(double density = 0.60, int max_sector_length = 9, std::string difficulty = "medium");
     bool generate_stamps(const std::vector<std::pair<int, int>>& shapes, int iterations);
-    
+    bool validate_topology_structure();
     // Helper methods
     void collect_white_cells();
     void identify_sectors();
@@ -127,7 +134,7 @@ public:
                     const std::vector<ValueConstraint>& forbidden_constraints = {},
                    bool ignore_clues = false);
     void calculate_clues();
-    std::pair<bool, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
+    std::pair<UniquenessResult, std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>> 
     check_uniqueness(int max_nodes = 10000, int seed_offset = 0);
     
 private:
@@ -137,17 +144,19 @@ private:
                    bool ignore_clues,
                    const std::string& partition_preference,
                    const std::vector<ValueConstraint>& forbidden_constraints);
-    
+    bool attempt_fill_and_validate(const std::string& difficulty);
+    bool prepare_new_topology(const std::string& difficulty);
+    UniquenessResult perform_robust_uniqueness_check();
     int count_neighbors_filled(Cell* cell, const std::unordered_map<Cell*, int>& assignment);
     bool is_consistent_number(Cell* var, int value, const std::unordered_map<Cell*, int>& assignment, bool ignore_clues);
     
     void solve_for_uniqueness(
         std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>& found_solutions,
         const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol,
-        int& node_count, int max_nodes, int seed);
+        int& node_count, int max_nodes, int seed, bool& timed_out);
 
-    int get_domain_size(Cell* cell);
-    bool is_valid_move(Cell* cell, int val);
+    int get_domain_size(Cell* cell, const std::unordered_map<Cell*, int>* assignment = nullptr, bool ignore_clues = false);
+    bool is_valid_move(Cell* cell, int val, const std::unordered_map<Cell*, int>* assignment = nullptr, bool ignore_clues = false);
     bool repair_topology_robust(const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol);
     std::unordered_map<Cell*, int> generate_breaking_constraints(
         const std::unordered_map<std::pair<int, int>, int, PairHash>& alt_sol,
@@ -203,17 +212,30 @@ struct DifficultyResult {
     DifficultyResult() : score(0.0f), total_steps(0), solution_count(0) {}
 };
 
+
+
 class KakuroDifficultyEstimator {
 public:
     explicit KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard> b);
     DifficultyResult estimate_difficulty_detailed();
     float estimate_difficulty();
+
 private:
     struct SectorInfo {
         std::vector<Cell*> cells;
         int clue;
         bool is_horz;
     };
+
+    struct SectorMetadata {
+        int clue;
+        int length;
+    };
+
+    
+    std::unordered_map<Cell*, SectorMetadata> cell_to_h;
+    std::unordered_map<Cell*, SectorMetadata> cell_to_v;
+    
     std::shared_ptr<KakuroBoard> board;
     std::vector<SolveStep> solve_log;
     std::vector<std::unordered_map<Cell*, int>> found_solutions;
@@ -223,6 +245,8 @@ private:
     // Using bitmasks (1 << value) for performance. 0x3FE = digits 1-9.
     typedef std::unordered_map<Cell*, uint16_t> CandidateMap;
     static constexpr uint16_t ALL_CANDIDATES = 0x3FE;
+
+    int mask_to_digit(uint16_t mask) const;
     
     // Internal Logic Engine
     void run_solve_loop(CandidateMap& candidates, bool silent);
@@ -249,11 +273,37 @@ private:
     // Helpers
     std::optional<int> get_clue(const std::vector<Cell*>& sector, bool is_horz);
     std::vector<std::vector<int>> get_partitions(int sum, int len);
+    uint16_t get_partition_bits(int sum, int len);
     int count_set_bits(uint16_t n) const;
     bool verify_math(const std::unordered_map<Cell*, int>& sol) const;
     std::vector<std::vector<std::optional<int>>> render_solution(const std::unordered_map<Cell*, int>& sol) const;
     
+    // Avoid getting stuck
+    long long nodes_explored = 0;
+    const long long MAX_NODES = 50000000; // Adjust based on desired effort
+    std::chrono::steady_clock::time_point start_time;
+    const double TIME_LIMIT_SEC = 5.0; 
+    bool search_aborted = false;
+
+    bool is_limit_exceeded() {
+        if (search_aborted) return true;
+        if (++nodes_explored > MAX_NODES) {
+            search_aborted = true;
+            return true;
+        }
+        if (nodes_explored % 500 == 0) {
+            auto now = std::chrono::steady_clock::now();
+            std::chrono::duration<double> elapsed = now - start_time;
+            if (elapsed.count() > TIME_LIMIT_SEC) { // 2.5 second timeout
+                search_aborted = true;
+                return true;
+        }
+    }
+        return false;
+    }
+
     std::map<std::pair<int, int>, std::vector<std::vector<int>>> partition_cache;
+    std::unordered_map<uint32_t, uint16_t> partition_mask_cache;
 };
 
 } // namespace kakuro
