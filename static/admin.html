@@ -270,6 +270,15 @@
                         <div class="stat-label">Puzzles Played</div>
                         <div id="stat-puzzles" class="stat-value">--</div>
                     </div>
+                    <div class="stat-card warning">
+                        <div class="stat-label">Global Skip Rate</div>
+                        <div id="stat-skip-rate" class="stat-value">--%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Pool Freshness</div>
+                        <div id="stat-freshness" class="stat-value">--</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Avg uses per template</div>
+                    </div>
                     <div id="card-cpu" class="stat-card">
                         <div class="stat-label">System CPU</div>
                         <div id="stat-cpu" class="stat-value">--%</div>
@@ -308,6 +317,13 @@
                 </div>
             </div>
 
+            <div id="section-generator" class="admin-section" style="display: none;">
+                <div class="chart-title">Generator Queue Fill Levels</div>
+                <div id="generator-bars" class="stats-grid" style="grid-template-columns: 1fr;">
+                    <!-- Bars will be injected here -->
+                </div>
+            </div>
+
             <!-- Behavior Section -->
             <div id="section-behavior" class="admin-section" style="display: none;">
                 <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
@@ -323,6 +339,40 @@
                 <div class="chart-container">
                     <div class="chart-title">Move Speed Over Fill State (ms)</div>
                     <canvas id="progressSpeedChart"></canvas>
+                </div>
+            </div>
+
+            <!-- New Section: User Journey Tracking -->
+            <div id="section-journey" class="admin-section" style="display: none;">
+                <div class="chart-container" style="display: flex; gap: 1rem; align-items: center;">
+                    <input type="text" id="journey-search" placeholder="Enter Username or User ID..." class="form-input"
+                        style="flex: 1; margin: 0;">
+                    <button class="btn-primary" onclick="loadUserJourney()" style="padding: 0.75rem 1.5rem;">Track
+                        Journey</button>
+                </div>
+
+                <div class="grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+                    <div class="stat-card" id="journey-user-info">
+                        <div class="stat-label">User Profile</div>
+                        <div id="journey-name" style="font-size: 1.2rem; font-weight: bold; margin-top: 0.5rem;">Search
+                            for a user...</div>
+                        <div id="journey-stats" class="user-stats"
+                            style="margin-top: 1rem; font-size: 0.9rem; line-height: 1.6;"></div>
+                    </div>
+                    <div class="table-container">
+                        <div class="chart-title" style="padding: 1rem;">Recent Interactions Timeline</div>
+                        <table id="journeyTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Puzzle</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

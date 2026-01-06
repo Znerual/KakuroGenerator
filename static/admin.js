@@ -44,6 +44,8 @@ async function refreshData(forceSection = null) {
 
         document.getElementById('stat-users').innerText = data.counts.users;
         document.getElementById('stat-active').innerText = data.counts.active_users_15m;
+        document.getElementById('stat-skip-rate').innerText = `${data.quality.global_skip_rate.toFixed(1)}%`;
+        document.getElementById('stat-freshness').innerText = data.quality.pool_freshness.toFixed(2);
         document.getElementById('stat-puzzles').innerText = data.counts.puzzles_played;
 
         const cpuP = data.system.cpu_percent || 0;
@@ -70,6 +72,12 @@ async function refreshData(forceSection = null) {
         const data = await adminFetch('/admin/stats/performance');
         if (!data) return;
         updatePerformanceView(data);
+    }
+
+    if (activeSection.includes('generator')) {
+        const data = await adminFetch('/admin/stats/generator');
+        if (!data) return;
+        renderGeneratorStatus(data);
     }
 
     if (activeSection.includes('behavior')) {
@@ -149,17 +157,26 @@ function updatePerformanceView(data) {
     const ctx = document.getElementById('performanceChart').getContext('2d');
     if (charts.perf) charts.perf.destroy();
 
+    // Differentiate between Logged In and Anonymous
+    const paths = [...new Set(data.requests.map(m => m.path))];
+    const authData = paths.map(p => data.requests.find(m => m.path === p && m.auth_status === 'authenticated')?.avg_ms || 0);
+    const anonData = paths.map(p => data.requests.find(m => m.path === p && m.auth_status === 'anonymous')?.avg_ms || 0);
+
     charts.perf = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: data.requests.map(r => r.path),
-            datasets: [{
-                label: 'Avg Duration (ms)',
-                data: data.requests.map(r => r.avg_ms),
-                backgroundColor: 'rgba(79, 159, 255, 0.5)',
-                borderColor: '#4f9fff',
-                borderWidth: 1
-            }]
+            labels: paths,
+            datasets: [
+                {
+                    label: 'Authenticated (ms)',
+                    data: authData,
+                    backgroundColor: '#4f9fff'
+                },
+                {
+                    label: 'Anonymous (ms)',
+                    data: anonData,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                }]
         },
         options: {
             responsive: true,
@@ -260,6 +277,55 @@ function updateAuthLogsTable(data) {
             <td><span class="status-badge ${log.status === 'SUCCESS' ? 'status-success' : 'status-failure'}">${log.status}</span></td>
             <td style="font-family: monospace;">${log.ip_address}</td>
             <td>${new Date(log.timestamp).toLocaleString()}</td>
+        </tr>
+    `).join('');
+}
+
+function renderGeneratorStatus(data) {
+    const container = document.getElementById('generator-bars');
+    container.innerHTML = '';
+
+    Object.entries(data.difficulties).forEach(([diff, info]) => {
+        const color = info.is_low ? 'var(--admin-danger)' : 'var(--admin-success)';
+        const html = `
+            <div class="stat-card">
+                <div class="chart-title" style="margin-bottom: 0.5rem;">
+                    <span>${diff.toUpperCase()}</span>
+                    <span>${info.count} / ${info.target} (Min: ${info.threshold})</span>
+                </div>
+                <div style="width: 100%; height: 12px; background: var(--bg-secondary); border-radius: 6px; overflow: hidden;">
+                    <div style="width: ${info.fill_percent}%; height: 100%; background: ${color}; transition: width 0.5s;"></div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    });
+}
+
+async function loadUserJourney() {
+    const identifier = document.getElementById('journey-search').value;
+    if (!identifier) return;
+
+    const data = await adminFetch(`/admin/user/${identifier}/journey`);
+    if (!data) return;
+
+    // Update Profile
+    document.getElementById('journey-name').innerText = data.user.username;
+    document.getElementById('journey-stats').innerHTML = `
+        ID: ${data.user.id}<br>
+        Email: ${data.user.email}<br>
+        Solved: ${data.user.kakuros_solved}<br>
+        Last Seen: ${new Date(data.user.last_login).toLocaleString()}
+    `;
+
+    // Update Timeline
+    const tbody = document.querySelector('#journeyTable tbody');
+    tbody.innerHTML = data.interactions.map(i => `
+        <tr>
+            <td style="font-size: 0.8rem; color: var(--text-muted);">${new Date(i.timestamp).toLocaleTimeString()}</td>
+            <td><strong>${i.action_type}</strong></td>
+            <td>${i.puzzle_id.substring(0, 8)}</td>
+            <td>${i.details || ''}</td>
         </tr>
     `).join('');
 }

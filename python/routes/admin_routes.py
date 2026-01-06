@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, cast, Float
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 
-from python.database import get_db
-from python.models import User, Puzzle, PuzzleTemplate, PuzzleInteraction, PerformanceMetric, AuthLog
-from python.auth import get_admin_user
-import python.performance as performance
+from kakuro.database import get_db
+from kakuro.models import User, Puzzle, PuzzleTemplate, PuzzleInteraction, PerformanceMetric, AuthLog
+from kakuro.auth import get_admin_user
+import kakuro.performance as performance
+from kakuro.generator_service import generator_service
 import os
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -28,6 +29,16 @@ async def get_overview_stats(
     
     # System info
     sys_metrics = performance.get_system_metrics()
+
+    quality_stats = db.query(
+        func.sum(PuzzleTemplate.times_used).label("total_uses"),
+        func.sum(PuzzleTemplate.times_skipped).label("total_skips"),
+        func.avg(PuzzleTemplate.times_used).label("avg_uses")
+    ).first()
+
+    global_skip_rate = 0
+    if quality_stats and quality_stats.total_uses:
+        global_skip_rate = (quality_stats.total_skips / quality_stats.total_uses) * 100
     
     return {
         "counts": {
@@ -35,6 +46,10 @@ async def get_overview_stats(
             "puzzles_played": puzzle_count,
             "puzzle_templates": template_count,
             "active_users_15m": active_sessions
+        },
+        "quality": {
+            "global_skip_rate": global_skip_rate,
+            "pool_freshness": float(quality_stats.avg_uses or 0)
         },
         "system": sys_metrics,
         "active_requests": performance.ACTIVE_REQUESTS
@@ -52,12 +67,13 @@ async def get_performance_stats(
     # Average request duration per path
     req_stats = db.query(
         PerformanceMetric.metadata_json["path"].label("path"),
+        PerformanceMetric.metadata_json["auth_status"].label("auth_status"),
         func.avg(PerformanceMetric.value).label("avg_ms"),
         func.count(PerformanceMetric.id).label("count")
     ).filter(
         PerformanceMetric.metric_name == "api_request_duration_ms",
         PerformanceMetric.timestamp >= since
-    ).group_by("path").all()
+    ).group_by("path", "auth_status").all()
     
     # System load trends (simplified)
     cpu_load = db.query(
@@ -77,9 +93,60 @@ async def get_performance_stats(
     ).order_by(PerformanceMetric.timestamp).all()
     
     return {
-        "requests": [{"path": r.path, "avg_ms": r.avg_ms, "count": r.count} for r in req_stats],
+        "requests": [{"path": r.path, "auth_status": r.auth_status, "avg_ms": r.avg_ms, "count": r.count} for r in req_stats],
         "cpu_trend": [{"time": c.timestamp.isoformat(), "value": c.value} for c in cpu_load],
         "memory_trend": [{"time": m.timestamp.isoformat(), "value": m.value} for m in mem_load]
+    }
+
+@router.get("/stats/generator")
+async def get_generator_stats(
+    admin: User = Depends(get_admin_user)
+):
+    """Real-time status of the background puzzle generator."""
+    current_counts = generator_service.status
+    settings = generator_service.settings
+    target = settings.get("target_count", 50)
+    threshold = settings.get("threshold", 10)
+
+    res = {}
+    for diff, count in current_counts.items():
+        res[diff] = {
+            "count": count,
+            "target": target,
+            "threshold": threshold,
+            "fill_percent": (count / target) * 100 if target > 0 else 0,
+            "is_low": count <= threshold
+        }
+    return {"difficulties": res}
+
+@router.get("/user/{identifier}/journey")
+async def get_user_journey(
+    identifier: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Follow a specific user's behavior timeline."""
+    user = db.query(User).filter(
+        (User.id == identifier) | (User.username == identifier)
+    ).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    interactions = db.query(PuzzleInteraction).filter(
+        PuzzleInteraction.user_id == user.id
+    ).order_by(PuzzleInteraction.timestamp.desc()).limit(100).all()
+
+    return {
+        "user": user.to_dict(),
+        "interactions": [
+            {
+                "timestamp": i.timestamp.isoformat(),
+                "action_type": i.action_type,
+                "puzzle_id": i.puzzle_id,
+                "details": f"Cell [{i.row},{i.col}] -> {i.new_value}" if i.row is not None else ""
+            } for i in interactions
+        ]
     }
 
 @router.get("/stats/solving")
