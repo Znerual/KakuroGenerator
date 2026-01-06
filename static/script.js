@@ -343,6 +343,12 @@ async function fetchPuzzle() {
         const difficultySelect = document.getElementById('difficulty-select');
         const difficulty = difficultySelect ? difficultySelect.value : 'medium';
 
+        if (state.puzzle &&
+            state.puzzle.difficulty === difficulty &&
+            state.puzzle.status !== 'solved') {
+            await skipCurrentPuzzle();
+        }
+
         // Check if we need to invalidate the queue (user changed difficulty)
         if (state.currentBatchDifficulty !== difficulty) {
             state.puzzleQueue = [];
@@ -529,6 +535,27 @@ async function logInteraction(actionType, data = {}) {
     }
 }
 
+async function skipCurrentPuzzle() {
+    if (!state.puzzle || !state.puzzle.template_id) return;
+
+    // Only track skip if the puzzle isn't already marked as solved
+    if (state.puzzle.status === 'solved') return;
+
+    try {
+        await fetch('/skip', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({ template_id: state.puzzle.template_id })
+        });
+        console.log("Puzzle skip tracked.");
+    } catch (e) {
+        console.error("Error tracking skip:", e);
+    }
+}
+
 async function saveCurrentState(silent = false) {
     if (typeof silent !== 'boolean') silent = false;
 
@@ -552,6 +579,7 @@ async function saveCurrentState(silent = false) {
 
     const data = {
         id: state.puzzle.id,
+        template_id: state.puzzle.template_id,
         width: state.puzzle.width,
         height: state.puzzle.height,
         difficulty: state.puzzle.difficulty,
