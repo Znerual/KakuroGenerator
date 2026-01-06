@@ -111,6 +111,12 @@ class PuzzleTemplate(Base):
     # Generation info
     seed = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # Freshness tracking - how many times this puzzle has been served
+    times_used = Column(Integer, default=0, nullable=False)
+    
+    # Quality tracking - how many users skipped this puzzle without completing
+    times_skipped = Column(Integer, default=0, nullable=False)
 
     # Relationships
     puzzles = relationship("Puzzle", back_populates="template")
