@@ -53,35 +53,55 @@ void KakuroBoard::set_white(int r, int c) {
 
 bool KakuroBoard::generate_topology(double density, int max_sector_length, std::string difficulty) {
     const int MAX_RETRIES = 60;
-
+    int area = (width - 2) * (height - 2);
+    
     // Config based on difficulty
     std::vector<std::pair<int, int>> stamps;
     int num_stamps = 0;
     int max_run_len = 9;
     int min_cells = 12;
-    bool island_mode = false;
+    int max_patch_size = 5;
+
+    bool island_mode = true;
 
     if (difficulty == "very_easy") {
         stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {2, 2}};
-        num_stamps = std::uniform_int_distribution<>(6, 12)(rng);
+        num_stamps = std::uniform_int_distribution<>(6, 12)(rng) * area / 100;
         min_cells = 16;
         max_run_len = 5;
+        max_patch_size = 3;
         island_mode = true;
     } else if (difficulty == "easy") {
         stamps = {{1, 3}, {3, 1}, {1, 4}, {4, 1}, {1, 5}, {5, 1}, {1, 6}, {6, 1}, {2,2}, {3, 3}};
-        num_stamps = std::uniform_int_distribution<>(8, 15)(rng);
+        num_stamps = std::uniform_int_distribution<>(8, 15)(rng) * area / 100;
         min_cells = 22;
         max_run_len = 6;
+        max_patch_size = 3;
         island_mode = true;
     } else if (difficulty == "medium") {
-        island_mode = false;
-        max_sector_length = 7;
-        min_cells = (int)(width * height * 0.15);
-    } else { // Hard
-        island_mode = false;
-        max_sector_length = 9;
-        density = std::min(0.70, density + 0.05);
-        min_cells = (int)(width * height * 0.15);
+        stamps = {{1, 3}, {3, 1}, {2,2},  {1, 5}, {5, 1}, {2, 4}, {4, 2}, {3, 3}};
+        num_stamps = std::uniform_int_distribution<>(9, 16)(rng) * area / 100;
+        min_cells = (int)(area * 0.25);
+        max_run_len = 8;
+        max_patch_size = 3;
+    } else if (difficulty == "hard") { // Hard
+        stamps = {{1, 3}, {3, 1}, {2,2}, {1, 6}, {6, 1}, {2, 5}, {5, 2}, {3, 4}, {4, 3}};
+        num_stamps = std::uniform_int_distribution<>(10, 18)(rng) * area / 100;
+        min_cells = (int)(area * 0.25);
+        max_run_len = 9;
+        max_patch_size = 3;
+    } else if (difficulty == "very_hard") {
+        stamps = {{1, 3}, {3, 1}, {2,2}, {1, 8}, {8, 1}, {2, 6}, {6, 2}, {3, 5}, {5, 3}, {4, 4}};
+        num_stamps = std::uniform_int_distribution<>(12, 20)(rng) * area / 100;
+        min_cells = (int)(area * 0.25);
+        max_run_len = 9;
+        max_patch_size = 4;
+    } else if (difficulty == "extreme") {
+        stamps = {{1, 3}, {3, 1}, {2,2}, {2, 5}, {5, 2}, {3, 3}, {4, 4}, {1, 9}, {9, 1}};
+        num_stamps = std::uniform_int_distribution<>(14, 25)(rng) * area / 100;
+        min_cells = (int)(area * 0.3);
+        max_run_len = 9;
+        max_patch_size = 5;
     }
     
     for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -104,6 +124,9 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
 
         bool success = false;
         if (island_mode) {
+            // Place initial seed in center to guarantee core connectivity
+            stamp_rect(height/2 - 1, width/2 - 1, 2, 2);
+
             success = generate_stamps(stamps, num_stamps);
         } else {
             if (place_random_seed()) {
@@ -121,6 +144,7 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
             stabilize_grid(false);
         } else {
             slice_long_runs(max_run_len);
+            break_large_patches(max_patch_size);
             prune_singles();
             break_single_runs();
         }
@@ -133,10 +157,83 @@ bool KakuroBoard::generate_topology(double density, int max_sector_length, std::
         if (!validate_clue_headers()) continue;
         
         identify_sectors();
+
+        if (!validate_topology_structure()) {
+            LOG_DEBUG("Topology structure validation failed");
+            continue;  // Try next attempt
+        }
+        
         return true;
     }
     LOG_DEBUG("Failed to generate topology after retries");
     return false;
+}
+
+bool KakuroBoard::validate_topology_structure() {
+    // Check horizontal sectors
+    for (const auto& sector : sectors_h) {
+        if (sector->empty()) continue;
+        
+        Cell* first = (*sector)[0];
+        int clue_r = first->r;
+        int clue_c = first->c - 1;
+        
+        if (clue_c < 0 || clue_c >= width) return false;
+        if (grid[clue_r][clue_c].type != CellType::BLOCK) return false;
+    }
+    
+    // Check vertical sectors
+    for (const auto& sector : sectors_v) {
+        if (sector->empty()) continue;
+        
+        Cell* first = (*sector)[0];
+        int clue_r = first->r - 1;
+        int clue_c = first->c;
+        
+        if (clue_r < 0 || clue_r >= height) return false;
+        if (grid[clue_r][clue_c].type != CellType::BLOCK) return false;
+    }
+    
+    // Check that no block cell has orphaned clues
+    for (int r = 0; r < height; r++) {
+        for (int c = 0; c < width; c++) {
+            if (grid[r][c].type != CellType::BLOCK) continue;
+            
+            // If this block has a horizontal clue, there must be white cells to the right
+            if (grid[r][c].clue_h.has_value()) {
+                bool has_white = false;
+                for (int cc = c + 1; cc < width; cc++) {
+                    if (grid[r][cc].type == CellType::WHITE) {
+                        has_white = true;
+                        break;
+                    }
+                    if (grid[r][cc].type == CellType::BLOCK) break;
+                }
+                if (!has_white) {
+                    LOG_DEBUG("Orphaned horizontal clue at (" << r << "," << c << ")");
+                    return false;
+                }
+            }
+            
+            // If this block has a vertical clue, there must be white cells below
+            if (grid[r][c].clue_v.has_value()) {
+                bool has_white = false;
+                for (int rr = r + 1; rr < height; rr++) {
+                    if (grid[rr][c].type == CellType::WHITE) {
+                        has_white = true;
+                        break;
+                    }
+                    if (grid[rr][c].type == CellType::BLOCK) break;
+                }
+                if (!has_white) {
+                    LOG_DEBUG("Orphaned vertical clue at (" << r << "," << c << ")");
+                    return false;
+                }
+            }
+        }
+    }
+    
+    return true;
 }
 
 bool KakuroBoard::place_random_seed() {
@@ -258,11 +355,6 @@ void KakuroBoard::grow_lattice(double density, int max_sector_length) {
 }
 
 bool KakuroBoard::generate_stamps(const std::vector<std::pair<int, int>>& shapes, int iterations) {
-    int center_r = height / 2;
-    int center_c = width / 2;
-    
-    stamp_rect(center_r, center_c, 2, 2);
-    
     int current_iter = 0;
     int failures = 0;
     
