@@ -16,7 +16,7 @@ MARGIN_Y = 10 * mm
 # Layout Constants
 DIVIDER_Y = 55 * mm  # Height of the solution footer area
 SOLUTION_OFFSET = 2
-DIFFICULTY = "very_easy"
+DIFFICULTY = "medium"
 
 # Fonts - "Classic Book" style
 FONT_TITLE = "Times-Bold"      # For "Puzzle #1"
@@ -208,7 +208,8 @@ def generate_pdf(num_puzzles=4, width=10, height=12):
     for i in range(num_puzzles):
        
         board_obj = kakuro.generate_kakuro(width, height, difficulty=DIFFICULTY.lower(), use_cpp=True)
-        difficulty_score = kakuro.KakuroDifficultyEstimator(board_obj).estimate_difficulty()
+        difficulty_score = kakuro.KakuroDifficultyEstimator(board_obj).estimate_difficulty_detailed()
+        print(f"Puzzle {i+1}: Difficulty: {difficulty_score} Techniques: {difficulty_score.solve_path}")
         board_data = kakuro.export_to_json(board_obj)
         puzzles.append((board_data, difficulty_score))
       
@@ -231,7 +232,7 @@ def generate_pdf(num_puzzles=4, width=10, height=12):
         if has_puzzle:
             current_puzzle, difficulty_score = puzzles[puzzle_idx]
             # Draw the new Fancy Difficulty Badge
-            draw_difficulty_badge(c, PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - MARGIN_Y, DIFFICULTY, difficulty_score)
+            draw_difficulty_badge(c, PAGE_WIDTH - 2 * MARGIN_X, PAGE_HEIGHT - MARGIN_Y, DIFFICULTY, f"{difficulty_score}" )
             
             # Main Title (Black Pill Box)
             title_text = f"PUZZLE  {puzzle_idx + 1}"

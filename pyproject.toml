@@ -1,6 +1,6 @@
 [project]
 name = "kakuro"
-version = "0.5.1"
+version = "0.6.0"
 description = "High-performance Kakuro puzzle generator with C++ acceleration"
 readme = "README.md"
 requires-python = ">=3.12"

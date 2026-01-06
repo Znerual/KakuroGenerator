@@ -3941,3 +3941,1801 @@ Final: 4 white cells
 2025-12-21 16:06:19,780 - kakuro_solver - INFO - Uniqueness iteration 4/5
 2025-12-21 16:06:19,782 - kakuro_solver - INFO - Puzzle not unique, tightening constraints...
 2025-12-21 16:06:19,782 - kakuro_main - DEBUG - Attempt 20: Uniqueness generation failed: Could not tighten constraints further. Retrying.
+2026-01-01 10:01:21,651 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:01:22,376 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:01:22,387 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 10:01:22,407 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:01:22,466 - kakuro_main - INFO - Database initialized
+2026-01-01 10:05:06,049 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:06,792 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:06,803 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 10:05:06,822 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:06,832 - kakuro_main - INFO - Database initialized
+2026-01-01 10:05:55,131 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:55,143 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 10:05:55,162 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:55,170 - kakuro_main - INFO - Database initialized
+2026-01-01 10:05:58,359 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:59,085 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:59,096 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 10:05:59,112 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 10:05:59,122 - kakuro_main - INFO - Database initialized
+2026-01-01 12:42:07,791 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 12:42:08,577 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 12:42:08,597 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 12:42:08,629 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 12:42:08,647 - kakuro_main - INFO - Database initialized
+2026-01-01 13:44:55,581 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:44:56,343 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:44:56,356 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 13:44:56,373 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:44:56,383 - kakuro_main - INFO - Database initialized
+2026-01-01 13:47:55,179 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:47:55,955 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:47:55,968 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 13:47:55,989 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:47:55,998 - kakuro_main - INFO - Database initialized
+2026-01-01 13:58:56,694 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:58:57,433 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:58:57,446 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 13:58:57,463 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 13:58:57,475 - kakuro_main - INFO - Database initialized
+2026-01-01 14:09:10,211 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 14:09:10,222 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 14:09:10,238 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 14:09:10,248 - kakuro_main - INFO - Database initialized
+2026-01-01 14:09:23,713 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 14:09:23,725 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 14:09:23,741 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 14:09:23,750 - kakuro_main - INFO - Database initialized
+2026-01-01 15:51:47,753 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 15:51:48,490 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 15:51:48,503 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 15:51:48,522 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 15:51:48,564 - kakuro_main - INFO - Database initialized
+2026-01-01 15:53:28,107 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 15:53:28,121 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 15:53:28,140 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 15:53:28,152 - kakuro_main - INFO - Migrating database: Adding template_id to puzzles table
+2026-01-01 15:53:28,160 - kakuro_main - INFO - Database initialized
+2026-01-01 16:03:54,246 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:03:55,011 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:03:55,025 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:03:55,041 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:03:55,053 - kakuro_main - INFO - Database initialized
+2026-01-01 16:11:49,278 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:11:50,035 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:11:50,048 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:11:50,064 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:11:50,076 - kakuro_main - INFO - Database initialized
+2026-01-01 16:15:48,693 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:15:49,499 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:15:49,514 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:15:49,531 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:15:49,543 - kakuro_main - INFO - Database initialized
+2026-01-01 16:28:29,992 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:28:30,005 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:28:30,025 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:28:30,035 - kakuro_main - INFO - Database initialized
+2026-01-01 16:35:02,522 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:35:03,278 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:35:03,293 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:35:03,309 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:35:03,321 - kakuro_main - INFO - Database initialized
+2026-01-01 16:38:43,050 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:38:43,068 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:38:43,086 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:38:43,099 - kakuro_main - INFO - Database initialized
+2026-01-01 16:38:43,099 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:38:43,100 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:38:43,111 - kakuro_generator - INFO - Pool 'very_easy' low (4/50). Generating batch...
+2026-01-01 16:38:43,316 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 16:38:43,317 - kakuro_generator - INFO - Pool 'easy' low (3/50). Generating batch...
+2026-01-01 16:38:43,458 - kakuro_generator - INFO - Generated 4 puzzles for 'easy'
+2026-01-01 16:38:43,458 - kakuro_generator - INFO - Pool 'medium' low (5/50). Generating batch...
+2026-01-01 16:38:43,620 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:38:43,621 - kakuro_generator - INFO - Pool 'hard' low (0/50). Generating batch...
+2026-01-01 16:38:43,747 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:38:53,755 - kakuro_generator - INFO - Pool 'very_easy' low (8/50). Generating batch...
+2026-01-01 16:38:54,064 - kakuro_generator - INFO - Generated 3 puzzles for 'very_easy'
+2026-01-01 16:38:54,064 - kakuro_generator - INFO - Pool 'easy' low (7/50). Generating batch...
+2026-01-01 16:38:54,310 - kakuro_generator - INFO - Generated 4 puzzles for 'easy'
+2026-01-01 16:38:54,311 - kakuro_generator - INFO - Pool 'medium' low (10/50). Generating batch...
+2026-01-01 16:38:54,446 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:38:54,447 - kakuro_generator - INFO - Pool 'hard' low (5/50). Generating batch...
+2026-01-01 16:38:54,583 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:39:00,929 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:39:01,915 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:39:01,931 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:39:01,950 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:39:01,962 - kakuro_main - INFO - Database initialized
+2026-01-01 16:39:01,962 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:39:01,962 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:39:01,973 - kakuro_generator - INFO - Pool 'very_easy' low (11/50). Generating batch...
+2026-01-01 16:39:02,098 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 16:39:02,099 - kakuro_generator - INFO - Pool 'easy' low (11/50). Generating batch...
+2026-01-01 16:39:02,296 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 16:39:02,296 - kakuro_generator - INFO - Pool 'medium' low (15/50). Generating batch...
+2026-01-01 16:39:02,440 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:39:02,441 - kakuro_generator - INFO - Pool 'hard' low (10/50). Generating batch...
+2026-01-01 16:39:02,590 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:39:12,597 - kakuro_generator - INFO - Pool 'very_easy' low (15/50). Generating batch...
+2026-01-01 16:39:12,867 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 16:39:12,868 - kakuro_generator - INFO - Pool 'easy' low (16/50). Generating batch...
+2026-01-01 16:39:13,212 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 16:39:13,213 - kakuro_generator - INFO - Pool 'medium' low (20/50). Generating batch...
+2026-01-01 16:39:13,364 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:39:13,364 - kakuro_generator - INFO - Pool 'hard' low (15/50). Generating batch...
+2026-01-01 16:39:13,502 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:39:23,509 - kakuro_generator - INFO - Pool 'very_easy' low (19/50). Generating batch...
+2026-01-01 16:39:23,769 - kakuro_generator - INFO - Generated 3 puzzles for 'very_easy'
+2026-01-01 16:39:23,770 - kakuro_generator - INFO - Pool 'easy' low (21/50). Generating batch...
+2026-01-01 16:39:23,959 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 16:39:23,960 - kakuro_generator - INFO - Pool 'medium' low (25/50). Generating batch...
+2026-01-01 16:39:24,067 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:39:24,068 - kakuro_generator - INFO - Pool 'hard' low (20/50). Generating batch...
+2026-01-01 16:39:24,269 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:39:34,276 - kakuro_generator - INFO - Pool 'very_easy' low (22/50). Generating batch...
+2026-01-01 16:39:34,460 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 16:39:34,461 - kakuro_generator - INFO - Pool 'easy' low (26/50). Generating batch...
+2026-01-01 16:39:34,716 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 16:39:34,716 - kakuro_generator - INFO - Pool 'medium' low (30/50). Generating batch...
+2026-01-01 16:39:34,887 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:39:34,888 - kakuro_generator - INFO - Pool 'hard' low (25/50). Generating batch...
+2026-01-01 16:39:35,015 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:39:45,021 - kakuro_generator - INFO - Pool 'very_easy' low (26/50). Generating batch...
+2026-01-01 16:39:45,242 - kakuro_generator - INFO - Generated 3 puzzles for 'very_easy'
+2026-01-01 16:39:45,243 - kakuro_generator - INFO - Pool 'easy' low (31/50). Generating batch...
+2026-01-01 16:39:45,374 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 16:39:45,375 - kakuro_generator - INFO - Pool 'medium' low (35/50). Generating batch...
+2026-01-01 16:39:45,516 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:39:45,516 - kakuro_generator - INFO - Pool 'hard' low (30/50). Generating batch...
+2026-01-01 16:39:45,665 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:39:55,673 - kakuro_generator - INFO - Pool 'very_easy' low (29/50). Generating batch...
+2026-01-01 16:39:55,911 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 16:39:55,912 - kakuro_generator - INFO - Pool 'easy' low (36/50). Generating batch...
+2026-01-01 16:39:56,162 - kakuro_generator - INFO - Generated 3 puzzles for 'easy'
+2026-01-01 16:39:56,163 - kakuro_generator - INFO - Pool 'medium' low (40/50). Generating batch...
+2026-01-01 16:39:56,274 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:39:56,276 - kakuro_generator - INFO - Pool 'hard' low (35/50). Generating batch...
+2026-01-01 16:39:56,395 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:40:06,402 - kakuro_generator - INFO - Pool 'very_easy' low (34/50). Generating batch...
+2026-01-01 16:40:06,596 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 16:40:06,597 - kakuro_generator - INFO - Pool 'easy' low (39/50). Generating batch...
+2026-01-01 16:40:06,858 - kakuro_generator - INFO - Generated 4 puzzles for 'easy'
+2026-01-01 16:40:06,858 - kakuro_generator - INFO - Pool 'medium' low (45/50). Generating batch...
+2026-01-01 16:40:07,009 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 16:40:07,010 - kakuro_generator - INFO - Pool 'hard' low (40/50). Generating batch...
+2026-01-01 16:40:07,197 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:40:17,204 - kakuro_generator - INFO - Pool 'very_easy' low (39/50). Generating batch...
+2026-01-01 16:40:17,404 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 16:40:17,405 - kakuro_generator - INFO - Pool 'easy' low (43/50). Generating batch...
+2026-01-01 16:40:17,579 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 16:40:17,580 - kakuro_generator - INFO - Pool 'hard' low (45/50). Generating batch...
+2026-01-01 16:40:17,732 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 16:40:20,861 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:40:22,154 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:22,170 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:40:22,188 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:22,201 - kakuro_main - INFO - Database initialized
+2026-01-01 16:40:24,269 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:24,284 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:40:24,303 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:24,316 - kakuro_main - INFO - Database initialized
+2026-01-01 16:40:24,316 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:40:24,316 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:40:24,328 - kakuro_generator - INFO - Pool 'very_easy' low (44/50). Generating batch...
+2026-01-01 16:40:24,513 - kakuro_generator - INFO - Generated 3 puzzles for 'very_easy'
+2026-01-01 16:40:24,513 - kakuro_generator - INFO - Pool 'easy' low (48/50). Generating batch...
+2026-01-01 16:40:24,688 - kakuro_generator - INFO - Generated 2 puzzles for 'easy'
+2026-01-01 16:40:25,796 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:40:27,013 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:27,027 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:40:27,046 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:27,057 - kakuro_main - INFO - Database initialized
+2026-01-01 16:40:27,057 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:40:27,058 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:40:27,069 - kakuro_generator - INFO - Pool 'very_easy' low (47/50). Generating batch...
+2026-01-01 16:40:27,123 - kakuro_generator - INFO - Generated 2 puzzles for 'very_easy'
+2026-01-01 16:40:30,335 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:40:31,451 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:31,465 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:40:31,484 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:40:31,496 - kakuro_main - INFO - Database initialized
+2026-01-01 16:40:31,496 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:40:31,497 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:40:31,507 - kakuro_generator - INFO - Pool 'very_easy' low (49/50). Generating batch...
+2026-01-01 16:40:41,571 - kakuro_generator - INFO - Pool 'very_easy' low (49/50). Generating batch...
+2026-01-01 16:40:41,600 - kakuro_generator - INFO - Generated 1 puzzles for 'very_easy'
+2026-01-01 16:42:28,832 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:42:30,045 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:42:30,060 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:42:30,075 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:42:30,088 - kakuro_main - INFO - Database initialized
+2026-01-01 16:42:30,088 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:42:30,088 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:44:15,011 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:44:16,070 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:44:16,087 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:44:16,107 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:44:16,119 - kakuro_main - INFO - Database initialized
+2026-01-01 16:44:16,119 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:44:16,119 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:48:10,682 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:48:17,185 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:48:17,931 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:48:17,946 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:48:17,961 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:48:17,973 - kakuro_main - INFO - Database initialized
+2026-01-01 16:48:17,973 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:48:17,973 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:57:23,068 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:57:24,289 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:57:24,304 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:57:24,320 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:57:24,333 - kakuro_main - INFO - Database initialized
+2026-01-01 16:57:24,333 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:57:24,333 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 16:58:05,619 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 16:58:07,696 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:58:08,439 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:58:08,454 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 16:58:08,470 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 16:58:08,482 - kakuro_main - INFO - Database initialized
+2026-01-01 16:58:08,482 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 16:58:08,482 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:00:24,750 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:00:25,970 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:00:25,984 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:00:25,999 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:00:26,011 - kakuro_main - INFO - Database initialized
+2026-01-01 17:00:26,011 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:00:26,011 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:01:46,316 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:01:49,498 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:01:50,223 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:01:50,236 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:01:50,253 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:01:50,265 - kakuro_main - INFO - Database initialized
+2026-01-01 17:01:50,265 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:01:50,265 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:03:26,344 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:03:27,980 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:03:28,725 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:03:28,741 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:03:28,757 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:03:28,769 - kakuro_main - INFO - Database initialized
+2026-01-01 17:03:28,769 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:03:28,770 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:04:55,684 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:04:57,692 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:04:58,430 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:04:58,443 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:04:58,459 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:04:58,470 - kakuro_main - INFO - Database initialized
+2026-01-01 17:04:58,470 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:04:58,470 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:22:22,815 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:22:39,017 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:22:39,743 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:22:39,759 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:22:39,774 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:22:39,874 - kakuro_main - INFO - Database initialized
+2026-01-01 17:22:39,874 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:22:39,874 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:22:39,886 - kakuro_generator - INFO - Pool 'very_easy' low (0/50). Generating batch...
+2026-01-01 17:22:40,191 - kakuro_generator - INFO - Generated 3 puzzles for 'very_easy'
+2026-01-01 17:22:40,191 - kakuro_generator - INFO - Pool 'easy' low (0/50). Generating batch...
+2026-01-01 17:22:40,343 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:22:40,344 - kakuro_generator - INFO - Pool 'medium' low (0/50). Generating batch...
+2026-01-01 17:22:40,631 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:22:40,631 - kakuro_generator - INFO - Pool 'hard' low (0/50). Generating batch...
+2026-01-01 17:22:40,835 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:22:50,843 - kakuro_generator - INFO - Pool 'very_easy' low (3/50). Generating batch...
+2026-01-01 17:22:51,474 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:22:51,475 - kakuro_generator - INFO - Pool 'easy' low (5/50). Generating batch...
+2026-01-01 17:22:51,639 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:22:51,640 - kakuro_generator - INFO - Pool 'medium' low (5/50). Generating batch...
+2026-01-01 17:22:51,848 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:22:51,850 - kakuro_generator - INFO - Pool 'hard' low (5/50). Generating batch...
+2026-01-01 17:22:51,979 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:23:01,985 - kakuro_generator - INFO - Pool 'very_easy' low (7/50). Generating batch...
+2026-01-01 17:23:02,370 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:23:02,372 - kakuro_generator - INFO - Pool 'easy' low (10/50). Generating batch...
+2026-01-01 17:23:02,670 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:23:02,670 - kakuro_generator - INFO - Pool 'medium' low (10/50). Generating batch...
+2026-01-01 17:23:02,805 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:23:02,806 - kakuro_generator - INFO - Pool 'hard' low (10/50). Generating batch...
+2026-01-01 17:23:02,945 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:23:12,952 - kakuro_generator - INFO - Pool 'very_easy' low (12/50). Generating batch...
+2026-01-01 17:23:13,623 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:23:13,624 - kakuro_generator - INFO - Pool 'easy' low (15/50). Generating batch...
+2026-01-01 17:23:13,825 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:23:13,826 - kakuro_generator - INFO - Pool 'medium' low (15/50). Generating batch...
+2026-01-01 17:23:13,950 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:23:13,951 - kakuro_generator - INFO - Pool 'hard' low (15/50). Generating batch...
+2026-01-01 17:23:14,062 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:23:24,068 - kakuro_generator - INFO - Pool 'very_easy' low (16/50). Generating batch...
+2026-01-01 17:23:24,410 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:23:24,411 - kakuro_generator - INFO - Pool 'easy' low (20/50). Generating batch...
+2026-01-01 17:23:24,503 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:23:24,504 - kakuro_generator - INFO - Pool 'medium' low (20/50). Generating batch...
+2026-01-01 17:23:24,697 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:23:24,698 - kakuro_generator - INFO - Pool 'hard' low (20/50). Generating batch...
+2026-01-01 17:23:24,808 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:23:34,814 - kakuro_generator - INFO - Pool 'very_easy' low (20/50). Generating batch...
+2026-01-01 17:23:35,074 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:23:35,075 - kakuro_generator - INFO - Pool 'easy' low (25/50). Generating batch...
+2026-01-01 17:23:35,223 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:23:35,224 - kakuro_generator - INFO - Pool 'medium' low (25/50). Generating batch...
+2026-01-01 17:23:35,609 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:23:35,610 - kakuro_generator - INFO - Pool 'hard' low (25/50). Generating batch...
+2026-01-01 17:23:35,815 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:23:45,821 - kakuro_generator - INFO - Pool 'very_easy' low (25/50). Generating batch...
+2026-01-01 17:23:46,271 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:23:46,272 - kakuro_generator - INFO - Pool 'easy' low (30/50). Generating batch...
+2026-01-01 17:23:46,618 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:23:46,619 - kakuro_generator - INFO - Pool 'medium' low (30/50). Generating batch...
+2026-01-01 17:23:46,763 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:23:46,764 - kakuro_generator - INFO - Pool 'hard' low (30/50). Generating batch...
+2026-01-01 17:23:46,921 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:23:56,928 - kakuro_generator - INFO - Pool 'very_easy' low (29/50). Generating batch...
+2026-01-01 17:23:57,131 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:23:57,133 - kakuro_generator - INFO - Pool 'easy' low (35/50). Generating batch...
+2026-01-01 17:23:57,320 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:23:57,321 - kakuro_generator - INFO - Pool 'medium' low (35/50). Generating batch...
+2026-01-01 17:23:57,499 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:23:57,499 - kakuro_generator - INFO - Pool 'hard' low (35/50). Generating batch...
+2026-01-01 17:23:57,606 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:24:07,612 - kakuro_generator - INFO - Pool 'very_easy' low (33/50). Generating batch...
+2026-01-01 17:24:07,710 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:24:07,710 - kakuro_generator - INFO - Pool 'easy' low (40/50). Generating batch...
+2026-01-01 17:24:08,019 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:24:08,020 - kakuro_generator - INFO - Pool 'medium' low (40/50). Generating batch...
+2026-01-01 17:24:08,231 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:24:08,232 - kakuro_generator - INFO - Pool 'hard' low (40/50). Generating batch...
+2026-01-01 17:24:08,356 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:24:18,363 - kakuro_generator - INFO - Pool 'very_easy' low (38/50). Generating batch...
+2026-01-01 17:24:18,588 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:24:18,588 - kakuro_generator - INFO - Pool 'easy' low (45/50). Generating batch...
+2026-01-01 17:24:18,734 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:24:18,735 - kakuro_generator - INFO - Pool 'medium' low (45/50). Generating batch...
+2026-01-01 17:24:18,923 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:24:18,924 - kakuro_generator - INFO - Pool 'hard' low (45/50). Generating batch...
+2026-01-01 17:24:19,045 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:24:29,053 - kakuro_generator - INFO - Pool 'very_easy' low (43/50). Generating batch...
+2026-01-01 17:24:29,352 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:24:39,359 - kakuro_generator - INFO - Pool 'very_easy' low (48/50). Generating batch...
+2026-01-01 17:24:39,429 - kakuro_generator - INFO - Generated 2 puzzles for 'very_easy'
+2026-01-01 17:26:03,603 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:26:04,836 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:26:04,850 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:26:04,866 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:26:04,878 - kakuro_main - INFO - Database initialized
+2026-01-01 17:26:04,879 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:26:04,879 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:29:18,163 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:29:47,397 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:29:48,146 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:29:48,160 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:29:48,175 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:29:48,187 - kakuro_main - INFO - Database initialized
+2026-01-01 17:29:48,187 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:29:48,187 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:33:44,901 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:33:47,085 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:33:47,819 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:33:47,832 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:33:47,848 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:33:47,860 - kakuro_main - INFO - Database initialized
+2026-01-01 17:33:47,860 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:33:47,860 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:34:17,733 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:34:26,595 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:34:27,313 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:34:27,327 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:34:27,343 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:34:27,403 - kakuro_main - INFO - Database initialized
+2026-01-01 17:34:27,404 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:34:27,404 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:34:27,414 - kakuro_generator - INFO - Pool 'very_easy' low (0/50). Generating batch...
+2026-01-01 17:34:27,693 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:34:27,694 - kakuro_generator - INFO - Pool 'easy' low (0/50). Generating batch...
+2026-01-01 17:34:28,120 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:34:28,122 - kakuro_generator - INFO - Pool 'medium' low (0/50). Generating batch...
+2026-01-01 17:34:28,453 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:34:28,454 - kakuro_generator - INFO - Pool 'hard' low (0/50). Generating batch...
+2026-01-01 17:34:28,624 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:34:38,631 - kakuro_generator - INFO - Pool 'very_easy' low (5/50). Generating batch...
+2026-01-01 17:34:38,801 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:34:38,802 - kakuro_generator - INFO - Pool 'easy' low (5/50). Generating batch...
+2026-01-01 17:34:39,119 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:34:39,120 - kakuro_generator - INFO - Pool 'medium' low (5/50). Generating batch...
+2026-01-01 17:34:39,279 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:34:39,280 - kakuro_generator - INFO - Pool 'hard' low (5/50). Generating batch...
+2026-01-01 17:34:39,418 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:34:49,424 - kakuro_generator - INFO - Pool 'very_easy' low (10/50). Generating batch...
+2026-01-01 17:34:49,934 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:34:49,935 - kakuro_generator - INFO - Pool 'easy' low (10/50). Generating batch...
+2026-01-01 17:34:50,091 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:34:50,092 - kakuro_generator - INFO - Pool 'medium' low (10/50). Generating batch...
+2026-01-01 17:34:50,209 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:34:50,209 - kakuro_generator - INFO - Pool 'hard' low (10/50). Generating batch...
+2026-01-01 17:34:50,379 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:35:00,386 - kakuro_generator - INFO - Pool 'very_easy' low (15/50). Generating batch...
+2026-01-01 17:35:00,618 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:35:00,619 - kakuro_generator - INFO - Pool 'easy' low (15/50). Generating batch...
+2026-01-01 17:35:00,796 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:35:00,797 - kakuro_generator - INFO - Pool 'medium' low (15/50). Generating batch...
+2026-01-01 17:35:00,956 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:35:00,957 - kakuro_generator - INFO - Pool 'hard' low (15/50). Generating batch...
+2026-01-01 17:35:01,098 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:35:11,104 - kakuro_generator - INFO - Pool 'very_easy' low (19/50). Generating batch...
+2026-01-01 17:35:11,303 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:35:11,303 - kakuro_generator - INFO - Pool 'easy' low (20/50). Generating batch...
+2026-01-01 17:35:11,586 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:35:11,586 - kakuro_generator - INFO - Pool 'medium' low (20/50). Generating batch...
+2026-01-01 17:35:11,762 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:35:11,764 - kakuro_generator - INFO - Pool 'hard' low (20/50). Generating batch...
+2026-01-01 17:35:11,916 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:35:21,923 - kakuro_generator - INFO - Pool 'very_easy' low (24/50). Generating batch...
+2026-01-01 17:35:22,032 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:35:22,032 - kakuro_generator - INFO - Pool 'easy' low (25/50). Generating batch...
+2026-01-01 17:35:22,343 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:35:22,344 - kakuro_generator - INFO - Pool 'medium' low (25/50). Generating batch...
+2026-01-01 17:35:22,494 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:35:22,495 - kakuro_generator - INFO - Pool 'hard' low (25/50). Generating batch...
+2026-01-01 17:35:22,635 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:35:32,642 - kakuro_generator - INFO - Pool 'very_easy' low (29/50). Generating batch...
+2026-01-01 17:35:32,853 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:35:32,854 - kakuro_generator - INFO - Pool 'easy' low (30/50). Generating batch...
+2026-01-01 17:35:32,986 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:35:32,986 - kakuro_generator - INFO - Pool 'medium' low (30/50). Generating batch...
+2026-01-01 17:35:33,147 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:35:33,148 - kakuro_generator - INFO - Pool 'hard' low (30/50). Generating batch...
+2026-01-01 17:35:33,284 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:35:43,291 - kakuro_generator - INFO - Pool 'very_easy' low (34/50). Generating batch...
+2026-01-01 17:35:43,466 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:35:43,467 - kakuro_generator - INFO - Pool 'easy' low (35/50). Generating batch...
+2026-01-01 17:35:43,619 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:35:43,619 - kakuro_generator - INFO - Pool 'medium' low (35/50). Generating batch...
+2026-01-01 17:35:43,715 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:35:43,716 - kakuro_generator - INFO - Pool 'hard' low (35/50). Generating batch...
+2026-01-01 17:35:43,862 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:35:53,868 - kakuro_generator - INFO - Pool 'very_easy' low (39/50). Generating batch...
+2026-01-01 17:35:54,108 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:35:54,109 - kakuro_generator - INFO - Pool 'easy' low (40/50). Generating batch...
+2026-01-01 17:35:54,419 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:35:54,420 - kakuro_generator - INFO - Pool 'medium' low (40/50). Generating batch...
+2026-01-01 17:35:54,664 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:35:54,664 - kakuro_generator - INFO - Pool 'hard' low (40/50). Generating batch...
+2026-01-01 17:35:54,798 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:36:04,804 - kakuro_generator - INFO - Pool 'very_easy' low (44/50). Generating batch...
+2026-01-01 17:36:05,060 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:36:05,061 - kakuro_generator - INFO - Pool 'easy' low (45/50). Generating batch...
+2026-01-01 17:36:05,195 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:36:05,196 - kakuro_generator - INFO - Pool 'medium' low (45/50). Generating batch...
+2026-01-01 17:36:05,350 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:36:05,350 - kakuro_generator - INFO - Pool 'hard' low (45/50). Generating batch...
+2026-01-01 17:36:05,603 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:36:15,610 - kakuro_generator - INFO - Pool 'very_easy' low (49/50). Generating batch...
+2026-01-01 17:36:15,800 - kakuro_generator - INFO - Generated 1 puzzles for 'very_easy'
+2026-01-01 17:36:44,258 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:37:52,801 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:37:53,542 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:37:53,555 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:37:53,570 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:37:53,679 - kakuro_main - INFO - Database initialized
+2026-01-01 17:37:53,679 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:37:53,679 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:37:53,691 - kakuro_generator - INFO - Pool 'very_easy' low (0/50). Generating batch...
+2026-01-01 17:37:53,766 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:37:53,767 - kakuro_generator - INFO - Pool 'easy' low (0/50). Generating batch...
+2026-01-01 17:37:53,882 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:37:53,883 - kakuro_generator - INFO - Pool 'medium' low (0/50). Generating batch...
+2026-01-01 17:37:54,015 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:37:54,016 - kakuro_generator - INFO - Pool 'hard' low (0/50). Generating batch...
+2026-01-01 17:37:54,165 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:04,172 - kakuro_generator - INFO - Pool 'very_easy' low (5/50). Generating batch...
+2026-01-01 17:38:04,225 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:38:04,226 - kakuro_generator - INFO - Pool 'easy' low (5/50). Generating batch...
+2026-01-01 17:38:04,324 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:38:04,324 - kakuro_generator - INFO - Pool 'medium' low (5/50). Generating batch...
+2026-01-01 17:38:04,458 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:38:04,459 - kakuro_generator - INFO - Pool 'hard' low (5/50). Generating batch...
+2026-01-01 17:38:04,644 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:14,650 - kakuro_generator - INFO - Pool 'very_easy' low (9/50). Generating batch...
+2026-01-01 17:38:14,744 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:38:14,745 - kakuro_generator - INFO - Pool 'easy' low (10/50). Generating batch...
+2026-01-01 17:38:14,820 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:38:14,821 - kakuro_generator - INFO - Pool 'medium' low (10/50). Generating batch...
+2026-01-01 17:38:14,893 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:38:14,894 - kakuro_generator - INFO - Pool 'hard' low (10/50). Generating batch...
+2026-01-01 17:38:15,014 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:25,021 - kakuro_generator - INFO - Pool 'very_easy' low (14/50). Generating batch...
+2026-01-01 17:38:25,123 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:38:25,124 - kakuro_generator - INFO - Pool 'easy' low (15/50). Generating batch...
+2026-01-01 17:38:25,273 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:38:25,274 - kakuro_generator - INFO - Pool 'medium' low (15/50). Generating batch...
+2026-01-01 17:38:25,467 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:38:25,468 - kakuro_generator - INFO - Pool 'hard' low (15/50). Generating batch...
+2026-01-01 17:38:25,601 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:35,608 - kakuro_generator - INFO - Pool 'very_easy' low (18/50). Generating batch...
+2026-01-01 17:38:35,724 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:38:35,725 - kakuro_generator - INFO - Pool 'easy' low (20/50). Generating batch...
+2026-01-01 17:38:35,763 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:38:35,764 - kakuro_generator - INFO - Pool 'medium' low (20/50). Generating batch...
+2026-01-01 17:38:35,885 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:38:35,885 - kakuro_generator - INFO - Pool 'hard' low (20/50). Generating batch...
+2026-01-01 17:38:36,078 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:41,071 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:38:41,914 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:38:41,929 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:38:41,944 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:38:41,957 - kakuro_main - INFO - Database initialized
+2026-01-01 17:38:41,957 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:38:41,958 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:38:41,968 - kakuro_generator - INFO - Pool 'very_easy' low (23/50). Generating batch...
+2026-01-01 17:38:42,034 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:38:42,034 - kakuro_generator - INFO - Pool 'easy' low (25/50). Generating batch...
+2026-01-01 17:38:42,101 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:38:42,103 - kakuro_generator - INFO - Pool 'medium' low (25/50). Generating batch...
+2026-01-01 17:38:42,271 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:38:42,272 - kakuro_generator - INFO - Pool 'hard' low (25/50). Generating batch...
+2026-01-01 17:38:42,434 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:46,008 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:38:47,259 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:38:47,274 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:38:47,290 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:38:47,302 - kakuro_main - INFO - Database initialized
+2026-01-01 17:38:47,303 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:38:47,303 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:38:47,313 - kakuro_generator - INFO - Pool 'very_easy' low (28/50). Generating batch...
+2026-01-01 17:38:47,395 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:38:47,396 - kakuro_generator - INFO - Pool 'easy' low (30/50). Generating batch...
+2026-01-01 17:38:47,474 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:38:47,475 - kakuro_generator - INFO - Pool 'medium' low (30/50). Generating batch...
+2026-01-01 17:38:47,605 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:38:47,607 - kakuro_generator - INFO - Pool 'hard' low (30/50). Generating batch...
+2026-01-01 17:38:47,708 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:38:57,068 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:39:15,413 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:39:16,139 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:39:16,153 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:39:16,169 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:39:16,182 - kakuro_main - INFO - Database initialized
+2026-01-01 17:39:16,182 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:39:16,183 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:39:16,195 - kakuro_generator - INFO - Pool 'very_easy' low (33/50). Generating batch...
+2026-01-01 17:39:16,215 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:39:16,216 - kakuro_generator - INFO - Pool 'easy' low (35/50). Generating batch...
+2026-01-01 17:39:16,298 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:39:16,300 - kakuro_generator - INFO - Pool 'medium' low (35/50). Generating batch...
+2026-01-01 17:39:16,430 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:39:16,431 - kakuro_generator - INFO - Pool 'hard' low (35/50). Generating batch...
+2026-01-01 17:39:16,603 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:39:24,192 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:39:32,159 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:39:32,888 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:39:32,901 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:39:32,916 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:39:32,978 - kakuro_main - INFO - Database initialized
+2026-01-01 17:39:32,978 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:39:32,979 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:39:32,989 - kakuro_generator - INFO - Pool 'very_easy' low (0/50). Generating batch...
+2026-01-01 17:39:33,015 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:39:33,016 - kakuro_generator - INFO - Pool 'easy' low (0/50). Generating batch...
+2026-01-01 17:39:33,111 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:39:33,112 - kakuro_generator - INFO - Pool 'medium' low (0/50). Generating batch...
+2026-01-01 17:39:33,203 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:39:33,204 - kakuro_generator - INFO - Pool 'hard' low (0/50). Generating batch...
+2026-01-01 17:39:33,344 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:39:43,349 - kakuro_generator - INFO - Pool 'very_easy' low (5/50). Generating batch...
+2026-01-01 17:39:43,448 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:39:43,449 - kakuro_generator - INFO - Pool 'easy' low (5/50). Generating batch...
+2026-01-01 17:39:43,533 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:39:43,534 - kakuro_generator - INFO - Pool 'medium' low (5/50). Generating batch...
+2026-01-01 17:39:43,688 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:39:43,689 - kakuro_generator - INFO - Pool 'hard' low (5/50). Generating batch...
+2026-01-01 17:39:43,816 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:39:53,822 - kakuro_generator - INFO - Pool 'very_easy' low (10/50). Generating batch...
+2026-01-01 17:39:53,898 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:39:53,899 - kakuro_generator - INFO - Pool 'easy' low (10/50). Generating batch...
+2026-01-01 17:39:53,965 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:39:53,966 - kakuro_generator - INFO - Pool 'medium' low (10/50). Generating batch...
+2026-01-01 17:39:54,068 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:39:54,069 - kakuro_generator - INFO - Pool 'hard' low (10/50). Generating batch...
+2026-01-01 17:39:54,326 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:40:04,334 - kakuro_generator - INFO - Pool 'very_easy' low (15/50). Generating batch...
+2026-01-01 17:40:04,395 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:40:04,396 - kakuro_generator - INFO - Pool 'easy' low (15/50). Generating batch...
+2026-01-01 17:40:04,439 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:40:04,439 - kakuro_generator - INFO - Pool 'medium' low (15/50). Generating batch...
+2026-01-01 17:40:04,589 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:40:04,591 - kakuro_generator - INFO - Pool 'hard' low (15/50). Generating batch...
+2026-01-01 17:40:04,753 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:40:14,759 - kakuro_generator - INFO - Pool 'very_easy' low (20/50). Generating batch...
+2026-01-01 17:40:14,838 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:40:14,839 - kakuro_generator - INFO - Pool 'easy' low (20/50). Generating batch...
+2026-01-01 17:40:14,947 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:40:14,948 - kakuro_generator - INFO - Pool 'medium' low (20/50). Generating batch...
+2026-01-01 17:40:15,086 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:40:15,087 - kakuro_generator - INFO - Pool 'hard' low (20/50). Generating batch...
+2026-01-01 17:40:15,244 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:40:25,250 - kakuro_generator - INFO - Pool 'very_easy' low (25/50). Generating batch...
+2026-01-01 17:40:25,319 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:40:25,319 - kakuro_generator - INFO - Pool 'easy' low (25/50). Generating batch...
+2026-01-01 17:40:25,421 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:40:25,421 - kakuro_generator - INFO - Pool 'medium' low (25/50). Generating batch...
+2026-01-01 17:40:25,531 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:40:25,533 - kakuro_generator - INFO - Pool 'hard' low (25/50). Generating batch...
+2026-01-01 17:40:25,713 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:40:35,719 - kakuro_generator - INFO - Pool 'very_easy' low (30/50). Generating batch...
+2026-01-01 17:40:35,778 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:40:35,778 - kakuro_generator - INFO - Pool 'easy' low (30/50). Generating batch...
+2026-01-01 17:40:35,852 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:40:35,853 - kakuro_generator - INFO - Pool 'medium' low (30/50). Generating batch...
+2026-01-01 17:40:35,977 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:40:35,978 - kakuro_generator - INFO - Pool 'hard' low (30/50). Generating batch...
+2026-01-01 17:40:36,125 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:40:46,132 - kakuro_generator - INFO - Pool 'very_easy' low (35/50). Generating batch...
+2026-01-01 17:40:46,190 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:40:46,191 - kakuro_generator - INFO - Pool 'easy' low (35/50). Generating batch...
+2026-01-01 17:40:46,264 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:40:46,265 - kakuro_generator - INFO - Pool 'medium' low (35/50). Generating batch...
+2026-01-01 17:40:46,370 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:40:46,370 - kakuro_generator - INFO - Pool 'hard' low (35/50). Generating batch...
+2026-01-01 17:40:46,520 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:40:56,526 - kakuro_generator - INFO - Pool 'very_easy' low (40/50). Generating batch...
+2026-01-01 17:40:56,587 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-01 17:40:56,588 - kakuro_generator - INFO - Pool 'easy' low (40/50). Generating batch...
+2026-01-01 17:40:56,656 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:40:56,656 - kakuro_generator - INFO - Pool 'medium' low (40/50). Generating batch...
+2026-01-01 17:40:56,803 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:40:56,804 - kakuro_generator - INFO - Pool 'hard' low (40/50). Generating batch...
+2026-01-01 17:40:56,953 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:41:06,959 - kakuro_generator - INFO - Pool 'very_easy' low (45/50). Generating batch...
+2026-01-01 17:41:07,040 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-01 17:41:07,041 - kakuro_generator - INFO - Pool 'easy' low (45/50). Generating batch...
+2026-01-01 17:41:07,129 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-01 17:41:07,130 - kakuro_generator - INFO - Pool 'medium' low (45/50). Generating batch...
+2026-01-01 17:41:07,246 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-01 17:41:07,246 - kakuro_generator - INFO - Pool 'hard' low (45/50). Generating batch...
+2026-01-01 17:41:07,340 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-01 17:41:17,346 - kakuro_generator - INFO - Pool 'very_easy' low (49/50). Generating batch...
+2026-01-01 17:41:17,395 - kakuro_generator - INFO - Generated 1 puzzles for 'very_easy'
+2026-01-01 17:45:27,643 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 17:45:28,538 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:45:28,547 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:45:28,565 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:45:38,013 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:45:38,026 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 17:45:38,046 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 17:45:38,059 - kakuro_main - INFO - Database initialized
+2026-01-01 17:45:38,059 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 17:45:38,059 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 17:48:07,746 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:07:19,772 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:07:38,352 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:07:39,090 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:07:39,103 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:07:39,123 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:07:39,192 - kakuro_main - INFO - Database initialized
+2026-01-01 18:07:39,192 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:07:39,192 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:10:29,035 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:10:30,285 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:10:30,298 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:10:30,314 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:10:30,328 - kakuro_main - INFO - Database initialized
+2026-01-01 18:10:30,328 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:10:30,329 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:10:41,444 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:10:42,753 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:10:42,768 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:10:42,786 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:10:42,799 - kakuro_main - INFO - Migrating database: Adding is_admin to users table
+2026-01-01 18:10:49,307 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:10:49,320 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:10:49,339 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:10:49,351 - kakuro_main - INFO - Migrating database: Adding is_admin to users table
+2026-01-01 18:10:49,359 - kakuro_main - INFO - Database initialized
+2026-01-01 18:10:49,359 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:10:49,360 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:12:33,907 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:13:48,486 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:13:48,500 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:13:48,518 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:13:48,531 - kakuro_main - INFO - Database initialized
+2026-01-01 18:13:48,531 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:13:48,531 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:13:50,933 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:13:51,931 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:13:51,946 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:13:51,964 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:13:51,980 - kakuro_main - INFO - Migrating database: Adding fill_count to puzzle_interactions table
+2026-01-01 18:13:51,989 - kakuro_main - INFO - Database initialized
+2026-01-01 18:13:51,989 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:13:51,990 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:14:05,923 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:14:06,892 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:14:06,909 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:14:06,924 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:14:06,939 - kakuro_main - INFO - Database initialized
+2026-01-01 18:14:06,939 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:14:06,940 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:14:25,117 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:14:26,393 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:14:26,408 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:14:26,424 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:14:26,439 - kakuro_main - INFO - Database initialized
+2026-01-01 18:14:26,439 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:14:26,439 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:20:27,103 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:20:28,235 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:20:28,250 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:20:28,267 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:20:28,282 - kakuro_main - INFO - Database initialized
+2026-01-01 18:20:28,282 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:20:28,283 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:24:21,662 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:24:22,939 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:24:22,955 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:24:22,971 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:24:22,985 - kakuro_main - INFO - Database initialized
+2026-01-01 18:24:22,985 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:24:22,986 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:24:23,642 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:24:24,833 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:24:24,848 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:24:24,864 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:24:24,879 - kakuro_main - INFO - Database initialized
+2026-01-01 18:24:24,879 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:24:24,880 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:24:33,359 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:24:34,271 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:24:34,286 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:24:34,303 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:24:34,318 - kakuro_main - INFO - Database initialized
+2026-01-01 18:24:34,318 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:24:34,318 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:31:06,396 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:31:07,625 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:31:07,641 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:31:07,656 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:31:07,672 - kakuro_main - INFO - Database initialized
+2026-01-01 18:31:07,672 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:31:07,672 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:31:39,710 - performance - ERROR - Failed to log auth attempt for laurenz_ruzicka@gmx.at: 'RegisterRequest' object has no attribute 'client'
+2026-01-01 18:35:53,418 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:35:54,458 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:35:54,474 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:35:54,491 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:35:54,507 - kakuro_main - INFO - Database initialized
+2026-01-01 18:35:54,507 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:35:54,508 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:41:24,818 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:41:28,840 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:41:29,607 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:41:29,622 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:41:29,639 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:41:29,653 - kakuro_main - INFO - Database initialized
+2026-01-01 18:41:29,653 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:41:29,653 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:44:32,781 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:44:33,874 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:44:33,888 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:44:33,905 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:44:33,919 - kakuro_main - INFO - Database initialized
+2026-01-01 18:44:33,919 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:44:33,920 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:45:03,099 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:45:05,228 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:45:05,988 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:45:06,003 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:45:06,019 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:45:06,034 - kakuro_main - INFO - Database initialized
+2026-01-01 18:45:06,034 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:45:06,034 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:46:02,326 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:46:03,532 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:46:03,550 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:46:03,571 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:46:03,587 - kakuro_main - INFO - Database initialized
+2026-01-01 18:46:03,587 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:46:03,588 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:46:40,213 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:46:41,604 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:46:41,620 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:46:41,639 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:46:41,654 - kakuro_main - INFO - Database initialized
+2026-01-01 18:46:41,654 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:46:41,654 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:48:05,289 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:48:07,684 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:48:08,449 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:48:08,465 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:48:08,481 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:48:08,496 - kakuro_main - INFO - Database initialized
+2026-01-01 18:48:08,496 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:48:08,497 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:53:26,487 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:53:27,844 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:53:27,859 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:53:27,876 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:53:27,890 - kakuro_main - INFO - Database initialized
+2026-01-01 18:53:27,890 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:53:27,891 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:53:32,787 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:53:33,800 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:53:33,815 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:53:33,831 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:53:33,846 - kakuro_main - INFO - Database initialized
+2026-01-01 18:53:33,846 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:53:33,846 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:54:04,233 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:54:05,256 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:54:05,271 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:54:05,288 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:54:05,303 - kakuro_main - INFO - Database initialized
+2026-01-01 18:54:05,303 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:54:05,304 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:54:29,465 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:54:31,614 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:54:32,377 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:54:32,393 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:54:32,410 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:54:32,424 - kakuro_main - INFO - Database initialized
+2026-01-01 18:54:32,425 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:54:32,425 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 18:57:07,969 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 18:57:09,035 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:57:09,050 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 18:57:09,068 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 18:57:09,083 - kakuro_main - INFO - Database initialized
+2026-01-01 18:57:09,083 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 18:57:09,083 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 19:00:24,701 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 20:17:18,136 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 20:17:18,894 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 20:17:18,910 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 20:17:18,931 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 20:17:18,992 - kakuro_main - INFO - Migrating database: Adding total_score to users table
+2026-01-01 20:17:19,000 - kakuro_main - INFO - Database initialized
+2026-01-01 20:17:19,000 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 20:17:19,001 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 21:05:33,091 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-01 21:05:34,490 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 21:05:34,505 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-01 21:05:34,523 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-01 21:05:34,537 - kakuro_main - INFO - Database initialized
+2026-01-01 21:05:34,537 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-01 21:05:34,538 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-01 21:05:34,879 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:16:33,990 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:16:34,742 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:16:34,758 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:16:34,793 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:16:34,817 - kakuro_main - INFO - Database initialized
+2026-01-02 11:16:34,817 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:16:34,818 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:19:31,625 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:19:33,845 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:19:34,581 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:19:34,597 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:19:34,613 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:19:34,628 - kakuro_main - INFO - Database initialized
+2026-01-02 11:19:34,628 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:19:34,628 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:22:08,323 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:22:09,316 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:09,332 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:22:09,349 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:09,364 - kakuro_main - INFO - Database initialized
+2026-01-02 11:22:09,364 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:22:09,364 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:22:09,921 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:22:10,770 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:10,786 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:22:10,801 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:10,816 - kakuro_main - INFO - Database initialized
+2026-01-02 11:22:10,816 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:22:10,816 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:22:15,840 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:22:17,164 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:17,180 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:22:17,196 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:17,211 - kakuro_main - INFO - Database initialized
+2026-01-02 11:22:17,211 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:22:17,211 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:22:18,748 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:22:19,623 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:19,638 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:22:19,653 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:22:19,668 - kakuro_main - INFO - Database initialized
+2026-01-02 11:22:19,668 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:22:19,669 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:33:56,770 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:33:58,047 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:33:58,062 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:33:58,083 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:33:58,098 - kakuro_main - INFO - Database initialized
+2026-01-02 11:33:58,098 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:33:58,098 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:39:25,760 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:39:26,703 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:39:26,717 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:39:26,737 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:39:26,751 - kakuro_main - INFO - Database initialized
+2026-01-02 11:39:26,752 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:39:26,752 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 11:45:07,017 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 11:45:08,059 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:45:08,075 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 11:45:08,091 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 11:45:08,106 - kakuro_main - INFO - Database initialized
+2026-01-02 11:45:08,106 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 11:45:08,107 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 15:46:08,478 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:46:09,242 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:46:09,257 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 15:46:09,275 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:46:09,291 - kakuro_main - INFO - Database initialized
+2026-01-02 15:46:09,291 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 15:46:09,291 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 15:48:42,747 - performance - ERROR - Failed to log auth attempt for karstei@gmx.at: 'RegisterRequest' object has no attribute 'client'
+2026-01-02 15:51:11,425 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 15:51:12,527 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:51:12,543 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 15:51:12,560 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:51:12,575 - kakuro_main - INFO - Database initialized
+2026-01-02 15:51:12,575 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 15:51:12,576 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 15:51:14,979 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 15:51:15,970 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:51:15,986 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 15:51:16,003 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:51:16,017 - kakuro_main - INFO - Database initialized
+2026-01-02 15:51:16,017 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 15:51:16,018 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 15:51:18,191 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 15:56:37,111 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:56:37,846 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:56:37,863 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 15:56:37,878 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 15:56:37,893 - kakuro_main - INFO - Database initialized
+2026-01-02 15:56:37,893 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 15:56:37,894 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:05:17,923 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 16:05:18,973 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:05:18,989 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 16:05:19,004 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:05:19,020 - kakuro_main - INFO - Database initialized
+2026-01-02 16:05:19,020 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 16:05:19,020 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:06:09,467 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 16:06:21,890 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:21,905 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 16:06:21,920 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:21,936 - kakuro_main - INFO - Database initialized
+2026-01-02 16:06:21,936 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 16:06:21,936 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:06:24,340 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 16:06:25,383 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:25,400 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 16:06:25,416 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:25,431 - kakuro_main - INFO - Database initialized
+2026-01-02 16:06:25,431 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 16:06:25,431 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:06:26,962 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 16:06:27,824 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:27,839 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 16:06:27,855 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:27,870 - kakuro_main - INFO - Database initialized
+2026-01-02 16:06:27,870 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 16:06:27,871 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:06:29,395 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 16:06:30,258 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:30,273 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 16:06:30,290 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:30,305 - kakuro_main - INFO - Database initialized
+2026-01-02 16:06:30,305 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 16:06:30,306 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:06:40,660 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-02 16:06:41,700 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:41,714 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-02 16:06:41,731 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-02 16:06:41,748 - kakuro_main - INFO - Database initialized
+2026-01-02 16:06:41,748 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-02 16:06:41,748 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-02 16:10:03,804 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 19:54:54,970 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:54:55,732 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:54:55,747 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 19:54:55,779 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:54:55,801 - kakuro_main - INFO - Database initialized
+2026-01-03 19:54:55,802 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 19:54:55,802 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 19:56:02,869 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 19:56:03,764 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:56:03,779 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 19:56:03,794 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:56:03,811 - kakuro_main - INFO - Database initialized
+2026-01-03 19:56:03,811 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 19:56:03,811 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 19:56:04,693 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 19:56:06,697 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:56:07,443 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:56:07,458 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 19:56:07,474 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:56:07,489 - kakuro_main - INFO - Database initialized
+2026-01-03 19:56:07,489 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 19:56:07,489 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 19:56:14,669 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 19:57:57,198 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:57:57,931 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:57:57,946 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 19:57:57,962 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:57:57,978 - kakuro_main - INFO - Database initialized
+2026-01-03 19:57:57,978 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 19:57:57,978 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 19:58:15,578 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 19:58:38,716 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:58:39,463 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:58:39,479 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 19:58:39,493 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 19:58:39,509 - kakuro_main - INFO - Database initialized
+2026-01-03 19:58:39,509 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 19:58:39,509 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:01:38,446 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:01:41,279 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:01:42,027 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:01:42,042 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:01:42,059 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:01:42,074 - kakuro_main - INFO - Database initialized
+2026-01-03 20:01:42,074 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:01:42,074 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:02:29,258 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:02:33,468 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:02:34,210 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:02:34,225 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:02:34,241 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:02:34,455 - kakuro_main - INFO - Database initialized
+2026-01-03 20:02:34,455 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:02:34,455 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:02:34,468 - kakuro_generator - INFO - Pool 'very_easy' low (0/50). Generating batch...
+2026-01-03 20:02:34,688 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-03 20:02:34,697 - kakuro_generator - INFO - Pool 'easy' low (0/50). Generating batch...
+2026-01-03 20:02:35,106 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:02:35,118 - kakuro_generator - INFO - Pool 'medium' low (0/50). Generating batch...
+2026-01-03 20:02:35,882 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:02:35,897 - kakuro_generator - INFO - Pool 'hard' low (0/50). Generating batch...
+2026-01-03 20:02:36,553 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:02:46,571 - kakuro_generator - INFO - Pool 'very_easy' low (5/50). Generating batch...
+2026-01-03 20:02:46,792 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-03 20:02:46,805 - kakuro_generator - INFO - Pool 'easy' low (5/50). Generating batch...
+2026-01-03 20:02:47,506 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:02:47,520 - kakuro_generator - INFO - Pool 'medium' low (5/50). Generating batch...
+2026-01-03 20:02:48,170 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:02:48,185 - kakuro_generator - INFO - Pool 'hard' low (5/50). Generating batch...
+2026-01-03 20:02:48,855 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:02:51,879 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:06:53,149 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:06:53,899 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:06:53,914 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:06:53,934 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:06:53,949 - kakuro_main - INFO - Database initialized
+2026-01-03 20:06:53,949 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:06:53,949 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:06:54,004 - kakuro_generator - INFO - Pool 'very_easy' low (9/50). Generating batch...
+2026-01-03 20:06:54,375 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-03 20:06:54,383 - kakuro_generator - INFO - Pool 'easy' low (10/50). Generating batch...
+2026-01-03 20:06:55,149 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:06:55,166 - kakuro_generator - INFO - Pool 'medium' low (10/50). Generating batch...
+2026-01-03 20:06:56,312 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:06:56,324 - kakuro_generator - INFO - Pool 'hard' low (10/50). Generating batch...
+2026-01-03 20:06:56,981 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:07:06,999 - kakuro_generator - INFO - Pool 'very_easy' low (14/50). Generating batch...
+2026-01-03 20:07:07,160 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-03 20:07:07,173 - kakuro_generator - INFO - Pool 'easy' low (15/50). Generating batch...
+2026-01-03 20:07:08,332 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:08,344 - kakuro_generator - INFO - Pool 'medium' low (15/50). Generating batch...
+2026-01-03 20:07:09,286 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:07:09,300 - kakuro_generator - INFO - Pool 'hard' low (15/50). Generating batch...
+2026-01-03 20:07:09,973 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:07:14,068 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:07:15,365 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:15,379 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:07:15,398 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:15,414 - kakuro_main - INFO - Database initialized
+2026-01-03 20:07:15,414 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:07:15,415 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:07:15,469 - kakuro_generator - INFO - Pool 'very_easy' low (19/50). Generating batch...
+2026-01-03 20:07:15,561 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-03 20:07:15,579 - kakuro_generator - INFO - Pool 'easy' low (20/50). Generating batch...
+2026-01-03 20:07:16,389 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:16,403 - kakuro_generator - INFO - Pool 'medium' low (20/50). Generating batch...
+2026-01-03 20:07:17,010 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:07:17,025 - kakuro_generator - INFO - Pool 'hard' low (20/50). Generating batch...
+2026-01-03 20:07:17,411 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:07:17,442 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:07:18,336 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:18,351 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:07:22,624 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:22,641 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:07:22,658 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:22,673 - kakuro_main - INFO - Database initialized
+2026-01-03 20:07:22,673 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:07:22,674 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:07:22,687 - kakuro_generator - INFO - Pool 'very_easy' low (24/50). Generating batch...
+2026-01-03 20:07:23,115 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-03 20:07:23,132 - kakuro_generator - INFO - Pool 'easy' low (25/50). Generating batch...
+2026-01-03 20:07:23,727 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:07:23,733 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:24,599 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:24,616 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:07:24,630 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:24,645 - kakuro_main - INFO - Database initialized
+2026-01-03 20:07:24,645 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:07:24,645 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:07:24,658 - kakuro_generator - INFO - Pool 'very_easy' low (29/50). Generating batch...
+2026-01-03 20:07:24,916 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-03 20:07:24,923 - kakuro_generator - INFO - Pool 'easy' low (30/50). Generating batch...
+2026-01-03 20:07:25,431 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:25,437 - kakuro_generator - INFO - Pool 'medium' low (25/50). Generating batch...
+2026-01-03 20:07:26,489 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:07:26,501 - kakuro_generator - INFO - Pool 'hard' low (25/50). Generating batch...
+2026-01-03 20:07:26,969 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:07:27,060 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:07:29,741 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:30,492 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:30,507 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:07:30,523 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:07:30,538 - kakuro_main - INFO - Database initialized
+2026-01-03 20:07:30,538 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:07:30,539 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:07:30,551 - kakuro_generator - INFO - Pool 'very_easy' low (33/50). Generating batch...
+2026-01-03 20:07:30,762 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-03 20:07:30,773 - kakuro_generator - INFO - Pool 'easy' low (35/50). Generating batch...
+2026-01-03 20:07:31,419 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:31,429 - kakuro_generator - INFO - Pool 'medium' low (30/50). Generating batch...
+2026-01-03 20:07:32,074 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:07:32,083 - kakuro_generator - INFO - Pool 'hard' low (30/50). Generating batch...
+2026-01-03 20:07:32,782 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:07:42,797 - kakuro_generator - INFO - Pool 'very_easy' low (37/50). Generating batch...
+2026-01-03 20:07:42,905 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-03 20:07:42,916 - kakuro_generator - INFO - Pool 'easy' low (40/50). Generating batch...
+2026-01-03 20:07:43,490 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:43,499 - kakuro_generator - INFO - Pool 'medium' low (35/50). Generating batch...
+2026-01-03 20:07:44,164 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:07:44,177 - kakuro_generator - INFO - Pool 'hard' low (35/50). Generating batch...
+2026-01-03 20:07:44,922 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:07:54,938 - kakuro_generator - INFO - Pool 'very_easy' low (42/50). Generating batch...
+2026-01-03 20:07:55,251 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-03 20:07:55,278 - kakuro_generator - INFO - Pool 'easy' low (45/50). Generating batch...
+2026-01-03 20:07:56,203 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-03 20:07:56,217 - kakuro_generator - INFO - Pool 'medium' low (40/50). Generating batch...
+2026-01-03 20:07:56,871 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:07:56,886 - kakuro_generator - INFO - Pool 'hard' low (40/50). Generating batch...
+2026-01-03 20:07:57,571 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:08:02,866 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:08:03,922 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:08:03,938 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:08:03,956 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:08:03,973 - kakuro_main - INFO - Database initialized
+2026-01-03 20:08:03,973 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:08:03,973 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:08:04,001 - kakuro_generator - INFO - Pool 'very_easy' low (46/50). Generating batch...
+2026-01-03 20:08:04,510 - kakuro_generator - INFO - Generated 2 puzzles for 'very_easy'
+2026-01-03 20:08:04,518 - kakuro_generator - INFO - Pool 'medium' low (45/50). Generating batch...
+2026-01-03 20:08:05,423 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-03 20:08:05,431 - kakuro_generator - INFO - Pool 'hard' low (45/50). Generating batch...
+2026-01-03 20:08:06,095 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-03 20:08:07,368 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:08:08,435 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:08:08,451 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-03 20:08:08,470 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-03 20:08:08,486 - kakuro_main - INFO - Database initialized
+2026-01-03 20:08:08,486 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-03 20:08:08,486 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-03 20:08:08,499 - kakuro_generator - INFO - Pool 'very_easy' low (48/50). Generating batch...
+2026-01-03 20:08:08,757 - kakuro_generator - INFO - Generated 1 puzzles for 'very_easy'
+2026-01-03 20:08:09,970 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-03 20:08:11,126 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:30:28,400 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:30:29,151 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:30:29,183 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:30:29,261 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:30:29,284 - kakuro_main - INFO - Database initialized
+2026-01-04 23:30:29,284 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:30:29,284 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:30:29,298 - kakuro_generator - INFO - Pool 'very_easy' low (49/50). Generating batch...
+2026-01-04 23:30:29,530 - kakuro_generator - INFO - Generated 1 puzzles for 'very_easy'
+2026-01-04 23:34:13,157 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:41:11,230 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:41:11,973 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:41:11,988 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:41:12,002 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:41:12,018 - kakuro_main - INFO - Database initialized
+2026-01-04 23:41:12,018 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:41:12,018 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:43:02,338 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:43:09,910 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:09,926 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:43:09,941 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:09,957 - kakuro_main - INFO - Database initialized
+2026-01-04 23:43:09,957 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:43:09,957 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:43:15,842 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:43:18,789 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:19,540 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:19,556 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:43:19,572 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:19,587 - kakuro_main - INFO - Database initialized
+2026-01-04 23:43:19,587 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:43:19,588 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:43:39,057 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:43:40,000 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:40,015 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:43:40,031 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:40,049 - kakuro_main - INFO - Database initialized
+2026-01-04 23:43:40,049 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:43:40,050 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:43:41,914 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:43:43,009 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:43,027 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:43:43,043 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:43,059 - kakuro_main - INFO - Database initialized
+2026-01-04 23:43:43,059 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:43:43,059 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:43:44,929 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:43:45,989 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:46,004 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:43:46,020 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:46,036 - kakuro_main - INFO - Database initialized
+2026-01-04 23:43:46,036 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:43:46,036 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:43:46,371 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:43:48,238 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:49,003 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:49,018 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:43:49,034 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:43:49,051 - kakuro_main - INFO - Database initialized
+2026-01-04 23:43:49,051 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:43:49,051 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:45:14,320 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:47:59,186 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:47:59,935 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:47:59,951 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:47:59,966 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:47:59,986 - kakuro_main - INFO - Database initialized
+2026-01-04 23:47:59,986 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:47:59,986 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:51:10,321 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:51:15,616 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:51:16,373 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:51:16,389 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:51:16,404 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:51:16,420 - kakuro_main - INFO - Database initialized
+2026-01-04 23:51:16,420 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:51:16,421 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:54:33,619 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:54:36,199 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:54:36,944 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:54:36,959 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:54:36,976 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:54:36,992 - kakuro_main - INFO - Database initialized
+2026-01-04 23:54:36,992 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:54:36,992 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:54:43,185 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:55:54,865 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:55:55,641 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:55:55,656 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:55:55,673 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:55:55,690 - kakuro_main - INFO - Database initialized
+2026-01-04 23:55:55,691 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:55:55,691 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:57:52,808 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:57:53,732 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:57:53,748 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:57:53,762 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:57:53,779 - kakuro_main - INFO - Database initialized
+2026-01-04 23:57:53,779 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:57:53,779 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:57:59,988 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:58:03,774 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:58:04,529 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:58:04,544 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:58:04,560 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:58:04,575 - kakuro_main - INFO - Database initialized
+2026-01-04 23:58:04,576 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:58:04,576 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:58:40,543 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-04 23:58:41,520 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:58:41,535 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-04 23:58:41,551 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-04 23:58:41,567 - kakuro_main - INFO - Database initialized
+2026-01-04 23:58:41,567 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-04 23:58:41,568 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-04 23:59:56,382 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 00:03:17,755 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 00:03:18,505 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 00:03:18,521 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 00:03:18,537 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 00:03:18,553 - kakuro_main - INFO - Database initialized
+2026-01-05 00:03:18,553 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 00:03:18,554 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 00:06:50,346 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 00:07:04,835 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 00:07:05,610 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 00:07:05,625 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 00:07:05,641 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 00:07:05,656 - kakuro_main - INFO - Database initialized
+2026-01-05 00:07:05,656 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 00:07:05,657 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 00:14:03,366 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:47:36,790 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:47:37,550 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:47:37,572 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:47:37,598 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:47:37,621 - kakuro_main - INFO - Migrating database: Adding times_used to puzzle_templates table
+2026-01-05 09:47:37,624 - kakuro_main - INFO - Database initialized
+2026-01-05 09:47:37,625 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:47:37,625 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:49:22,310 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:49:23,682 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:49:23,698 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:49:23,717 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:49:23,733 - kakuro_main - INFO - Database initialized
+2026-01-05 09:49:23,733 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:49:23,733 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:49:30,167 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:49:31,143 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:49:31,158 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:49:31,177 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:49:31,193 - kakuro_main - INFO - Database initialized
+2026-01-05 09:49:31,193 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:49:31,193 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:51:52,567 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:51:53,819 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:51:53,835 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:51:53,851 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:51:53,870 - kakuro_main - INFO - Database initialized
+2026-01-05 09:51:53,871 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:51:53,871 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:51:53,885 - kakuro_generator - ERROR - Error in Generator Service loop: (sqlite3.OperationalError) no such column: puzzle_templates.times_skipped
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT puzzle_templates.id AS puzzle_templates_id, puzzle_templates.width AS puzzle_templates_width, puzzle_templates.height AS puzzle_templates_height, puzzle_templates.difficulty AS puzzle_templates_difficulty, puzzle_templates.grid AS puzzle_templates_grid, puzzle_templates.solution AS puzzle_templates_solution, puzzle_templates.seed AS puzzle_templates_seed, puzzle_templates.created_at AS puzzle_templates_created_at, puzzle_templates.times_used AS puzzle_templates_times_used, puzzle_templates.times_skipped AS puzzle_templates_times_skipped 
+FROM puzzle_templates 
+WHERE puzzle_templates.difficulty = ? AND puzzle_templates.times_used < ?) AS anon_1]
+[parameters: ('very_easy', 20)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: puzzle_templates.times_skipped
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\python\generator_service.py", line 51, in _run_loop
+    self._check_and_refill_pools()
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\python\generator_service.py", line 96, in _check_and_refill_pools
+    ).count()
+      ^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 3146, in count
+    self._legacy_from_self(col).enable_eagerloads(False).scalar()
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2835, in scalar
+    ret = self.one()
+          ^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2808, in one
+    return self._iter().one()  # type: ignore
+           ^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 527, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: puzzle_templates.times_skipped
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT puzzle_templates.id AS puzzle_templates_id, puzzle_templates.width AS puzzle_templates_width, puzzle_templates.height AS puzzle_templates_height, puzzle_templates.difficulty AS puzzle_templates_difficulty, puzzle_templates.grid AS puzzle_templates_grid, puzzle_templates.solution AS puzzle_templates_solution, puzzle_templates.seed AS puzzle_templates_seed, puzzle_templates.created_at AS puzzle_templates_created_at, puzzle_templates.times_used AS puzzle_templates_times_used, puzzle_templates.times_skipped AS puzzle_templates_times_skipped 
+FROM puzzle_templates 
+WHERE puzzle_templates.difficulty = ? AND puzzle_templates.times_used < ?) AS anon_1]
+[parameters: ('very_easy', 20)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-01-05 09:52:03,977 - kakuro_generator - ERROR - Error in Generator Service loop: (sqlite3.OperationalError) no such column: puzzle_templates.times_skipped
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT puzzle_templates.id AS puzzle_templates_id, puzzle_templates.width AS puzzle_templates_width, puzzle_templates.height AS puzzle_templates_height, puzzle_templates.difficulty AS puzzle_templates_difficulty, puzzle_templates.grid AS puzzle_templates_grid, puzzle_templates.solution AS puzzle_templates_solution, puzzle_templates.seed AS puzzle_templates_seed, puzzle_templates.created_at AS puzzle_templates_created_at, puzzle_templates.times_used AS puzzle_templates_times_used, puzzle_templates.times_skipped AS puzzle_templates_times_skipped 
+FROM puzzle_templates 
+WHERE puzzle_templates.difficulty = ? AND puzzle_templates.times_used < ?) AS anon_1]
+[parameters: ('very_easy', 20)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: puzzle_templates.times_skipped
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\python\generator_service.py", line 51, in _run_loop
+    self._check_and_refill_pools()
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\python\generator_service.py", line 96, in _check_and_refill_pools
+    ).count()
+      ^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 3146, in count
+    self._legacy_from_self(col).enable_eagerloads(False).scalar()
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2835, in scalar
+    ret = self.one()
+          ^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2808, in one
+    return self._iter().one()  # type: ignore
+           ^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 527, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: puzzle_templates.times_skipped
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT puzzle_templates.id AS puzzle_templates_id, puzzle_templates.width AS puzzle_templates_width, puzzle_templates.height AS puzzle_templates_height, puzzle_templates.difficulty AS puzzle_templates_difficulty, puzzle_templates.grid AS puzzle_templates_grid, puzzle_templates.solution AS puzzle_templates_solution, puzzle_templates.seed AS puzzle_templates_seed, puzzle_templates.created_at AS puzzle_templates_created_at, puzzle_templates.times_used AS puzzle_templates_times_used, puzzle_templates.times_skipped AS puzzle_templates_times_skipped 
+FROM puzzle_templates 
+WHERE puzzle_templates.difficulty = ? AND puzzle_templates.times_used < ?) AS anon_1]
+[parameters: ('very_easy', 20)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-01-05 09:52:13,984 - kakuro_generator - ERROR - Error in Generator Service loop: (sqlite3.OperationalError) no such column: puzzle_templates.times_skipped
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT puzzle_templates.id AS puzzle_templates_id, puzzle_templates.width AS puzzle_templates_width, puzzle_templates.height AS puzzle_templates_height, puzzle_templates.difficulty AS puzzle_templates_difficulty, puzzle_templates.grid AS puzzle_templates_grid, puzzle_templates.solution AS puzzle_templates_solution, puzzle_templates.seed AS puzzle_templates_seed, puzzle_templates.created_at AS puzzle_templates_created_at, puzzle_templates.times_used AS puzzle_templates_times_used, puzzle_templates.times_skipped AS puzzle_templates_times_skipped 
+FROM puzzle_templates 
+WHERE puzzle_templates.difficulty = ? AND puzzle_templates.times_used < ?) AS anon_1]
+[parameters: ('very_easy', 20)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: puzzle_templates.times_skipped
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\python\generator_service.py", line 51, in _run_loop
+    self._check_and_refill_pools()
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\python\generator_service.py", line 96, in _check_and_refill_pools
+    ).count()
+      ^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 3146, in count
+    self._legacy_from_self(col).enable_eagerloads(False).scalar()
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2835, in scalar
+    ret = self.one()
+          ^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2808, in one
+    return self._iter().one()  # type: ignore
+           ^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2249, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\orm\context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 527, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\Laurenz\PythonProjects\KakuroGenerator\backend\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: puzzle_templates.times_skipped
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT puzzle_templates.id AS puzzle_templates_id, puzzle_templates.width AS puzzle_templates_width, puzzle_templates.height AS puzzle_templates_height, puzzle_templates.difficulty AS puzzle_templates_difficulty, puzzle_templates.grid AS puzzle_templates_grid, puzzle_templates.solution AS puzzle_templates_solution, puzzle_templates.seed AS puzzle_templates_seed, puzzle_templates.created_at AS puzzle_templates_created_at, puzzle_templates.times_used AS puzzle_templates_times_used, puzzle_templates.times_skipped AS puzzle_templates_times_skipped 
+FROM puzzle_templates 
+WHERE puzzle_templates.difficulty = ? AND puzzle_templates.times_used < ?) AS anon_1]
+[parameters: ('very_easy', 20)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-01-05 09:52:14,978 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:52:15,815 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:52:15,831 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:52:15,849 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:52:15,865 - kakuro_main - INFO - Migrating database: Adding times_skipped to puzzle_templates table
+2026-01-05 09:52:15,873 - kakuro_main - INFO - Database initialized
+2026-01-05 09:52:15,873 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:52:15,874 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:55:11,510 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:55:12,524 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:12,539 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:55:12,557 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:12,573 - kakuro_main - INFO - Database initialized
+2026-01-05 09:55:12,573 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:55:12,573 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:55:13,233 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:55:14,477 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:14,493 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:55:14,512 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:14,528 - kakuro_main - INFO - Database initialized
+2026-01-05 09:55:14,528 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:55:14,528 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:55:15,188 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:55:16,443 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:16,459 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:55:16,474 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:16,491 - kakuro_main - INFO - Database initialized
+2026-01-05 09:55:16,491 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:55:16,491 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:55:22,929 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:55:23,883 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:23,899 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:55:23,918 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:55:23,934 - kakuro_main - INFO - Database initialized
+2026-01-05 09:55:23,935 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:55:23,935 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:56:50,872 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:56:53,332 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:56:53,350 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:56:53,368 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:56:53,385 - kakuro_main - INFO - Database initialized
+2026-01-05 09:56:53,385 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:56:53,385 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:56:54,056 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:56:55,286 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:56:55,302 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:56:55,321 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:56:55,338 - kakuro_main - INFO - Database initialized
+2026-01-05 09:56:55,338 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:56:55,339 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:56:57,085 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:56:58,226 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:56:58,241 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:56:58,262 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:56:58,278 - kakuro_main - INFO - Database initialized
+2026-01-05 09:56:58,278 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:56:58,278 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:57:05,674 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:57:06,654 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:57:06,670 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:57:06,690 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:57:06,707 - kakuro_main - INFO - Database initialized
+2026-01-05 09:57:06,707 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:57:06,708 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:57:30,082 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:57:31,158 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:57:31,175 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:57:31,195 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:57:31,211 - kakuro_main - INFO - Database initialized
+2026-01-05 09:57:31,211 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:57:31,212 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 09:57:31,881 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 09:57:33,103 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:57:33,119 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 09:57:33,135 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 09:57:33,152 - kakuro_main - INFO - Database initialized
+2026-01-05 09:57:33,152 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 09:57:33,153 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:05:29,101 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:05:30,153 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:05:30,169 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:05:30,189 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:05:30,204 - kakuro_main - INFO - Database initialized
+2026-01-05 10:05:30,205 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:05:30,205 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:06:18,419 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:06:19,677 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:06:19,693 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:06:19,714 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:06:19,730 - kakuro_main - INFO - Database initialized
+2026-01-05 10:06:19,730 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:06:19,731 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:07:04,531 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:07:05,696 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:05,712 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:07:05,732 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:05,748 - kakuro_main - INFO - Database initialized
+2026-01-05 10:07:05,748 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:07:05,748 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:07:12,060 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:07:13,178 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:13,194 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:07:13,213 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:13,229 - kakuro_main - INFO - Database initialized
+2026-01-05 10:07:13,229 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:07:13,229 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:07:15,848 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:07:17,129 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:17,144 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:07:17,164 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:17,181 - kakuro_main - INFO - Database initialized
+2026-01-05 10:07:17,181 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:07:17,182 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:07:21,762 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:07:23,061 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:23,078 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:07:23,098 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:23,115 - kakuro_main - INFO - Database initialized
+2026-01-05 10:07:23,115 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:07:23,115 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:07:27,693 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:07:28,552 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:28,569 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:07:28,588 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:28,605 - kakuro_main - INFO - Database initialized
+2026-01-05 10:07:28,605 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:07:28,605 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:07:34,069 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:07:35,012 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:35,028 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:07:35,045 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:07:35,061 - kakuro_main - INFO - Database initialized
+2026-01-05 10:07:35,062 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:07:35,062 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:10:09,776 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:10:10,704 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:10:10,720 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:10:10,735 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:10:10,753 - kakuro_main - INFO - Database initialized
+2026-01-05 10:10:10,754 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:10:10,754 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:10:49,899 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:10:51,186 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:10:51,202 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:10:51,217 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:10:51,233 - kakuro_main - INFO - Database initialized
+2026-01-05 10:10:51,233 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:10:51,233 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:10:52,881 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:10:54,171 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:10:54,188 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:10:54,204 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:10:54,221 - kakuro_main - INFO - Database initialized
+2026-01-05 10:10:54,221 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:10:54,221 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:11:00,632 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:11:01,658 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:11:01,676 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:11:01,692 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:11:01,709 - kakuro_main - INFO - Database initialized
+2026-01-05 10:11:01,709 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:11:01,709 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:11:05,191 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:11:06,087 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:11:06,103 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:11:06,118 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:11:06,133 - kakuro_main - INFO - Database initialized
+2026-01-05 10:11:06,133 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:11:06,134 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:11:09,291 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:12:48,955 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:12:49,705 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:12:49,721 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:12:49,737 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:12:49,754 - kakuro_main - INFO - Database initialized
+2026-01-05 10:12:49,754 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:12:49,755 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:12:49,809 - kakuro_generator - INFO - Fresh pool 'very_easy' low (0/50, threshold=20). Generating batch...
+2026-01-05 10:12:50,652 - kakuro_generator - INFO - Generated 4 puzzles for 'very_easy'
+2026-01-05 10:12:50,660 - kakuro_generator - INFO - Fresh pool 'easy' low (0/50, threshold=20). Generating batch...
+2026-01-05 10:12:51,329 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-05 10:12:51,336 - kakuro_generator - INFO - Fresh pool 'medium' low (0/50, threshold=20). Generating batch...
+2026-01-05 10:12:55,981 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-05 10:12:55,994 - kakuro_generator - INFO - Fresh pool 'hard' low (0/50, threshold=20). Generating batch...
+2026-01-05 10:19:11,008 - kakuro_generator - INFO - Stopping Generator Service...
+2026-01-05 10:19:11,098 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-05 10:19:12,136 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:19:12,159 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 10:19:12,178 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 10:19:12,202 - kakuro_main - INFO - Database initialized
+2026-01-05 10:19:12,202 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 10:19:12,202 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 10:19:12,279 - kakuro_generator - INFO - Fresh pool 'very_easy' low (4/50, threshold=20). Generating batch...
+2026-01-05 10:19:12,799 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-05 10:19:12,811 - kakuro_generator - INFO - Fresh pool 'easy' low (5/50, threshold=20). Generating batch...
+2026-01-05 10:19:13,685 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-05 10:19:13,695 - kakuro_generator - INFO - Fresh pool 'medium' low (5/50, threshold=20). Generating batch...
+2026-01-05 10:19:19,277 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-05 10:19:19,283 - kakuro_generator - INFO - Fresh pool 'hard' low (5/50, threshold=20). Generating batch...
+2026-01-05 10:21:40,034 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-05 10:21:50,044 - kakuro_generator - INFO - Fresh pool 'very_easy' low (9/50, threshold=20). Generating batch...
+2026-01-05 10:21:50,297 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-05 10:21:50,306 - kakuro_generator - INFO - Fresh pool 'easy' low (10/50, threshold=20). Generating batch...
+2026-01-05 10:21:50,745 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-05 10:21:50,754 - kakuro_generator - INFO - Fresh pool 'medium' low (10/50, threshold=20). Generating batch...
+2026-01-05 10:22:07,991 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-05 10:22:08,002 - kakuro_generator - INFO - Fresh pool 'hard' low (10/50, threshold=20). Generating batch...
+2026-01-05 10:23:16,432 - kakuro_generator - INFO - Generated 5 puzzles for 'hard'
+2026-01-05 10:23:26,460 - kakuro_generator - INFO - Fresh pool 'very_easy' low (14/50, threshold=20). Generating batch...
+2026-01-05 10:23:28,001 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-05 10:23:28,013 - kakuro_generator - INFO - Fresh pool 'easy' low (15/50, threshold=20). Generating batch...
+2026-01-05 10:23:28,824 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-05 10:23:28,834 - kakuro_generator - INFO - Fresh pool 'medium' low (15/50, threshold=20). Generating batch...
+2026-01-05 10:23:34,355 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-05 10:23:34,359 - kakuro_generator - INFO - Fresh pool 'hard' low (15/50, threshold=20). Generating batch...
+2026-01-05 11:14:48,921 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 11:14:49,667 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 11:14:49,683 - asyncio - DEBUG - Using selector: SelectSelector
+2026-01-05 11:14:49,704 - kakuro_main - INFO - Logging initialized or re-initialized
+2026-01-05 11:14:49,721 - kakuro_main - INFO - Database initialized
+2026-01-05 11:14:49,721 - kakuro_generator - INFO - Starting Generator Service...
+2026-01-05 11:14:49,721 - kakuro_generator - INFO - Generator Service Loop Started
+2026-01-05 11:14:49,828 - kakuro_generator - INFO - Fresh pool 'very_easy' low (19/50, threshold=20). Generating batch...
+2026-01-05 11:14:50,449 - kakuro_generator - INFO - Generated 5 puzzles for 'very_easy'
+2026-01-05 11:14:50,459 - kakuro_generator - INFO - Fresh pool 'easy' low (20/50, threshold=20). Generating batch...
+2026-01-05 11:14:50,867 - kakuro_generator - INFO - Generated 5 puzzles for 'easy'
+2026-01-05 11:14:50,905 - kakuro_generator - INFO - Fresh pool 'medium' low (20/50, threshold=20). Generating batch...
+2026-01-05 11:14:53,652 - kakuro_generator - INFO - Generated 5 puzzles for 'medium'
+2026-01-05 11:14:53,666 - kakuro_generator - INFO - Fresh pool 'hard' low (15/50, threshold=20). Generating batch...
