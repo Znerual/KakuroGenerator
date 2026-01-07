@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kakuro Genius Viewer</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --grid-line: #334155;
+
+            /* Stage Colors matching C++ Logic */
+            --color-topology: #38bdf8;
+            /* Sky Blue */
+            --color-filling: #4ade80;
+            /* Green */
+            --color-unique: #fb923c;
+            /* Orange */
+            --color-diff: #a78bfa;
+            /* Purple */
+            --color-error: #ef4444;
+            /* Red */
+
+            --cell-white: #ffffff;
+            --cell-block: #000000;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar --- */
+        aside {
+            width: 340px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--grid-line);
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            margin: 0 0 1rem 0;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .file-select {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            border: 1px solid var(--grid-line);
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        /* Timeline / Phase List */
+        .timeline-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Scrollbar */
+        .timeline-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .timeline-container::-webkit-scrollbar-thumb {
+            background: var(--grid-line);
+            border-radius: 3px;
+        }
+
+        /* Accordion for Stages */
+        details.stage-group {
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--grid-line);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            overflow: hidden;
+        }
+
+        summary.stage-header {
+            padding: 0.75rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid transparent;
+            background: rgba(0, 0, 0, 0.2);
+            transition: background 0.2s;
+        }
+
+        summary.stage-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        summary.stage-header::-webkit-details-marker {
+            display: none;
+        }
+
+        /* Stage Colors */
+        .stage-topology {
+            border-left-color: var(--color-topology) !important;
+            color: var(--color-topology);
+        }
+
+        .stage-filling {
+            border-left-color: var(--color-filling) !important;
+            color: var(--color-filling);
+        }
+
+        .stage-uniqueness {
+            border-left-color: var(--color-unique) !important;
+            color: var(--color-unique);
+        }
+
+        .stage-difficulty {
+            border-left-color: var(--color-diff) !important;
+            color: var(--color-diff);
+        }
+
+        .step-item {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            transition: all 0.1s;
+        }
+
+        .step-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .step-item.active {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-left: 2px solid var(--text-primary);
+            padding-left: calc(0.75rem - 2px);
+        }
+
+        .step-substage {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .step-msg {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tag-backtrack {
+            color: var(--color-error);
+        }
+
+        .tag-alt {
+            color: var(--color-unique);
+            font-weight: bold;
+        }
+
+        /* --- Main Area --- */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .stats-overlay {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--grid-line);
+            min-width: 250px;
+            z-index: 10;
+        }
+
+        .stat-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Grid */
+        #grid-container {
+            display: grid;
+            gap: 2px;
+            background-color: var(--grid-line);
+            padding: 2px;
+            border-radius: 4px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .cell {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            position: relative;
+            user-select: none;
+        }
+
+        .cell.block {
+            background-color: var(--cell-block);
+            background-image: linear-gradient(45deg, #1e1e1e 25%, transparent 25%, transparent 50%, #1e1e1e 50%, #1e1e1e 75%, transparent 75%, transparent);
+            background-size: 8px 8px;
+        }
+
+        .cell.white {
+            background-color: var(--cell-white);
+            color: #0f172a;
+        }
+
+        .cell.highlighted {
+            box-shadow: inset 0 0 0 3px var(--color-error);
+        }
+
+        /* Ghost / Comparison Value */
+        .cell .alt-value {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.75rem;
+            color: var(--color-error);
+            font-weight: 900;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0 3px;
+            border-radius: 2px;
+        }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            bottom: 2rem;
+            background: var(--panel-bg);
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            border: 1px solid var(--grid-line);
+            width: 60%;
+            max-width: 800px;
+            z-index: 20;
+        }
+
+        .slider-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        input[type=range] {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        button.btn {
+            background: transparent;
+            border: 1px solid var(--grid-line);
+            color: var(--text-primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        button.btn:hover {
+            background: var(--text-primary);
+            color: var(--bg-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <aside>
+        <h1>Kakuro Genius</h1>
+        <select id="fileSelect" class="file-select" onchange="loadLog(this.value)">
+            <option value="" disabled selected>Select Log File...</option>
+        </select>
+
+        <div class="timeline-container" id="timelineList">
+            <!-- Injected via JS -->
+            <div style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">
+                No log loaded.
+            </div>
+        </div>
+    </aside>
+
+    <main>
+        <div class="stats-overlay">
+            <div id="stageBadge" class="stat-badge" style="background: #334155;">-</div>
+            <div style="font-size: 1.2rem; font-weight: 600;" id="substageLabel">-</div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;" id="messageLabel">-</div>
+            <div style="margin-top: 1rem; font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">
+                Step <span id="currentStepNum" style="color: var(--text-primary)">0</span> / <span
+                    id="totalSteps">0</span>
+            </div>
+            <div id="altWarning"
+                style="display:none; margin-top:0.5rem; color: var(--color-unique); font-size: 0.8rem; font-weight: bold;">
+                ⚠ Alternative Solution Found
+            </div>
+            <div id="scoreData"
+                style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
+                <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                    CANDIDATE SCORES (Lower is Better)</div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
+                    <thead>
+                        <tr
+                            style="text-align: left; color: var(--text-secondary); border-bottom: 1px solid var(--grid-line);">
+                            <th style="padding: 2px;">Val</th>
+                            <th style="padding: 2px;">H</th>
+                            <th style="padding: 2px;">V</th>
+                            <th style="padding: 2px;">Ent</th>
+                            <th style="padding: 2px;">Comb</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scoreTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="grid-container"></div>
+
+        <div class="controls">
+            <button class="btn" onclick="prevStep()">←</button>
+            <button class="btn" onclick="togglePlay()" id="playBtn">▶</button>
+            <button class="btn" onclick="nextStep()">→</button>
+            <div class="slider-container">
+                <input type="range" id="timeline" min="0" max="100" value="0" oninput="scrub(this.value)">
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentLogData = [];
+        let currentStepIndex = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        // C++ Constants Mapping
+        const STAGE_COLORS = {
+            'topology_creation': 'stage-topology',
+            'filling': 'stage-filling',
+            'uniqueness_validation': 'stage-uniqueness',
+            'difficulty_estimation': 'stage-difficulty'
+        };
+
+        const SUBSTAGE_ICONS = {
+            'backtrack': '🛑',
+            'alternative_found': '⚡',
+            'validation_failed': '❌',
+            'start': '🏁',
+            'complete': '✅'
+        };
+
+        // Initialize
+        fetch('/api/logs').then(r => r.json()).then(data => {
+            const sel = document.getElementById('fileSelect');
+            data.logs.forEach(log => {
+                const opt = document.createElement('option');
+                opt.value = log;
+                opt.innerText = log;
+                sel.appendChild(opt);
+            });
+            if (data.logs.length > 0) {
+                sel.value = data.logs[0];
+                loadLog(data.logs[0]);
+            }
+        });
+
+        function loadLog(filename) {
+            if (!filename) return;
+            fetch(`/api/logs/${filename}`)
+                .then(r => r.json())
+                .then(data => {
+                    currentLogData = data.steps;
+                    currentStepIndex = 0;
+                    stopPlay();
+                    buildTimelineUI();
+                    updateUI();
+                })
+                .catch(err => alert("Error loading log: " + err));
+        }
+
+        // Transform flat steps into hierarchical groups
+        function buildTimelineUI() {
+            const container = document.getElementById('timelineList');
+            container.innerHTML = '';
+
+            if (!currentLogData.length) return;
+
+            let currentStage = null;
+            let groupDetails = null;
+            let lastSubstage = null;
+
+            currentLogData.forEach((step, index) => {
+                // New Stage Group
+                if (step.stage !== currentStage) {
+                    currentStage = step.stage;
+                    lastSubstage = null; // Reset substage tracking
+
+                    groupDetails = document.createElement('details');
+                    groupDetails.className = 'stage-group';
+                    groupDetails.open = true; // Default open
+
+                    const summary = document.createElement('summary');
+                    summary.className = `stage-header ${STAGE_COLORS[step.stage] || ''}`;
+                    summary.innerHTML = `<span>${formatLabel(step.stage)}</span>`;
+
+                    groupDetails.appendChild(summary);
+                    container.appendChild(groupDetails);
+                }
+
+                // Optimization: Don't list every single number placement in Filling
+                // Only list when Substage changes, or it's a specific event (backtrack/fail)
+                const isInterest = (step.substage !== lastSubstage)
+                    || step.substage === 'backtrack'
+                    || step.substage === 'alternative_found'
+                    || step.substage.includes('fail');
+
+                if (isInterest) {
+                    lastSubstage = step.substage;
+                    const el = document.createElement('div');
+                    el.className = 'step-item';
+                    el.id = `step-nav-${index}`;
+
+                    const icon = SUBSTAGE_ICONS[step.substage] || '•';
+                    const extraClass = step.substage === 'backtrack' ? 'tag-backtrack' :
+                        step.substage === 'alternative_found' ? 'tag-alt' : '';
+
+                    el.innerHTML = `
+                    <div class="step-substage ${extraClass}">${icon} ${formatLabel(step.substage)}</div>
+                    <div class="step-msg">${step.message}</div>
+                `;
+                    el.onclick = () => scrub(index);
+                    groupDetails.appendChild(el);
+                }
+            });
+        }
+
+        function formatLabel(str) {
+            return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function updateUI() {
+            if (!currentLogData.length) return;
+            const step = currentLogData[currentStepIndex];
+
+            // Highlight Sidebar
+            document.querySelectorAll('.step-item').forEach(e => e.classList.remove('active'));
+
+            // Find the closest navigational item <= current index
+            let navId = `step-nav-${currentStepIndex}`;
+            let el = document.getElementById(navId);
+            // If exact step not in list (due to optimization), find previous
+            if (!el) {
+                for (let i = currentStepIndex; i >= 0; i--) {
+                    if (document.getElementById(`step-nav-${i}`)) {
+                        el = document.getElementById(`step-nav-${i}`);
+                        break;
+                    }
+                }
+            }
+            if (el) {
+                el.classList.add('active');
+                el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+
+            // Stats
+            const badge = document.getElementById('stageBadge');
+            badge.innerText = formatLabel(step.stage);
+            // Color the badge based on stage
+            if (step.stage.includes('topology')) badge.style.background = 'var(--color-topology)';
+            else if (step.stage.includes('filling')) badge.style.background = 'var(--color-filling)';
+            else if (step.stage.includes('unique')) badge.style.background = 'var(--color-unique)';
+            else if (step.stage.includes('diff')) badge.style.background = 'var(--color-diff)';
+            else badge.style.background = '#334155';
+            badge.style.color = '#000';
+
+            document.getElementById('substageLabel').innerText = formatLabel(step.substage);
+            document.getElementById('messageLabel').innerText = step.message;
+            document.getElementById('currentStepNum').innerText = currentStepIndex;
+            document.getElementById('totalSteps').innerText = currentLogData.length - 1;
+
+            // Alternative Warning
+            const altWarn = document.getElementById('altWarning');
+            if (step.substage === 'alternative_found') altWarn.style.display = 'block';
+            else altWarn.style.display = 'none';
+
+            // Slider
+            document.getElementById('timeline').max = currentLogData.length - 1;
+            document.getElementById('timeline').value = currentStepIndex;
+
+            // Grid
+            renderGrid(step);
+
+            // Scores and Ambiguity
+            const scoreData = document.getElementById('scoreData');
+            const scoreTableBody = document.getElementById('scoreTableBody');
+
+            if (step.data && step.data.candidate_scores) {
+                scoreData.style.display = 'block';
+                scoreTableBody.innerHTML = '';
+
+                step.data.candidate_scores.forEach(s => {
+                    const tr = document.createElement('tr');
+                    const isChosen = s.val === step.data.chosen_val;
+                    if (isChosen) tr.style.backgroundColor = 'rgba(74, 222, 128, 0.2)';
+
+                    tr.innerHTML = `
+                        <td style="padding: 2px;">${isChosen ? '<b>' + s.val + '</b>' : s.val}</td>
+                        <td style="padding: 2px;">${s.h.toFixed(1)}</td>
+                        <td style="padding: 2px;">${s.v.toFixed(1)}</td>
+                        <td style="padding: 2px;">${s.ent.toFixed(1)}</td>
+                        <td style="padding: 2px;"><b>${s.comb.toFixed(1)}</b></td>
+                    `;
+                    scoreTableBody.appendChild(tr);
+                });
+            } else if (step.substage === 'ambiguity_rejection' && step.data && step.data.bad_cells) {
+                scoreData.style.display = 'block';
+                scoreTableBody.innerHTML = '';
+                const header = document.querySelector('#scoreData div');
+                header.innerText = 'AMBIGUOUS CELLS';
+                header.style.color = 'var(--color-error)';
+
+                step.data.bad_cells.forEach(bc => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td colspan="4" style="padding: 2px;">Cell (${bc.r}, ${bc.c})</td>
+                        <td style="padding: 2px;">Size: ${bc.domain}</td>
+                    `;
+                    scoreTableBody.appendChild(tr);
+                });
+            } else {
+                scoreData.style.display = 'none';
+                const header = document.querySelector('#scoreData div');
+                header.innerText = 'CANDIDATE SCORES (Lower is Better)';
+                header.style.color = 'var(--text-secondary)';
+            }
+        }
+
+        function renderGrid(step) {
+            const gridData = step.grid;
+            const extra = step.data || {};
+            const container = document.getElementById('grid-container');
+            container.innerHTML = '';
+
+            if (!gridData) return;
+
+            const rows = gridData.length;
+            const cols = gridData[0].length;
+
+            container.style.gridTemplateColumns = `repeat(${cols}, 44px)`;
+            container.style.gridTemplateRows = `repeat(${rows}, 44px)`;
+
+            // Parse Highlights
+            let highlights = new Set();
+            if (extra.highlighted_cells) {
+                extra.highlighted_cells.forEach(h => highlights.add(`${h[0]},${h[1]}`));
+            }
+
+            // Parse Alternative Grid (for ghost view)
+            let altValues = {};
+            if (extra.alternative_grid) {
+                extra.alternative_grid.forEach((row, r) => {
+                    row.forEach((cell, c) => {
+                        if (cell.type !== 'BLOCK' && cell.value > 0) {
+                            altValues[`${r},${c}`] = cell.value;
+                        }
+                    });
+                });
+            }
+
+            gridData.forEach((row, r) => {
+                row.forEach((cell, c) => {
+                    const el = document.createElement('div');
+                    el.className = 'cell';
+
+                    // Basic Type
+                    if (cell.type === 'BLOCK') {
+                        el.classList.add('block');
+                    } else {
+                        el.classList.add('white');
+                        if (cell.value && cell.value > 0) {
+                            el.innerText = cell.value;
+                        }
+                    }
+
+                    // Highlight
+                    if (highlights.has(`${r},${c}`)) {
+                        el.classList.add('highlighted');
+                    }
+
+                    // Ghost / Alternative Value
+                    // Only show if it differs from current and exists
+                    const key = `${r},${c}`;
+                    if (altValues[key] && altValues[key] !== cell.value) {
+                        const altEl = document.createElement('span');
+                        altEl.className = 'alt-value';
+                        altEl.innerText = altValues[key];
+                        el.appendChild(altEl);
+                        el.style.border = "1px solid var(--color-unique)";
+                    }
+
+                    container.appendChild(el);
+                });
+            });
+        }
+
+        function nextStep() {
+            if (currentLogData && currentStepIndex < currentLogData.length - 1) {
+                currentStepIndex++;
+                updateUI();
+            } else {
+                stopPlay();
+            }
+        }
+
+        function prevStep() {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                updateUI();
+            }
+        }
+
+        function scrub(val) {
+            currentStepIndex = parseInt(val);
+            updateUI();
+        }
+
+        function togglePlay() {
+            if (isPlaying) stopPlay();
+            else startPlay();
+        }
+
+        function startPlay() {
+            if (!currentLogData) return;
+            isPlaying = true;
+            document.getElementById('playBtn').innerText = '⏸';
+            playInterval = setInterval(nextStep, 50);
+        }
+
+        function stopPlay() {
+            isPlaying = false;
+            document.getElementById('playBtn').innerText = '▶';
+            if (playInterval) clearInterval(playInterval);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextStep();
+            if (e.key === 'ArrowLeft') prevStep();
+            if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+        });
+    </script>
+</body>
+
+</html>
