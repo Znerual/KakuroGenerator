@@ -138,10 +138,12 @@ bool CSPSolver::prepare_new_topology(const TopologyParams &topo_params) {
 
 bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
   const int MAX_FILL_ATTEMPTS = 100;
+  const int MAX_REPAIR_ATTEMPTS = 5;
   int consecutive_repair_failures = 0;
   int fills_for_this_topology = 0;
 
-  for (int fill_attempt = 0; fill_attempt < MAX_FILL_ATTEMPTS; fill_attempt++) {
+  for (int fill_attempt = 0;
+       fill_attempt < MAX_FILL_ATTEMPTS * MAX_REPAIR_ATTEMPTS; fill_attempt++) {
     board->reset_values();
 
     // 1. Fill the board with values
@@ -185,9 +187,10 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
       if (consecutive_repair_failures >= 3)
         break;
 
-      if (fills_for_this_topology < 10) {
+      if (fills_for_this_topology < MAX_FILL_ATTEMPTS) {
         LOG_DEBUG("  Non-unique solution. Retrying fill for current topology ("
-                  << fills_for_this_topology << "/10)");
+                  << fills_for_this_topology << "/" << MAX_FILL_ATTEMPTS
+                  << ")");
         continue;
       }
 
