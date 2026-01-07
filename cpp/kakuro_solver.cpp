@@ -493,28 +493,7 @@ bool CSPSolver::backtrack_fill(
     if (is_consistent_number(var, val, assignment, ignore_clues)) {
       assignment[var] = val;
 
-#if KAKURO_ENABLE_LOGGING
-      if (board->logger->is_enabled() && (node_count % 10 == 0)) {
-        std::ostringstream extra;
-        extra << "{\"candidate_scores\": [";
-        for (size_t i = 0; i < last_candidate_scores.size(); i++) {
-          const auto &s = last_candidate_scores[i];
-          extra << "{\"val\":" << s.value << ",\"h\":" << s.h_score
-                << ",\"v\":" << s.v_score << ",\"ent\":" << s.entropy
-                << ",\"w\":" << s.weight << ",\"comb\":" << s.combined << "}";
-          if (i < last_candidate_scores.size() - 1)
-            extra << ",";
-        }
-        extra << "], \"chosen_val\": " << val << "}";
 
-        board->logger->log_step(
-            GenerationLogger::STAGE_FILLING,
-            GenerationLogger::SUBSTAGE_NUMBER_PLACEMENT,
-            "Trying value " + std::to_string(val) + " at (" +
-                std::to_string(var->r) + "," + std::to_string(var->c) + ")",
-            board->get_grid_state(&assignment), extra.str());
-      }
-#endif
 
       if (backtrack_fill(assignment, node_count, max_nodes, weights,
                          ignore_clues, partition_preference,
@@ -635,7 +614,7 @@ bool CSPSolver::has_high_global_ambiguity() {
       if (board->logger->is_enabled()) {
         std::vector<std::pair<int, int>> highlights;
         std::ostringstream extra;
-        extra << "{\"bad_cells\": [";
+        extra << "{\"bc\": [";
         int b_count = 0;
         for (Cell *bc : board->white_cells) {
           int d = get_domain_size(bc, nullptr, false);
@@ -644,7 +623,7 @@ bool CSPSolver::has_high_global_ambiguity() {
             if (b_count > 0)
               extra << ",";
             extra << "{\"r\":" << bc->r << ",\"c\":" << bc->c
-                  << ",\"domain\":" << d << "}";
+                  << ",\"d\":" << d << "}";
             b_count++;
           }
         }
@@ -1124,12 +1103,6 @@ void CSPSolver::calculate_clues() {
 std::pair<UniquenessResult,
           std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>>
 CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
-#if KAKURO_ENABLE_LOGGING
-  board->logger->log_step(
-      GenerationLogger::STAGE_UNIQUENESS, GenerationLogger::SUBSTAGE_START,
-      "Checking uniqueness with max_nodes=" + std::to_string(max_nodes),
-      board->get_grid_state());
-#endif
   LOG_DEBUG("  Checking uniqueness using Logical Estimator...");
 
   // 1. Back up current solution
@@ -1158,19 +1131,6 @@ CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
   }
 
   if (!found.empty()) {
-#if KAKURO_ENABLE_LOGGING
-    std::vector<std::pair<int, int>> highlights;
-    for (Cell *c : board->white_cells) {
-      if (original_sol.count(c) &&
-          found[0].at({c->r, c->c}) != original_sol[c]) {
-        highlights.push_back({c->r, c->c});
-      }
-    }
-    board->logger->log_step_with_highlights(
-        GenerationLogger::STAGE_UNIQUENESS, "conflict_summary",
-        "Multiple solutions found. Original solution shown with highlights.",
-        board->get_grid_state(&original_sol), highlights);
-#endif
     return {UniquenessResult::MULTIPLE, found[0]};
   }
   if (timed_out)

@@ -132,7 +132,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
                        {2, 6}, {6, 2}, {2, 2}, {3, 3}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
-          std::uniform_int_distribution<>(9, 12)(rng) * area / 100;
+          std::uniform_int_distribution<>(8, 12)(rng) * area / 100;
     if (!params.min_cells.has_value())
       params.min_cells = (int)(area * 0.25);
     if (!params.max_run_len.has_value())
@@ -141,11 +141,11 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.max_patch_size = 3;
   } else if (difficulty == "hard") {
     if (!params.stamps.has_value())
-      params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 5},
-                       {5, 2}, {2, 6}, {6, 2}, {2, 2}, {3, 3}};
+      params.stamps = {{2, 3}, {3, 2}, {2, 5},
+                       {5, 2}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
-          std::uniform_int_distribution<>(10, 14)(rng) * area / 100;
+          std::uniform_int_distribution<>(10, 12)(rng) * area / 100;
     if (!params.min_cells.has_value())
       params.min_cells = (int)(area * 0.25);
     if (!params.max_run_len.has_value())
