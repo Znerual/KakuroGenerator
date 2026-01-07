@@ -8,7 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(ANDROID)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -frtti -fexceptions")
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fPIC")
+    if(MSVC)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
+    else()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fPIC")
+    endif()
 endif()
 
 # Option to build Python bindings (disable for Android)
@@ -24,24 +28,16 @@ target_include_directories(kakuro_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Python bindings (only if not building for Android)
 if(BUILD_PYTHON_BINDINGS AND NOT ANDROID)
+# Set policy to prefer GLUE hints (variables passed via command line)
+    if(POLICY CMP0074)
+        cmake_policy(SET CMP0074 NEW)
+    endif()
+
     # Find Python and pybind11
-    find_package(Python COMPONENTS Interpreter Development REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
     
     # Try to find pybind11
     find_package(pybind11 CONFIG)
-    
-    if(NOT pybind11_FOUND)
-        # If pybind11 is not found, try to use Python's pybind11
-        execute_process(
-            COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir
-            OUTPUT_VARIABLE pybind11_DIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ERROR_QUIET
-        )
-        if(pybind11_DIR)
-            find_package(pybind11 CONFIG PATHS ${pybind11_DIR})
-        endif()
-    endif()
     
     if(pybind11_FOUND)
         pybind11_add_module(kakuro_cpp kakuro_bindings.cpp)

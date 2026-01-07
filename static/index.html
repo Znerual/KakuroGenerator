@@ -14,6 +14,16 @@
 <body>
     <div id="root">
         <div class="app-container">
+            <!-- MOBILE HEADER (Visible < 968px) -->
+            <header class="mobile-header">
+                <div class="mobile-header-content">
+                    <button id="btn-mobile-theme-toggle" class="btn-theme-toggle btn-icon-only">
+                        <span class="tool-icon">☀️</span>
+                    </button>
+                    <h1 class="mobile-brand">Kakuro</h1>
+                </div>
+            </header>
+
             <header class="header">
                 <div class="header-content">
                     <div class="header-left">
@@ -150,6 +160,37 @@
         </div>
     </div>
 
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="modal">
+        <div class="modal-content tutorial-content">
+            <h2>🎓 How to Play</h2>
+
+            <div class="tutorial-desktop">
+                <h3>Desktop Controls</h3>
+                <ul>
+                    <li>🖱️ <strong>Select:</strong> Click a cell to select it.</li>
+                    <li>✨ <strong>Multi-Select:</strong> Hold <kbd>Ctrl</kbd> + Click to select multiple cells.</li>
+                    <li>🔢 <strong>Input:</strong> Type numbers <kbd>1-9</kbd> to fill cells.</li>
+                    <li>📝 <strong>Notes:</strong> Press <kbd>N</kbd> to toggle Note Mode.</li>
+                    <li>❌ <strong>Delete:</strong> Press <kbd>Backspace</kbd> or <kbd>Delete</kbd> to clear.</li>
+                </ul>
+            </div>
+
+            <div class="tutorial-mobile">
+                <h3>Mobile Controls</h3>
+                <ul>
+                    <li>👆 <strong>Select:</strong> Tap a cell to select it.</li>
+                    <li>✨ <strong>Multi-Select:</strong> Long-press and drag to select multiple cells.</li>
+                    <li>🔢 <strong>Input:</strong> Use the onscreen numpad.</li>
+                    <li>📝 <strong>Notes:</strong> Tap the "Note Mode" button or use the numpad.</li>
+                    <li>❌ <strong>Delete:</strong> Use the delete button on the numpad.</li>
+                </ul>
+            </div>
+
+            <button onclick="closeTutorial()" class="btn-large btn-primary" style="margin-top: 1rem;">Got it!</button>
+        </div>
+    </div>
+
     <!-- Library Modal -->
     <div id="library-modal" class="modal">
         <div class="modal-content">
@@ -278,7 +319,8 @@
     <!-- MOBILE: Settings Modal (Since Sidebar is hidden) -->
     <div id="mobile-settings-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="document.getElementById('mobile-settings-modal').style.display='none'">&times;</span>
+            <span class="close"
+                onclick="document.getElementById('mobile-settings-modal').style.display='none'">&times;</span>
             <h2>🎮 New Game</h2>
             <div class="control-group">
                 <label for="mobile-difficulty-select">Difficulty Level</label>
@@ -297,9 +339,10 @@
 
     <div id="mobile-notebook-modal" class="modal">
         <div class="modal-content" style="height: 70vh; display: flex; flex-direction: column;">
-            <span class="close" onclick="document.getElementById('mobile-notebook-modal').style.display='none'">&times;</span>
+            <span class="close"
+                onclick="document.getElementById('mobile-notebook-modal').style.display='none'">&times;</span>
             <h2>📓 My Notes</h2>
-            <textarea id="mobile-notebook-textarea" class="notebook-textarea" 
+            <textarea id="mobile-notebook-textarea" class="notebook-textarea"
                 style="flex: 1; resize: none; margin-top: 10px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-color); font-size: 1rem;"
                 placeholder="Write your thoughts here..."></textarea>
         </div>
@@ -310,6 +353,10 @@
         <button class="nav-item" id="nav-play">
             <span class="nav-icon">🎮</span>
             <span class="nav-label">Play</span>
+        </button>
+        <button class="nav-item" id="nav-check">
+            <span class="nav-icon">✓</span>
+            <span class="nav-label">Check</span>
         </button>
         <button class="nav-item" id="nav-notebook">
             <span class="nav-icon">📓</span>

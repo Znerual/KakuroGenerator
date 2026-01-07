@@ -29,7 +29,11 @@ const state = {
     // Auth state
     user: null, // Current logged in user
     accessToken: null,
-    refreshToken: null
+    refreshToken: null,
+    // Analytics
+    lastActionTime: Date.now(),
+    puzzleQueue: [], // Queue of puzzles from the feed
+    currentBatchDifficulty: null // Track difficulty of current queue items
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -47,6 +51,7 @@ function init() {
     const btnNoteMode = document.getElementById('btn-note-mode');
     const btnNotebook = document.getElementById('btn-notebook');
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    const btnMobileThemeToggle = document.getElementById('btn-mobile-theme-toggle');
     console.log('btnNoteMode:', btnNoteMode);
 
     btnGenerate.addEventListener('click', fetchPuzzle);
@@ -70,6 +75,9 @@ function init() {
 
     if (btnThemeToggle) {
         btnThemeToggle.addEventListener('click', toggleTheme);
+    }
+    if (btnMobileThemeToggle) {
+        btnMobileThemeToggle.addEventListener('click', toggleTheme);
     }
 
     // Load theme from localStorage
@@ -99,9 +107,19 @@ function init() {
     // Initialize authentication
     initAuth();
 
+    // Clear queue when difficulty changes (so next 'New Game' fetches correct difficulty)
+    const diffSelect = document.getElementById('difficulty-select');
+    if (diffSelect) {
+        diffSelect.addEventListener('change', () => {
+            state.puzzleQueue = [];
+            state.currentBatchDifficulty = diffSelect.value;
+            console.log("Difficulty changed, queue cleared");
+        });
+    }
+
     fetchPuzzle();
 
-        
+
     window.addEventListener('contextmenu', (e) => {
         // If we are currently doing a long press action, block the menu
         if (state.isDragSelecting || state.isLongPressTriggered) {
@@ -110,14 +128,48 @@ function init() {
         }
     }, { capture: true }); // Capture phase ensures we catch it first
 
-   // Add Autosave to Desktop Notebook
+    // Add Autosave to Desktop Notebook
     const notebookTextarea = document.getElementById('notebook-textarea');
     if (notebookTextarea) {
         notebookTextarea.addEventListener('input', () => {
             triggerAutosave();
         });
     }
+
+    // Check if we should show the tutorial
+    checkAndShowTutorial();
 }
+
+function checkAndShowTutorial() {
+    const lastVisit = localStorage.getItem('last_visit');
+    const hasSeen = localStorage.getItem('has_seen_tutorial');
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+    // Show if never seen OR if not visited in 30 days
+    if (!hasSeen || (lastVisit && (now - parseInt(lastVisit) > THIRTY_DAYS))) {
+        // Delay slightly to let the UI settle
+        setTimeout(() => {
+            const modal = document.getElementById('tutorial-modal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }, 1000);
+    }
+
+    // Update last visit time
+    localStorage.setItem('last_visit', now.toString());
+}
+
+function closeTutorial() {
+    const modal = document.getElementById('tutorial-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        localStorage.setItem('has_seen_tutorial', 'true');
+    }
+}
+window.closeTutorial = closeTutorial; // Make globally available
+
 
 function getCellFromPoint(x, y) {
     const numpad = document.getElementById('mobile-numpad');
@@ -136,7 +188,7 @@ function getCellFromPoint(x, y) {
     if (numpad) {
         numpad.style.display = prevDisplay;
     }
-    
+
     // If we hit a child element, find the parent cell
     if (el) {
         return el.closest('.cell');
@@ -153,19 +205,24 @@ function toggleTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
-    if (btnThemeToggle) {
-        const icon = btnThemeToggle.querySelector('.tool-icon');
-        const label = btnThemeToggle.querySelector('.tool-label');
-        if (icon && label) {
+    const btnMobileThemeToggle = document.getElementById('btn-mobile-theme-toggle');
+
+    const updateButton = (btn) => {
+        if (btn) {
+            const icon = btn.querySelector('.tool-icon');
+            const label = btn.querySelector('.tool-label');
             if (theme === 'light') {
-                icon.textContent = '🌙';
-                label.textContent = 'Dark Mode';
+                if (icon) icon.textContent = '🌙';
+                if (label) label.textContent = 'Dark Mode';
             } else {
-                icon.textContent = '☀️';
-                label.textContent = 'Light Mode';
+                if (icon) icon.textContent = '☀️';
+                if (label) label.textContent = 'Light Mode';
             }
         }
-    }
+    };
+
+    updateButton(btnThemeToggle);
+    updateButton(btnMobileThemeToggle);
 }
 
 function toggleNotebook() {
@@ -188,14 +245,14 @@ function toggleNotebook() {
 function toggleNoteMode(skipRender = false) {
     state.noteMode = !state.noteMode;
     console.log('toggleNoteMode called, current state:', state.noteMode);
-    
+
     const board = document.getElementById('kakuro-board');
     if (state.noteMode) {
         board.classList.add('mode-notes');
     } else {
         board.classList.remove('mode-notes');
     }
-    
+
     const btnNoteMode = document.getElementById('btn-note-mode');
     console.log('New note mode state:', state.noteMode);
     if (btnNoteMode) {
@@ -233,7 +290,7 @@ function toggleNoteMode(skipRender = false) {
     }
 
     const navTools = document.getElementById('nav-tools');
-    if(navTools) {
+    if (navTools) {
         navTools.style.color = state.noteMode ? 'var(--success-color)' : '';
     }
 
@@ -254,21 +311,46 @@ function toggleNoteMode(skipRender = false) {
 }
 
 async function fetchPuzzle() {
-    btnGenerate.textContent = "Generating...";
+    btnGenerate.textContent = "Loading...";
     btnGenerate.disabled = true;
+
     try {
         const difficultySelect = document.getElementById('difficulty-select');
         const difficulty = difficultySelect ? difficultySelect.value : 'medium';
 
-        const res = await fetch(`/generate?difficulty=${difficulty}&verify_unique=true`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        console.log("Received data:", data);
+        // Check if we need to invalidate the queue (user changed difficulty)
+        if (state.currentBatchDifficulty !== difficulty) {
+            state.puzzleQueue = [];
+            state.currentBatchDifficulty = difficulty;
+        }
 
-        loadPuzzleIntoState(data);
+        // If queue is empty, fetch more
+        if (state.puzzleQueue.length === 0) {
+            console.log("Queue empty, fetching feed for:", difficulty);
+            const res = await fetch(`/feed?difficulty=${difficulty}&limit=5`, {
+                headers: getAuthHeaders()
+            });
+            if (!res.ok) throw new Error("Failed to fetch feed");
+            const newPuzzles = await res.json();
+
+            if (newPuzzles.length === 0) {
+                alert("No puzzles found in feed.");
+                return;
+            }
+            state.puzzleQueue.push(...newPuzzles);
+            console.log(`Added ${newPuzzles.length} puzzles to queue.`);
+        }
+
+        // Pop the next puzzle
+        const nextPuzzle = state.puzzleQueue.shift();
+        console.log("Loading puzzle from feed:", nextPuzzle);
+        loadPuzzleIntoState(nextPuzzle);
+
     } catch (e) {
         console.error("Error in fetchPuzzle:", e);
-        alert("Error generating puzzle: " + e.message);
+        // Fallback to old single generate if feed fails? 
+        // Or just show error. Let's show error for now as feed should work.
+        alert("Error loading new puzzle: " + e.message);
     } finally {
         btnGenerate.textContent = "New Puzzle";
         btnGenerate.disabled = false;
@@ -298,6 +380,8 @@ function loadPuzzleIntoState(data) {
     state.editingNote = null;
     state.showErrors = false;
     state.noteMode = false;
+    state.lastActionTime = Date.now();
+
     const btnNoteMode = document.getElementById('btn-note-mode');
     if (btnNoteMode) {
         btnNoteMode.classList.remove('active');
@@ -307,10 +391,21 @@ function loadPuzzleIntoState(data) {
         }
     }
 
+    // 2. Hide Help Text
+    const noteHelp = document.getElementById('note-help');
+    if (noteHelp) {
+        noteHelp.style.display = 'none';
+    }
+
     // Update notebook textarea if it exists
     const notebookTextarea = document.getElementById('notebook-textarea');
     if (notebookTextarea) {
         notebookTextarea.value = state.notebook;
+    }
+
+    const navNotes = document.getElementById('nav-notes');
+    if (navNotes) {
+        navNotes.style.color = '';
     }
 
     // Calculate grid bounds
@@ -345,9 +440,58 @@ function calculateGridBounds() {
     state.gridBounds = { minRow, maxRow, minCol, maxCol };
 }
 
+async function logInteraction(actionType, data = {}) {
+    // We only log if a puzzle is active. 
+    // Authentication is handled by headers; backend ignores if not logged in.
+    if (!state.puzzle) return;
+
+    const now = Date.now();
+    const duration = now - state.lastActionTime;
+    state.lastActionTime = now;
+
+    const deviceType = window.innerWidth <= 968 ? 'mobile' : 'desktop';
+    const timestamp = new Date().toISOString();
+
+    const createPayload = (itemData) => ({
+        puzzle_id: state.puzzle.id,
+        action_type: actionType,
+        row: itemData.row ?? null,
+        col: itemData.col ?? null,
+        old_value: itemData.oldValue ? String(itemData.oldValue) : null,
+        new_value: itemData.newValue ? String(itemData.newValue) : null,
+        duration_ms: duration, // Batch shares the same think-time
+        client_timestamp: timestamp,
+        device_type: deviceType
+    });
+
+    try {
+        // CHECK IF BATCH (Array) OR SINGLE
+        if (Array.isArray(data)) {
+            const batchPayload = data.map(createPayload);
+            if (batchPayload.length === 0) return;
+
+            fetch('/log/batch_interaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify(batchPayload)
+            });
+        } else {
+            // Single Interaction
+            const payload = createPayload(data || {});
+            fetch('/log/interaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify(payload)
+            });
+        }
+    } catch (e) {
+        console.error("Logging failed", e);
+    }
+}
+
 async function saveCurrentState(silent = false) {
     if (typeof silent !== 'boolean') silent = false;
-    
+
     if (!state.puzzle) return;
 
     if (!state.user) {
@@ -409,7 +553,7 @@ async function openLibrary() {
         openAuthModal('login');
         return;
     }
-    
+
     libraryModal.style.display = 'block';
     renderLibrary();
 }
@@ -484,36 +628,36 @@ function setupCellInteractions(element, r, c) {
 
         state.isLongPressTriggered = false;
         state.isDragSelecting = false;
-        state.lastTouchedRC = null; 
+        state.lastTouchedRC = null;
 
         // ============================================
         // 1. DOUBLE TAP DETECTION
         // ============================================
         const now = Date.now();
         const currentRC = `${r},${c}`;
-        
+
         // Check if same cell tapped within 300ms
         if (state.lastTapRC === currentRC && (now - state.lastTapTime) < 300) {
-            
+
             // If in Note Mode, Exit it!
             if (state.noteMode) {
-                toggleNoteMode(); 
+                toggleNoteMode();
                 if (navigator.vibrate) navigator.vibrate([50, 50]); // Double buzz feedback
                 showToast("Exited Note Mode");
             }
-            
+
             // IMPORTANT: Return early to prevent Long Press timer from starting.
             // The browser will fire a 'click' event immediately after this.
             // That 'click' will call selectCell(), which will see that Note Mode 
             // is now OFF, and perform a standard exclusive selection.
-            return; 
+            return;
         }
-        
+
         // Save tap info for next time
         state.lastTapTime = now;
         state.lastTapRC = currentRC;
         // ============================================
-        
+
         // Record Start Position (Critical for movement calculation)
         if (e.type === 'touchstart') {
             state.touchStartX = e.touches[0].clientX;
@@ -532,19 +676,19 @@ function setupCellInteractions(element, r, c) {
             // Store Origin
             const currentRC = `${r},${c}`;
             state.lastTouchedRC = currentRC;
-            
+
 
             // 1. Enable Note Mode if off
             if (!state.noteMode) {
                 // Pass true to skip renderBoard(), preventing DOM destruction
-                toggleNoteMode(true); 
+                toggleNoteMode(true);
                 if (navigator.vibrate) navigator.vibrate(50);
             }
 
             // 2. Select Origin Cell
             state.selectedCells.add(currentRC);
             state.selected = { r, c };
-            
+
             const cell = document.querySelector(`.cell[data-rc="${currentRC}"]`);
             if (cell) {
                 cell.classList.add('selected');
@@ -554,7 +698,7 @@ function setupCellInteractions(element, r, c) {
                 document.getElementById('kakuro-board').classList.add('mode-notes');
             }
 
-            
+
         }, state.longPressDuration);
     };
 
@@ -592,7 +736,7 @@ function setupCellInteractions(element, r, c) {
             if (e.cancelable) e.preventDefault();
 
             const targetCell = getCellFromPoint(clientX, clientY);
-            
+
             if (targetCell && targetCell.classList.contains('white')) {
                 const rc = targetCell.dataset.rc;
                 if (rc) {
@@ -617,7 +761,7 @@ function setupCellInteractions(element, r, c) {
         // If we were dragging, finish up
         if (state.isDragSelecting) {
             state.isDragSelecting = false;
-            
+
             // Show numpad
             if (window.innerWidth <= 768 && state.lastTouchedRC) {
                 const targetEl = document.querySelector(`.cell[data-rc="${state.lastTouchedRC}"]`);
@@ -625,14 +769,14 @@ function setupCellInteractions(element, r, c) {
                     showNumpad(targetEl);
                 }
             }
-            
+
             if (e.cancelable) e.preventDefault();
             e.stopImmediatePropagation();
         }
     };
 
     // --- Event Listeners ---
-    
+
     // 1. Context Menu: Strictly Block It (Fixes the menu appearing)
     element.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -643,7 +787,7 @@ function setupCellInteractions(element, r, c) {
     // 2. Touch Events
     // passive: false is REQUIRED to use e.preventDefault() in touchmove
     element.addEventListener('touchstart', handleStart, { passive: true });
-    element.addEventListener('touchmove', handleMove, { passive: false }); 
+    element.addEventListener('touchmove', handleMove, { passive: false });
     element.addEventListener('touchend', handleEnd);
 
     // 3. Mouse Events (Desktop)
@@ -687,7 +831,7 @@ function handleLongPress(r, c, element) {
     if (!state.noteMode) {
         toggleNoteMode(); // Use existing toggle to update UI buttons/banners
         showToast("Note Mode Active");
-        
+
         // Haptic Feedback (Vibration) - works on Android/Modern iOS
         if (navigator.vibrate) {
             navigator.vibrate(50);
@@ -709,11 +853,11 @@ function handleLongPress(r, c, element) {
         // This relies on the fact that renderBoard builds cells in order
         const allCells = document.querySelectorAll('.cell');
         const index = (r - state.gridBounds.minRow) * (state.gridBounds.maxCol - state.gridBounds.minCol + 1) + (c - state.gridBounds.minCol);
-        
+
         // Find the cell in the DOM based on flattened index is risky but usually works
         // Better approach: Add data-rc to cells in renderBoard
         const targetCell = document.querySelector(`.cell[data-rc="${r},${c}"]`);
-        
+
         if (targetCell && window.innerWidth <= 768) {
             showNumpad(targetCell);
         }
@@ -811,6 +955,16 @@ function renderBoard() {
 }
 
 function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
+    // Detect mobile layout matching CSS breakpoint
+    const isMobile = window.innerWidth <= 968;
+
+    // Desktop: 60px cell, 40px header
+    // Mobile: 45px cell, 30px header
+    const cellSize = isMobile ? 45 : 60;
+    const headerSize = isMobile ? 30 : 40;
+    const gap = 1;
+    const cellStride = cellSize + gap;
+
     // Add all boundary notes as absolutely positioned elements
     for (let r = minRow; r <= maxRow; r++) {
         for (let c = minCol; c <= maxCol; c++) {
@@ -825,9 +979,9 @@ function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
                     // Position between columns
                     const colIndex = c - minCol;
                     const rowIndex = r - minRow;
-                    // 40px for row labels, then colIndex * 60px to get to the cell, +60px to get to right edge
-                    const left = 40 + (colIndex + 1) * 60;
-                    const top = rowIndex * 60 + 30; // Center vertically in the cell
+
+                    const left = headerSize + (colIndex + 1) * cellStride;
+                    const top = rowIndex * cellStride + (cellSize / 2); // Center vertically in the cell
 
                     note.style.left = `${left}px`;
                     note.style.top = `${top}px`;
@@ -846,9 +1000,9 @@ function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
                     // Position between rows
                     const colIndex = c - minCol;
                     const rowIndex = r - minRow;
-                    // 40px for row labels, then colIndex * 60px, +30px to center horizontally
-                    const left = 40 + colIndex * 60 + 30;
-                    const top = (rowIndex + 1) * 60; // Bottom edge of current cell
+
+                    const left = headerSize + colIndex * cellStride + (cellSize / 2); // Center horizontally in the cell
+                    const top = (rowIndex + 1) * cellStride; // Bottom edge of current cell
 
                     note.style.left = `${left}px`;
                     note.style.top = `${top}px`;
@@ -873,6 +1027,10 @@ function createNoteCell(type, index, value) {
         input.className = 'note-input';
         input.value = value;
         input.maxLength = 10;
+
+        // Update state immediately on input, but don't re-render (avoids focus loss)
+        input.addEventListener('input', () => updateNoteState(type, index, input.value));
+
         input.addEventListener('blur', () => saveNote(type, index, input.value));
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -898,7 +1056,7 @@ function createNoteCell(type, index, value) {
     return cell;
 }
 
-function saveNote(type, index, value) {
+function updateNoteState(type, index, value) {
     if (type === 'row') {
         state.rowNotes[index] = value;
     } else if (type === 'col') {
@@ -906,9 +1064,13 @@ function saveNote(type, index, value) {
     } else if (type === 'cell') {
         state.cellNotes[index] = value;
     }
+    triggerAutosave();
+}
+
+function saveNote(type, index, value) {
+    updateNoteState(type, index, value);
     state.editingNote = null;
     renderBoard();
-    triggerAutosave();
 }
 
 function createGridCell(cellData, r, c) {
@@ -1014,7 +1176,7 @@ function selectCell(r, c, event) {
     if (window.innerWidth <= 768) {
         // Find the cell using the data-rc attribute
         const targetEl = document.querySelector(`.cell[data-rc="${r},${c}"]`);
-        
+
         if (targetEl) {
             showNumpad(targetEl);
         }
@@ -1027,7 +1189,7 @@ function showNumpad(cellElement) {
     const scrollY = window.scrollY;
 
     // Dimensions based on your CSS
-    const numpadWidth = 300; 
+    const numpadWidth = 300;
     const numpadHeight = 132; // (10px pad * 2) + (50px btn * 2) + 8px gap + borders
     const screenMargin = 10;  // Padding from screen edge
     const cellGap = 8;        // Gap between cell and numpad
@@ -1058,11 +1220,11 @@ function showNumpad(cellElement) {
         // Calculation: Top of cell - Gap - Height of numpad
         top = rect.top + scrollY - cellGap - numpadHeight;
     }
-    
+
     numpad.style.top = `${top}px`;
     numpad.style.left = `${left}px`; // CSS transform handles the centering offset
 
-    numpad.style.display = ''; 
+    numpad.style.display = '';
     numpad.classList.add('active');
 }
 
@@ -1201,6 +1363,14 @@ function handleNoteInput(char) {
             const boundaryKey = `${first.r},${first.c}:${second.r},${second.c}`;
             const currentValue = state.cellNotes[boundaryKey] || '';
             state.cellNotes[boundaryKey] = currentValue + char;
+
+            logInteraction('NOTE_BOUNDARY_ADD', {
+                row: first.r,
+                col: first.c,
+                oldValue: oldValue,
+                newValue: newValue
+            });
+
             renderBoard();
             triggerAutosave();
             return;
@@ -1208,10 +1378,26 @@ function handleNoteInput(char) {
     }
 
     // Otherwise, add to corner notes of all selected cells
+    const logs = [];
     state.selectedCells.forEach(key => {
-        const currentValue = state.cellNotes[key] || '';
-        state.cellNotes[key] = currentValue + char;
+        const [r, c] = key.split(',').map(Number);
+        const oldValue = state.cellNotes[key] || '';
+        const newValue = oldValue + char;
+
+        state.cellNotes[key] = newValue;
+
+        logs.push({
+            row: r,
+            col: c,
+            oldValue: oldValue,
+            newValue: newValue
+        });
     });
+
+    if (logs.length > 0) {
+        logInteraction('NOTE_ADD', logs);
+    }
+
     renderBoard();
     triggerAutosave();
 }
@@ -1242,6 +1428,12 @@ function deleteSelectedNotes() {
                 if (state.cellNotes[boundaryKey] === '') {
                     delete state.cellNotes[boundaryKey];
                 }
+                logInteraction('NOTE_BOUNDARY_REMOVE', {
+                    row: first.r,
+                    col: first.c,
+                    oldValue: oldValue,
+                    newValue: newValue
+                });
             }
             renderBoard();
             triggerAutosave();
@@ -1250,21 +1442,38 @@ function deleteSelectedNotes() {
     }
 
     // Delete last character from corner notes
+    const logs = [];
     state.selectedCells.forEach(key => {
-        const currentValue = state.cellNotes[key] || '';
-        if (currentValue.length > 0) {
-            state.cellNotes[key] = currentValue.slice(0, -1);
-            if (state.cellNotes[key] === '') {
+        const [r, c] = key.split(',').map(Number);
+        const oldValue = state.cellNotes[key] || '';
+        if (oldValue.length > 0) {
+            const newValue = oldValue.slice(0, -1);
+            if (newValue === '') {
                 delete state.cellNotes[key];
+            } else {
+                state.cellNotes[key] = newValue;
             }
+
+            logs.push({
+                row: r,
+                col: c,
+                oldValue: oldValue,
+                newValue: newValue
+            });
         }
     });
+
+    if (logs.length > 0) {
+        logInteraction('NOTE_REMOVE', logs);
+    }
     renderBoard();
     triggerAutosave();
 }
 
 function checkPuzzle() {
     if (!state.puzzle) return;
+
+    logInteraction('CHECK');
 
     state.showErrors = true;
     renderBoard();
@@ -1289,6 +1498,7 @@ function checkPuzzle() {
     if (allCorrect) {
         showToast("Perfect! Puzzle Solved!");
         state.puzzle.status = "solved";
+        logInteraction('SOLVED');
         // Show rating modal
         showRatingModal();
     } else if (allFilled) {
@@ -1393,6 +1603,7 @@ if (document.readyState === 'loading') {
 // Authentication Module
 // =====================
 
+
 function initAuth() {
     // Load tokens from localStorage
     state.accessToken = localStorage.getItem('kakuro-access-token');
@@ -1427,6 +1638,9 @@ function setupAuthEventListeners() {
     const authClose = document.getElementById('auth-close');
     const btnLoginSubmit = document.getElementById('btn-login-submit');
     const btnRegisterSubmit = document.getElementById('btn-register-submit');
+    const btnVerifySubmit = document.getElementById('btn-verify-submit');
+    const btnResendCode = document.getElementById('btn-resend-code');
+    const backToRegister = document.getElementById('back-to-register');
     const switchToRegister = document.getElementById('switch-to-register');
     const switchToLogin = document.getElementById('switch-to-login');
     const btnUser = document.getElementById('btn-user');
@@ -1452,6 +1666,21 @@ function setupAuthEventListeners() {
     }
     if (btnRegisterSubmit) {
         btnRegisterSubmit.addEventListener('click', handleRegister);
+    }
+    if (btnVerifySubmit) {
+        btnVerifySubmit.addEventListener('click', handleVerifyEmail);
+    }
+    if (btnResendCode) {
+        btnResendCode.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleResendCode();
+        });
+    }
+    if (backToRegister) {
+        backToRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('register');
+        });
     }
     if (switchToRegister) {
         switchToRegister.addEventListener('click', (e) => {
@@ -1488,6 +1717,9 @@ function setupAuthEventListeners() {
             handleOAuth(provider);
         });
     });
+
+    // Setup verification code inputs
+    setupCodeInputs();
 
     // Handle Enter key in forms
     const loginEmail = document.getElementById('login-email');
@@ -1530,15 +1762,29 @@ function closeAuthModal() {
 }
 
 function showAuthForm(form) {
+    console.log(`showAuthForm called with '${form}'`);
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
+    const verificationForm = document.getElementById('verification-form');
+
+    // Reset all
+    if (loginForm) loginForm.style.display = 'none';
+    if (registerForm) registerForm.style.display = 'none';
+    if (verificationForm) verificationForm.style.display = 'none';
 
     if (form === 'login') {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-    } else {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
+        if (loginForm) loginForm.style.display = 'block';
+    } else if (form === 'register') {
+        if (registerForm) registerForm.style.display = 'block';
+    } else if (form === 'verify' || form === 'verification') {
+        if (verificationForm) {
+            verificationForm.style.display = 'block';
+            // Focus first code input
+            setTimeout(() => {
+                const code1 = document.getElementById('code-1');
+                if (code1) code1.focus();
+            }, 100);
+        }
     }
     clearAuthErrors();
 }
@@ -1546,6 +1792,8 @@ function showAuthForm(form) {
 function clearAuthErrors() {
     const loginError = document.getElementById('login-error');
     const registerError = document.getElementById('register-error');
+    const verificationError = document.getElementById('verification-error');
+
     if (loginError) {
         loginError.textContent = '';
         loginError.classList.remove('show');
@@ -1554,6 +1802,15 @@ function clearAuthErrors() {
         registerError.textContent = '';
         registerError.classList.remove('show');
     }
+    if (verificationError) {
+        verificationError.textContent = '';
+        verificationError.classList.remove('show');
+    }
+
+    // Clear code inputs
+    document.querySelectorAll('.code-input').forEach(input => {
+        input.classList.remove('error');
+    });
 }
 
 function showAuthError(form, message) {
@@ -1561,6 +1818,133 @@ function showAuthError(form, message) {
     if (errorEl) {
         errorEl.textContent = message;
         errorEl.classList.add('show');
+    }
+
+    // Shake code inputs on verification error
+    if (form === 'verification' || form === 'verify') {
+        document.querySelectorAll('.code-input').forEach(input => {
+            input.classList.add('error');
+        });
+    }
+}
+
+function setupCodeInputs() {
+    const inputs = document.querySelectorAll('.code-input');
+    inputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            if (e.target.value.length === 1 && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+
+            // Auto-submit if all 6 filled
+            const digits = Array.from(inputs).map(i => i.value).join('');
+            if (digits.length === 6) {
+                setTimeout(() => handleVerifyEmail(), 100);
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                inputs[index - 1].focus();
+            }
+            // Auto-submit on Enter
+            const digits = Array.from(inputs).map(i => i.value).join('');
+            if (e.key === 'Enter') {
+                if (digits.length === 6) {
+                    handleVerifyEmail();
+                }
+            }
+        });
+    });
+}
+
+async function handleVerifyEmail() {
+    // Get code from inputs
+    const codeInputs = document.querySelectorAll('.code-input');
+    const code = Array.from(codeInputs).map(input => input.value).join('');
+
+    if (code.length !== 6) {
+        showAuthError('verification', 'Please enter the complete 6-digit code');
+        return;
+    }
+
+    // Disable inputs during verification
+    codeInputs.forEach(input => input.disabled = true);
+    const btnVerify = document.getElementById('btn-verify-submit');
+    if (btnVerify) {
+        btnVerify.disabled = true;
+        btnVerify.textContent = "Verifying...";
+    }
+
+    try {
+        const res = await fetch('/auth/verify-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: pendingVerificationEmail,
+                code
+            })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('Email verified! You are now logged in.');
+
+            // 1. Set tokens in localStorage and state
+            setTokens(data.access_token, data.refresh_token);
+
+            // 2. Set user data in state
+            state.user = data.user;
+
+            // 3. Update the UI buttons (Hide Login/Register, Show User Menu)
+            updateAuthUI();
+
+            // 4. Close the modal
+            closeAuthModal();
+        } else {
+            codeInputs.forEach(input => input.disabled = false);
+            showAuthError('verification', data.detail || 'Invalid verification code');
+
+            // Clear inputs and focus first one
+            codeInputs.forEach(input => input.value = '');
+            codeInputs[0].focus();
+        }
+    } catch (e) {
+        codeInputs.forEach(input => input.disabled = false);
+        showAuthError('verification', 'Network error. Please try again.');
+        console.error(e);
+    } finally {
+        if (btnVerify) {
+            btnVerify.disabled = false;
+            btnVerify.textContent = "Verify Email";
+        }
+    }
+}
+
+async function handleResendCode() {
+    if (!pendingVerificationEmail) return;
+
+    try {
+        const res = await fetch('/auth/resend-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: pendingVerificationEmail })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast(data.message || 'Verification code resent!');
+            // Clear inputs and focus first one
+            const codeInputs = document.querySelectorAll('.code-input');
+            codeInputs.forEach(input => input.value = '');
+            if (codeInputs[0]) codeInputs[0].focus();
+        } else {
+            showAuthError('verification', data.detail || 'Failed to resend code');
+        }
+    } catch (e) {
+        showAuthError('verification', 'Network error. Please try again.');
     }
 }
 
@@ -1580,6 +1964,27 @@ async function handleLogin() {
             body: JSON.stringify({ email, password })
         });
 
+        if (res.status === 403) {
+            console.log("Login: Unverified account detected. Switching to verification.");
+            // Unverified account
+            // Don't close modal, just switch view
+            pendingVerificationEmail = email;
+
+            // Update display text
+            const displayEl = document.getElementById('verify-email-display');
+            if (displayEl) displayEl.textContent = email;
+
+            // Open verification
+            if (typeof openAuthModal === 'function') {
+                openAuthModal('verify');
+            } else {
+                showAuthForm('verify');
+            }
+
+            showAuthError('verify', "Your account is not verified. Please check your email for the code.");
+            return;
+        }
+
         const data = await res.json();
 
         if (res.ok) {
@@ -1587,6 +1992,9 @@ async function handleLogin() {
             await fetchUserProfile();
             closeAuthModal();
             showToast('Welcome back!');
+            // Assuming login-form exists and can be reset
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) loginForm.reset();
         } else {
             showAuthError('login', data.detail || 'Login failed');
         }
@@ -1617,13 +2025,47 @@ async function handleRegister() {
             body: JSON.stringify({ username, email, password })
         });
 
+        if (res.status === 403) {
+            console.log("Register: Account exists but unverified. Switching to verification.");
+            // Account exists but unverified, or new registration requires verification
+            pendingVerificationEmail = email;
+
+            // Update display text
+            const displayEl = document.getElementById('verify-email-display');
+            if (displayEl) displayEl.textContent = email;
+
+            // Open verification
+            if (typeof openAuthModal === 'function') {
+                openAuthModal('verify');
+            } else {
+                showAuthForm('verify');
+            }
+
+            showAuthError('verify', "Account created/exists but is unverified. Please enter the code sent to your email.");
+            return;
+        }
+
         const data = await res.json();
 
         if (res.ok) {
-            setTokens(data.access_token, data.refresh_token);
-            await fetchUserProfile();
-            closeAuthModal();
-            showToast('Account created! Welcome!');
+            // If registration immediately logs in and verifies
+            if (data.access_token && data.refresh_token) {
+                setTokens(data.access_token, data.refresh_token);
+                await fetchUserProfile();
+                closeAuthModal();
+                showToast('Account created! Welcome!');
+            } else {
+                // If registration requires email verification
+                closeAuthModal(); // Close register modal
+                openAuthModal('verify'); // Open verify modal
+                const verifyEmailInput = document.getElementById('verify-email');
+                if (verifyEmailInput) verifyEmailInput.value = email;
+                pendingVerificationEmail = email; // Store email for resend/verify
+                showAuthError('verify', data.message || 'Registration successful! Please verify your email.');
+            }
+            // Assuming register-form exists and can be reset
+            const registerForm = document.getElementById('register-form');
+            if (registerForm) registerForm.reset();
         } else {
             showAuthError('register', data.detail || 'Registration failed');
         }
@@ -1733,376 +2175,8 @@ function updateAuthUI() {
     }
 }
 
-// Store the email for verification
-let pendingVerificationEmail = '';
+// End of consolidated auth module.
 
-// Add to existing setupAuthEventListeners function
-function setupAuthEventListeners() {
-    const btnLogin = document.getElementById('btn-login');
-    const btnRegister = document.getElementById('btn-register');
-    const authModal = document.getElementById('auth-modal');
-    const authClose = document.getElementById('auth-close');
-    const btnLoginSubmit = document.getElementById('btn-login-submit');
-    const btnRegisterSubmit = document.getElementById('btn-register-submit');
-    const btnVerifySubmit = document.getElementById('btn-verify-submit');
-    const btnResendCode = document.getElementById('btn-resend-code');
-    const backToRegister = document.getElementById('back-to-register');
-    const switchToRegister = document.getElementById('switch-to-register');
-    const switchToLogin = document.getElementById('switch-to-login');
-    const btnUser = document.getElementById('btn-user');
-    const btnLogout = document.getElementById('btn-logout');
-    const userMenu = document.getElementById('user-menu');
-
-    if (btnLogin) {
-        btnLogin.addEventListener('click', () => openAuthModal('login'));
-    }
-    if (btnRegister) {
-        btnRegister.addEventListener('click', () => openAuthModal('register'));
-    }
-    if (authClose) {
-        authClose.addEventListener('click', closeAuthModal);
-    }
-    if (authModal) {
-        authModal.addEventListener('click', (e) => {
-            if (e.target === authModal) closeAuthModal();
-        });
-    }
-    if (btnLoginSubmit) {
-        btnLoginSubmit.addEventListener('click', handleLogin);
-    }
-    if (btnRegisterSubmit) {
-        btnRegisterSubmit.addEventListener('click', handleRegister);
-    }
-    if (btnVerifySubmit) {
-        btnVerifySubmit.addEventListener('click', handleVerifyEmail);
-    }
-    if (btnResendCode) {
-        btnResendCode.addEventListener('click', (e) => {
-            e.preventDefault();
-            handleResendCode();
-        });
-    }
-    if (backToRegister) {
-        backToRegister.addEventListener('click', (e) => {
-            e.preventDefault();
-            showAuthForm('register');
-        });
-    }
-    if (switchToRegister) {
-        switchToRegister.addEventListener('click', (e) => {
-            e.preventDefault();
-            showAuthForm('register');
-        });
-    }
-    if (switchToLogin) {
-        switchToLogin.addEventListener('click', (e) => {
-            e.preventDefault();
-            showAuthForm('login');
-        });
-    }
-    if (btnUser) {
-        btnUser.addEventListener('click', () => {
-            userMenu.classList.toggle('open');
-        });
-    }
-    if (btnLogout) {
-        btnLogout.addEventListener('click', handleLogout);
-    }
-
-    // Close user dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-        if (userMenu && !userMenu.contains(e.target)) {
-            userMenu.classList.remove('open');
-        }
-    });
-
-    // Setup OAuth buttons
-    document.querySelectorAll('.btn-oauth').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const provider = btn.dataset.provider;
-            handleOAuth(provider);
-        });
-    });
-
-    // Handle Enter key in forms
-    const loginEmail = document.getElementById('login-email');
-    const loginPassword = document.getElementById('login-password');
-    const registerUsername = document.getElementById('register-username');
-    const registerEmail = document.getElementById('register-email');
-    const registerPassword = document.getElementById('register-password');
-
-    [loginEmail, loginPassword].forEach(input => {
-        if (input) {
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleLogin();
-            });
-        }
-    });
-
-    [registerUsername, registerEmail, registerPassword].forEach(input => {
-        if (input) {
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleRegister();
-            });
-        }
-    });
-
-    // Setup verification code inputs
-    setupCodeInputs();
-}
-
-function setupCodeInputs() {
-    const codeInputs = document.querySelectorAll('.code-input');
-    
-    codeInputs.forEach((input, index) => {
-        // Auto-focus next input on digit entry
-        input.addEventListener('input', (e) => {
-            const value = e.target.value;
-            
-            // Only allow digits
-            if (!/^\d*$/.test(value)) {
-                e.target.value = '';
-                return;
-            }
-            
-            // Remove error class when typing
-            input.classList.remove('error');
-            
-            // Auto-focus next input
-            if (value.length === 1 && index < codeInputs.length - 1) {
-                codeInputs[index + 1].focus();
-            }
-            
-            // Auto-submit when all filled
-            if (index === codeInputs.length - 1 && value.length === 1) {
-                const allFilled = Array.from(codeInputs).every(inp => inp.value.length === 1);
-                if (allFilled) {
-                    setTimeout(() => handleVerifyEmail(), 100);
-                }
-            }
-        });
-        
-        // Handle backspace
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Backspace' && !input.value && index > 0) {
-                codeInputs[index - 1].focus();
-            }
-        });
-        
-        // Handle paste
-        input.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const paste = e.clipboardData.getData('text');
-            const digits = paste.replace(/\D/g, '').slice(0, 6);
-            
-            digits.split('').forEach((digit, i) => {
-                if (codeInputs[i]) {
-                    codeInputs[i].value = digit;
-                }
-            });
-            
-            if (digits.length === 6) {
-                setTimeout(() => handleVerifyEmail(), 100);
-            }
-        });
-    });
-}
-
-function showAuthForm(form) {
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const verificationForm = document.getElementById('verification-form');
-
-    if (form === 'login') {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-        verificationForm.style.display = 'none';
-    } else if (form === 'register') {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-        verificationForm.style.display = 'none';
-    } else if (form === 'verification') {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'none';
-        verificationForm.style.display = 'block';
-        // Focus first code input
-        setTimeout(() => {
-            document.getElementById('code-1').focus();
-        }, 100);
-    }
-    clearAuthErrors();
-}
-
-function clearAuthErrors() {
-    const loginError = document.getElementById('login-error');
-    const registerError = document.getElementById('register-error');
-    const verificationError = document.getElementById('verification-error');
-    
-    if (loginError) {
-        loginError.textContent = '';
-        loginError.classList.remove('show');
-    }
-    if (registerError) {
-        registerError.textContent = '';
-        registerError.classList.remove('show');
-    }
-    if (verificationError) {
-        verificationError.textContent = '';
-        verificationError.classList.remove('show');
-    }
-    
-    // Clear code inputs
-    document.querySelectorAll('.code-input').forEach(input => {
-        input.classList.remove('error');
-    });
-}
-
-function showAuthError(form, message) {
-    const errorEl = document.getElementById(`${form}-error`);
-    if (errorEl) {
-        errorEl.textContent = message;
-        errorEl.classList.add('show');
-    }
-    
-    // Shake code inputs on verification error
-    if (form === 'verification') {
-        document.querySelectorAll('.code-input').forEach(input => {
-            input.classList.add('error');
-        });
-    }
-}
-
-async function handleRegister() {
-    const username = document.getElementById('register-username').value.trim();
-    const email = document.getElementById('register-email').value.trim();
-    const password = document.getElementById('register-password').value;
-
-    if (!username || !email || !password) {
-        showAuthError('register', 'Please fill in all fields');
-        return;
-    }
-
-    if (password.length < 6) {
-        showAuthError('register', 'Password must be at least 6 characters');
-        return;
-    }
-
-    try {
-        const res = await fetch('/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                username, 
-                email, 
-                password,
-                full_name: username 
-            })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            // Store email for verification
-            pendingVerificationEmail = email;
-            document.getElementById('verify-email-display').textContent = email;
-            
-            // Clear code inputs
-            document.querySelectorAll('.code-input').forEach(input => {
-                input.value = '';
-            });
-            
-            // Show verification form
-            showAuthForm('verification');
-            showToast('Check your email for the verification code!');
-        } else {
-            showAuthError('register', data.detail || 'Registration failed');
-        }
-    } catch (e) {
-        showAuthError('register', 'Network error. Please try again.');
-    }
-}
-
-async function handleVerifyEmail() {
-    // Get code from inputs
-    const codeInputs = document.querySelectorAll('.code-input');
-    const code = Array.from(codeInputs).map(input => input.value).join('');
-    
-    if (code.length !== 6) {
-        showAuthError('verification', 'Please enter the complete 6-digit code');
-        return;
-    }
-    
-    // Disable inputs during verification
-    codeInputs.forEach(input => input.disabled = true);
-    const btnVerify = document.getElementById('btn-verify-submit');
-    if(btnVerify) btnVerify.textContent = "Verifying...";
-    
-    try {
-        const res = await fetch('/auth/verify-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                email: pendingVerificationEmail, 
-                code 
-            })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            showToast('Email verified! You are now logged in.');
-            
-            // 1. Set tokens in localStorage and state
-            setTokens(data.access_token, data.refresh_token);
-            
-            // 2. Set user data in state
-            state.user = data.user;
-            
-            // 3. Update the UI buttons (Hide Login/Register, Show User Menu)
-            updateAuthUI();
-            
-            // 4. Close the modal
-            closeAuthModal();
-        } else {
-            codeInputs.forEach(input => input.disabled = false);
-            showAuthError('verification', data.detail || 'Invalid verification code');
-            
-            // Clear inputs and focus first one
-            codeInputs.forEach(input => input.value = '');
-            codeInputs[0].focus();
-        }
-    } catch (e) {
-        codeInputs.forEach(input => input.disabled = false);
-        showAuthError('verification', 'Network error. Please try again.');
-        console.error(e);
-    } finally {
-        if(btnVerify) btnVerify.textContent = "Verify Email";
-    }
-}
-
-async function handleResendCode() {
-    try {
-        const res = await fetch('/auth/resend-verification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: pendingVerificationEmail })
-        });
-
-        const data = await res.json();
-        
-        if (res.ok) {
-            showToast('New verification code sent!');
-            
-            // Clear inputs
-            document.querySelectorAll('.code-input').forEach(input => {
-                input.value = '';
-            });
-            document.getElementById('code-1').focus();
-        }
-    } catch (e) {
-        showAuthError('verification', 'Failed to resend code. Please try again.');
-    }
-}
 
 function setupMobile() {
     // 1. Generate Button in Mobile Modal
@@ -2113,12 +2187,12 @@ function setupMobile() {
 
     const closeOtherModals = (exceptId) => {
         const modalIds = [
-            'mobile-settings-modal', 
-            'mobile-notebook-modal', 
-            'library-modal', 
+            'mobile-settings-modal',
+            'mobile-notebook-modal',
+            'library-modal',
             'auth-modal'
         ];
-        
+
         modalIds.forEach(id => {
             if (id !== exceptId) {
                 const el = document.getElementById(id);
@@ -2127,14 +2201,14 @@ function setupMobile() {
         });
     };
 
-    if(btnMobileGenerate) {
+    if (btnMobileGenerate) {
         btnMobileGenerate.addEventListener('click', () => {
             // Sync value to desktop select (so fetchPuzzle uses it)
-            if(desktopDiffSelect) desktopDiffSelect.value = mobileDiffSelect.value;
-            
+            if (desktopDiffSelect) desktopDiffSelect.value = mobileDiffSelect.value;
+
             // Close modal
             settingsModal.style.display = 'none';
-            
+
             // Generate
             fetchPuzzle();
         });
@@ -2175,7 +2249,7 @@ function setupMobile() {
         mobileTextarea.addEventListener('input', (e) => {
             state.notebook = e.target.value;
             // Sync back to desktop textarea if it exists (for seamless switching)
-            if(desktopTextarea) desktopTextarea.value = state.notebook;
+            if (desktopTextarea) desktopTextarea.value = state.notebook;
             triggerAutosave();
         });
     }
@@ -2184,41 +2258,49 @@ function setupMobile() {
     const navNotes = document.getElementById('nav-notes');
     if (navNotes) {
         navNotes.addEventListener('click', () => {
-            toggleNoteMode(); 
-            
+            toggleNoteMode();
+
             // Visual feedback
             const isActive = state.noteMode;
             navNotes.style.color = isActive ? 'var(--success-color)' : '';
             // Optional: Haptic feedback
             if (navigator.vibrate) navigator.vibrate(20);
-            
+
             showToast(isActive ? "Note Mode ON" : "Note Mode OFF");
         });
     }
 
+    const navCheck = document.getElementById('nav-check');
+    if (navCheck) {
+        navCheck.addEventListener('click', () => {
+            checkPuzzle();
+        });
+    }
+
+
 
     const navLibrary = document.getElementById('nav-library');
     const libraryModal = document.getElementById('library-modal');
-    
+
     if (navLibrary && libraryModal) {
         navLibrary.addEventListener('click', () => {
             if (libraryModal.style.display === 'block') {
                 libraryModal.style.display = 'none';
             } else {
                 closeOtherModals('library-modal');
-                openLibrary(); 
+                openLibrary();
             }
         });
     }
-    
+
     const navProfile = document.getElementById('nav-profile');
     const authModal = document.getElementById('auth-modal');
 
     if (navProfile) {
         navProfile.addEventListener('click', () => {
-            if(state.user) {
+            if (state.user) {
                 // If logged in, we use confirm (native dialog, cannot toggle)
-                if(confirm(`Logged in as ${state.user.username}. Logout?`)) {
+                if (confirm(`Logged in as ${state.user.username}. Logout?`)) {
                     handleLogout();
                 }
             } else {
@@ -2254,7 +2336,7 @@ function setupNumpad() {
         btn.addEventListener('click', (e) => {
             e.stopPropagation(); // Don't deselect cell
             const val = btn.dataset.val;
-            
+
             if (val === 'del') {
                 handleInputDelete();
             } else {
@@ -2262,11 +2344,25 @@ function setupNumpad() {
             }
         });
     });
-    
+
     // Hide numpad on scroll to prevent it floating awkwardly
     window.addEventListener('scroll', () => {
         if (window.innerWidth <= 768) hideNumpad();
     });
+}
+
+function isBoardFull() {
+    if (!state.puzzle) return false;
+    for (let r = 0; r < state.puzzle.height; r++) {
+        for (let c = 0; c < state.puzzle.width; c++) {
+            const cell = state.userGrid[r][c];
+            // If it's a white cell and has no value (null), board is not full
+            if (cell.type === 'WHITE' && !cell.userValue) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 function handleInputNumber(numStr) {
@@ -2275,10 +2371,27 @@ function handleInputNumber(numStr) {
     } else if (!state.noteMode && state.selected) {
         const { r, c } = state.selected;
         if (state.userGrid[r][c].type === 'WHITE') {
+            const oldValue = state.userGrid[r][c].userValue;
             state.userGrid[r][c].userValue = parseInt(numStr);
             state.showErrors = false;
+
+            logInteraction('INPUT', {
+                row: r,
+                col: c,
+                oldValue: oldValue,
+                newValue: numStr
+            });
+
             renderBoard();
             triggerAutosave();
+            if (window.innerWidth <= 768) {
+                hideNumpad();
+
+                // Auto-check on mobile if the board is full
+                if (isBoardFull()) {
+                    checkPuzzle();
+                }
+            }
         }
     }
 }
@@ -2289,10 +2402,20 @@ function handleInputDelete() {
     } else if (!state.noteMode && state.selected) {
         const { r, c } = state.selected;
         if (state.userGrid[r][c].type === 'WHITE') {
+            const oldValue = state.userGrid[r][c].userValue;
             state.userGrid[r][c].userValue = null;
             state.showErrors = false;
+
+            logInteraction('DELETE', {
+                row: r,
+                col: c,
+                oldValue: oldValue,
+                newValue: null
+            });
+
             renderBoard();
             triggerAutosave();
+            if (window.innerWidth <= 768) hideNumpad();
         }
     }
 }
@@ -2302,7 +2425,7 @@ let autosaveTimer = null;
 function triggerAutosave() {
     // Clear existing timer
     if (autosaveTimer) clearTimeout(autosaveTimer);
-    
+
     // Set new timer (save after 1 second of inactivity)
     autosaveTimer = setTimeout(() => {
         saveCurrentState(true); // true = silent mode

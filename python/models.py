@@ -3,17 +3,20 @@ Database models for Kakuro Generator.
 Defines User and Puzzle models with SQLAlchemy.
 """
 
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from python.database import Base
+import uuid
 
-
+def generate_uuid():
+    return str(uuid.uuid4())
+    
 class User(Base):
     """User model for authentication and profile management."""
     __tablename__ = "users"
     
-    id = Column(String, primary_key=True)
+    id = Column(String, primary_key=True, default=generate_uuid)
     email = Column(String, unique=True, nullable=False, index=True)
     username = Column(String, unique=True, nullable=True)
     password_hash = Column(String, nullable=True)  # Null for OAuth users
@@ -41,7 +44,9 @@ class User(Base):
     
     # Relationships
     puzzles = relationship("Puzzle", back_populates="user", cascade="all, delete-orphan")
-    
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    interactions = relationship("PuzzleInteraction", back_populates="user", cascade="all, delete-orphan")
+
     def to_dict(self):
         """Convert user to dictionary for API responses."""
         return {
@@ -57,6 +62,54 @@ class User(Base):
             "last_login": self.last_login.isoformat() if self.last_login else None,
         }
 
+class UserSession(Base):
+    """Tracks user login sessions, device info, and duration."""
+    __tablename__ = "user_sessions"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    
+    # Session Timings
+    login_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_activity_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    logout_at = Column(DateTime, nullable=True)
+    
+    # Device / Context Info
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    device_type = Column(String, nullable=True)  # 'mobile', 'desktop', 'tablet'
+    browser = Column(String, nullable=True)
+    os = Column(String, nullable=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="sessions")
+    interactions = relationship("PuzzleInteraction", back_populates="session")
+
+class PuzzleTemplate(Base):
+    """
+    Represents the immutable definition of a puzzle (the 'level').
+    Multiple users can solve the same PuzzleTemplate.
+    """
+    __tablename__ = "puzzle_templates"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    
+    # Metadata
+    width = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False)
+    difficulty = Column(String, nullable=False)
+    
+    # The immutable puzzle data
+    grid = Column(JSON, nullable=False) # The structure: black cells, clues
+    solution = Column(JSON, nullable=True) # The specific solution (optional, if we want to validate on backend)
+    
+    # Generation info
+    seed = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    puzzles = relationship("Puzzle", back_populates="template")
+
 
 class Puzzle(Base):
     """Puzzle model for storing user's saved puzzles."""
@@ -64,6 +117,7 @@ class Puzzle(Base):
     
     id = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    template_id = Column(String, ForeignKey("puzzle_templates.id"), nullable=True, index=True)
     
     # Puzzle configuration
     width = Column(Integer, nullable=False)
@@ -93,6 +147,8 @@ class Puzzle(Base):
     
     # Relationships
     user = relationship("User", back_populates="puzzles")
+    template = relationship("PuzzleTemplate", back_populates="puzzles")
+    interactions = relationship("PuzzleInteraction", back_populates="puzzle", cascade="all, delete-orphan")
     
     def to_dict(self):
         """Convert puzzle to dictionary for API responses."""
@@ -111,4 +167,45 @@ class Puzzle(Base):
             "userComment": self.user_comment,
             "status": self.status,
             "timestamp": self.created_at.isoformat() if self.created_at else None,
+            "template_id": self.template_id
         }
+
+class PuzzleInteraction(Base):
+    """
+    Granular log of every action taken on a puzzle.
+    Allows replaying the game and analyzing solving patterns.
+    """
+    __tablename__ = "puzzle_interactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    puzzle_id = Column(String, ForeignKey("puzzles.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    session_id = Column(String, ForeignKey("user_sessions.id"), nullable=True)
+
+    # Action details
+    action_type = Column(String, nullable=False) 
+    # Types: 'INPUT', 'DELETE', 'NOTE_ADD', 'NOTE_REMOVE', 'UNDO', 'REDO', 'CHECK', 'PAUSE', 'RESUME', 'SOLVED'
+    
+    # Coordinates (if applicable)
+    row = Column(Integer, nullable=True)
+    col = Column(Integer, nullable=True)
+    
+    # Value changes
+    old_value = Column(String, nullable=True) # Stored as string to handle '1', '1,2' (notes), or NULL
+    new_value = Column(String, nullable=True)
+    
+    # Metadata
+    is_correct = Column(Boolean, nullable=True) # Was the input correct according to solution?
+    
+    # Timing
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    client_timestamp = Column(DateTime, nullable=True) # Time on user's device
+    duration_ms = Column(Integer, nullable=True) # Time taken since last action (think time)
+    
+    # Device context (in case they switch devices mid-puzzle)
+    device_type = Column(String, nullable=True) # 'mobile', 'desktop'
+
+    # Relationships
+    puzzle = relationship("Puzzle", back_populates="interactions")
+    user = relationship("User", back_populates="interactions")
+    session = relationship("UserSession", back_populates="interactions")

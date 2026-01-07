@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import os
 import sys
 import webbrowser
@@ -22,9 +23,11 @@ from typing import List, Optional, Dict
 
 # Import auth and database modules
 from python.database import init_db, get_db
-from python.models import User, Puzzle
-from python.auth import get_current_user, get_required_user
+from python.models import User, Puzzle, PuzzleTemplate
+from python.auth import get_current_user, get_required_user, get_current_user_and_session
+from python.analytics import log_interaction
 from routes.auth_routes import router as auth_router
+from python.generator_service import generator_service
 import python.config as config
 
 # Configure logging
@@ -67,7 +70,30 @@ app.include_router(auth_router)
 def startup_event():
     """Initialize database on startup."""
     init_db()
+    
+    # Manual migration: check if template_id exists in puzzles
+    from sqlalchemy import inspect, text
+    from python.database import engine
+    
+    inspector = inspect(engine)
+    if "puzzles" in inspector.get_table_names():
+        columns = [c["name"] for c in inspector.get_columns("puzzles")]
+        if "template_id" not in columns:
+            logger.info("Migrating database: Adding template_id to puzzles table")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE puzzles ADD COLUMN template_id TEXT"))
+                # Also index it? SQLite doesn't strictly require explicit index creation for FKs to work for joins, but good practice.
+                # conn.execute(text("CREATE INDEX ix_puzzles_template_id ON puzzles (template_id)"))
+                
     logger.info("Database initialized")
+    
+    # Start background generator
+    generator_service.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """Stop background services."""
+    generator_service.stop()
 
 def get_base_path():
     if getattr(sys, 'frozen', False):
@@ -184,6 +210,7 @@ class SaveRequest(BaseModel):
     rating: int
     userComment: str
     timestamp: Optional[str] = None
+    template_id: Optional[str] = None
 
 @app.post("/save")
 def save_puzzle_endpoint(
@@ -226,8 +253,25 @@ def save_puzzle_endpoint(
                 cell_notes=request.cellNotes,
                 notebook=request.notebook,
                 rating=request.rating,
-                user_comment=request.userComment
+                user_comment=request.userComment,
+                template_id=request.template_id
             )
+            
+            # If no template_id was provided (legacy/standalone gen), we should arguably create one
+            # so this puzzle becomes shareable.
+            if not request.template_id and request.status != 'started':
+                # Only "publish" if they've made progress or solved it, to avoid spamming templates with abandoned starts?
+                # For now, let's auto-create a template if missing, so it can be shared.
+                new_template = PuzzleTemplate(
+                    width=request.width,
+                    height=request.height,
+                    difficulty=request.difficulty,
+                    grid=request.grid,
+                )
+                db.add(new_template)
+                db.flush() # get id
+                puzzle.template_id = new_template.id
+            
             db.add(puzzle)
             
             if request.status == "solved":
@@ -301,6 +345,161 @@ def delete_puzzle_endpoint(
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Puzzle not found")
 
+class InteractionLog(BaseModel):
+    puzzle_id: str
+    action_type: str
+    row: Optional[int] = None
+    col: Optional[int] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    duration_ms: Optional[int] = 0
+    client_timestamp: str
+    device_type: Optional[str] = "desktop"
+
+@app.post("/log/interaction")
+def log_user_interaction(
+    log: InteractionLog,
+    auth_data: tuple[Optional[User], Optional[str]] = Depends(get_current_user_and_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Log a specific action taken by the user (move, note, delete, etc.).
+    Uses the session ID from the token to link actions to a session.
+    """
+    user, session_id = auth_data
+    if not user:
+        # We generally only track logged-in users, but could expand this to anonymous if needed
+        return {"status": "ignored"}
+
+    log_interaction(
+        db=db,
+        user_id=user.id,
+        puzzle_id=log.puzzle_id,
+        session_id=session_id,
+        action_data=log.model_dump()
+    )
+    return {"status": "logged"}
+
+@app.post("/log/batch_interaction")
+def log_batch_interaction(
+    logs: List[InteractionLog],
+    auth_data: tuple[Optional[User], Optional[str]] = Depends(get_current_user_and_session),
+    db: Session = Depends(get_db)
+):
+    """Log multiple actions in one request (e.g. multi-select notes)."""
+    user, session_id = auth_data
+    if not user:
+        return {"status": "ignored"}
+
+    # Process all logs in a single transaction
+    for log in logs:
+        log_interaction(
+            db=db,
+            user_id=user.id,
+            puzzle_id=log.puzzle_id,
+            session_id=session_id,
+            action_data=log.model_dump()
+        )
+    
+    return {"status": "batch_logged"}
+    
+@app.get("/feed")
+def get_puzzle_feed(
+    difficulty: str = "medium",
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Returns a feed of puzzles from the pre-generated pool.
+    """
+    puzzles_to_return = []
+    
+    # query pool
+    query = db.query(PuzzleTemplate).filter(
+        PuzzleTemplate.difficulty == difficulty
+    )
+
+    if current_user:
+        # Subquery to find template_ids that the user has already interacted with
+        subquery = db.query(Puzzle.template_id).filter(
+            Puzzle.user_id == current_user.id,
+            Puzzle.template_id.isnot(None)
+        ).subquery()
+        
+        query = query.filter(~PuzzleTemplate.id.in_(subquery))
+    
+    # Fetch random templates from the pool
+    # We fetch slightly more to handle potential race conditions or just providing variety
+    existing_templates = query.order_by(func.random()).limit(limit).all()
+    
+    for tmpl in existing_templates:
+        puzzles_to_return.append({
+            "id": str(uuid.uuid4()), # New instance ID for the user to start
+            "template_id": tmpl.id,
+            "width": tmpl.width,
+            "height": tmpl.height,
+            "difficulty": tmpl.difficulty,
+            "grid": tmpl.grid,
+            "status": "started",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "source": "pool"
+        })
+    
+    # 2. GENERATE FALLBACK if pool is empty or user exhausted it
+    needed = limit - len(puzzles_to_return)
+    if needed > 0:
+        logger.info(f"Feed pool exhausted for user (needed {needed}), generating fallback...")
+        from python.kakuro_wrapper import KakuroBoard, CSPSolver
+        
+        # Size logic
+        min_s, max_s = DIFFICULTY_SIZE_RANGES.get(difficulty, (10, 10))
+        min_white = MIN_CELLS_MAP.get(difficulty, 12)
+        
+        for _ in range(needed):
+            w = random.randint(min_s, max_s)
+            h = random.randint(min_s, max_s)
+            
+            # Retry loop
+            for attempt in range(10):
+                board = KakuroBoard(w, h)
+                solver = CSPSolver(board)
+                if solver.generate_puzzle(difficulty=difficulty):
+                    if len(board.white_cells) >= min_white:
+                        # Success
+                        grid_data = []
+                        for r in range(h):
+                            row_data = []
+                            for c in range(w):
+                                cell = board.get_cell(r, c)
+                                row_data.append(cell.to_dict())
+                            grid_data.append(row_data)
+                        
+                        # Create Template so it becomes part of the pool for others
+                        tmpl = PuzzleTemplate(
+                            width=w, 
+                            height=h, 
+                            difficulty=difficulty, 
+                            grid=grid_data
+                        )
+                        db.add(tmpl)
+                        db.commit() 
+                        
+                        puzzles_to_return.append({
+                            "id": str(uuid.uuid4()),
+                            "template_id": tmpl.id,
+                            "width": w,
+                            "height": h,
+                            "difficulty": difficulty,
+                            "grid": grid_data,
+                            "status": "started",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "source": "generated_fallback"
+                        })
+                        break
+
+    return puzzles_to_return
+
 def open_browser(url: str):
     """Wait for the server to start and then open the browser."""
     time.sleep(1.5)  # Give the server a moment to start
@@ -308,7 +507,7 @@ def open_browser(url: str):
 
 if __name__ == "__main__":
     host = "0.0.0.0" # "127.0.0.1"
-    port = 8008
+    port = 8000
     url = f"http://{host}:{port}"
     
     try:

@@ -33,14 +33,12 @@ class KakuroBoard:
         
         if self.use_cpp:
             self._board = _KakuroBoard(width, height)
-            print(f"Using C++ board ({width}x{height})")
         else:
             # Fallback to pure Python implementation
             # Import from your existing python/kakuro.py
             try:
                 from python.kakuro import KakuroBoard as PyKakuroBoard
                 self._board = PyKakuroBoard(width, height)
-                print(f"Using Python board ({width}x{height})")
             except ImportError:
                 # Alternative import path
                 from kakuro import KakuroBoard as PyKakuroBoard

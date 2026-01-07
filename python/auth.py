@@ -39,12 +39,13 @@ def generate_verification_code(length: int = 6) -> str:
     """Generate a numeric verification code."""
     return ''.join(random.choices(string.digits, k=length))
 
-def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(user_id: str, session_id: Optional[str] = None, expires_delta: Optional[timedelta] = None) -> str:
     """
     Create a JWT access token.
     
     Args:
         user_id: The user's unique ID to encode in the token
+        session_id: The ID of the current login session (UserSession)
         expires_delta: Optional custom expiration time
         
     Returns:
@@ -57,25 +58,28 @@ def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None)
     
     payload = {
         "sub": user_id,
+        "sid": session_id,
         "exp": expire,
         "type": "access"
     }
     return jwt.encode(payload, config.JWT_SECRET_KEY, algorithm=config.JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str, session_id: Optional[str] = None) -> str:
     """
     Create a JWT refresh token with longer expiration.
     
     Args:
         user_id: The user's unique ID to encode in the token
-        
+        session_id: The ID of the current login session
+
     Returns:
         Encoded JWT refresh token string
     """
     expire = datetime.now(timezone.utc) + timedelta(days=config.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {
         "sub": user_id,
+        "sid": session_id,
         "exp": expire,
         "type": "refresh"
     }
@@ -178,30 +182,38 @@ def verify_password_reset_token(token: str) -> Optional[dict]:
         }
     return None
 
+def get_current_user_and_session(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> tuple[Optional[User], Optional[str]]:
+    """
+    FastAPI dependency to get the current authenticated user AND their session ID.
+    Returns (None, None) if no valid token is provided.
+    """
+    if not credentials:
+        return None, None
+    
+    payload = decode_token(credentials.credentials)
+    if not payload:
+        return None, None
+    
+    user_id = payload.get("sub")
+    session_id = payload.get("sid") # Extract Session ID
+    
+    if not user_id:
+        return None, None
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    return user, session_id
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> Optional[User]:
     """
-    FastAPI dependency to get the current authenticated user.
-    Returns None if no valid token is provided.
-    
-    Use this for optional authentication (e.g., endpoints that work
-    differently for logged-in vs anonymous users).
+    Legacy wrapper for getting just the user.
     """
-    if not credentials:
-        return None
-    
-    payload = decode_token(credentials.credentials)
-    if not payload:
-        return None
-    
-    user_id = payload.get("sub")
-    if not user_id:
-        return None
-    
-    user = db.query(User).filter(User.id == user_id).first()
+    user, _ = get_current_user_and_session(credentials, db)
     return user
 
 
