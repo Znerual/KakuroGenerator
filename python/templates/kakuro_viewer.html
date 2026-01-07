@@ -382,6 +382,37 @@
         let playInterval = null;
 
         // C++ Constants Mapping
+        const STAGE_MAP = {
+            'tc': 'topology_creation',
+            'f': 'filling',
+            'uv': 'uniqueness_validation',
+            'de': 'difficulty_estimation'
+        };
+
+        const SUBSTAGE_MAP = {
+            's': 'start',
+            'sp': 'stamp_placement',
+            'lg': 'lattice_growth',
+            'pb': 'patch_breaking',
+            'vf': 'validation_failed',
+            'cc': 'connectivity_check',
+            'c': 'complete',
+            'f': 'failed',
+            'sep': 'seed_placement',
+            'sr': 'slice_runs',
+            'bp': 'break_patches',
+            'ps': 'prune_singles',
+            'bsr': 'break_single_runs',
+            'sg': 'stabilize_grid',
+            'fir': 'fix_invalid_runs',
+            'np': 'number_placement',
+            'bt': 'backtrack',
+            'cf': 'consistency_check_failed',
+            'af': 'alternative_found',
+            'ra': 'repair_attempt',
+            'ls': 'logic_step'
+        };
+
         const STAGE_COLORS = {
             'topology_creation': 'stage-topology',
             'filling': 'stage-filling',
@@ -396,6 +427,79 @@
             'start': '🏁',
             'complete': '✅'
         };
+
+        function decodeStep(step) {
+            // If already decoded or old format, return as is
+            if (step.stage) return step;
+
+            const [width, height] = step.wh || [0, 0];
+            
+            // Reconstruct full grid (default all to BLOCK)
+            let fullGrid = null;
+            if (width > 0 && height > 0) {
+                fullGrid = Array.from({ length: height }, () => 
+                    Array.from({ length: width }, () => ({ type: 'BLOCK', value: 0 }))
+                );
+                
+                // Fill in WHITE cells
+                if (step.g) {
+                    step.g.forEach(([r, c, v]) => {
+                        if (fullGrid[r] && fullGrid[r][c]) {
+                            fullGrid[r][c] = { type: 'WHITE', value: v };
+                        }
+                    });
+                }
+            }
+
+            const decoded = {
+                step_id: step.id,
+                timestamp: step.t,
+                stage: STAGE_MAP[step.s] || step.s,
+                substage: SUBSTAGE_MAP[step.ss] || step.ss,
+                message: step.m,
+                grid: fullGrid,
+                data: step.d || {}
+            };
+
+            // Recursively decode data if needed
+            if (decoded.data.hc) {
+                decoded.data.highlighted_cells = decoded.data.hc;
+                delete decoded.data.hc;
+            }
+            if (decoded.data.ag) {
+                // Reconstruct alternative grid if it exists (using same dimensions)
+                const altGrid = Array.from({ length: height }, () => 
+                    Array.from({ length: width }, () => ({ type: 'BLOCK', value: 0 }))
+                );
+                decoded.data.ag.forEach(([r, c, v]) => {
+                    if (altGrid[r] && altGrid[r][c]) {
+                        altGrid[r][c] = { type: 'WHITE', value: v };
+                    }
+                });
+                decoded.data.alternative_grid = altGrid;
+                delete decoded.data.ag;
+            }
+            if (decoded.data.bc) {
+                decoded.data.bad_cells = decoded.data.bc.map(bc => ({
+                    r: bc.r,
+                    c: bc.c,
+                    domain: bc.d
+                }));
+                delete decoded.data.bc;
+            }
+            if (decoded.data.cs) { // candidate_scores
+                decoded.data.candidate_scores = decoded.data.cs.map(s => ({
+                    val: s.v,
+                    h: s.h,
+                    v: s.v_s, // avoid conflict with v for value
+                    ent: s.e,
+                    comb: s.c
+                }));
+                delete decoded.data.cs;
+            }
+
+            return decoded;
+        }
 
         // Initialize
         fetch('/api/logs').then(r => r.json()).then(data => {
@@ -417,7 +521,7 @@
             fetch(`/api/logs/${filename}`)
                 .then(r => r.json())
                 .then(data => {
-                    currentLogData = data.steps;
+                    currentLogData = data.steps.map(decodeStep);
                     currentStepIndex = 0;
                     stopPlay();
                     buildTimelineUI();
