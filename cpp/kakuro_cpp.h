@@ -228,22 +228,25 @@ public:
     }
     data << "]";
 
+    // Serialize Alternative Grid if present
     if (!alt_grid.empty()) {
       data << ", \"ag\": ["; // alternative_grid
-      bool first_alt = true;
+      bool first_val = true;
       for (size_t r = 0; r < alt_grid.size(); r++) {
         for (size_t c = 0; c < alt_grid[r].size(); c++) {
           const auto &[type, value] = alt_grid[r][c];
+          // We only log WHITE cells to save space, matching the main grid format
           if (type == "WHITE") {
-            if (!first_alt) data << ",";
+            if (!first_val) data << ",";
             data << "[" << r << "," << c << "," << value << "]";
-            first_alt = false;
+            first_val = false;
           }
         }
       }
       data << "]";
     }
     data << "}";
+    
     log_step(stage, substage, message, grid_state, data.str());
 #endif
   }
