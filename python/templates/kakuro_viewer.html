@@ -27,6 +27,7 @@
 
             --cell-white: #ffffff;
             --cell-block: #000000;
+            --clue-text: #94a3b8;
         }
 
         body {
@@ -226,8 +227,8 @@
         }
 
         .cell {
-            width: 44px;
-            height: 44px;
+            width: 50px;
+            height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -243,9 +244,39 @@
             background-size: 8px 8px;
         }
 
+        .cell.block.has-clue {
+            /* Diagonal line from Top-Left to Bottom-Right */
+            background: linear-gradient(
+                to bottom left, 
+                var(--cell-block) 48%, 
+                var(--grid-line) 48%, 
+                var(--grid-line) 52%, 
+                var(--cell-block) 52%
+            );
+        }
+
+        /* Clue Numbers */
+        .clue-val {
+            position: absolute;
+            font-size: 0.75rem;
+            line-height: 1;
+            color: var(--clue-text);
+            font-family: monospace;
+        }
+        
+        /* Vertical Sum (Top Right Triangle) - Adjusted positioning */
+        .clue-v { bottom: 15%; left: 15%; }
+        
+        /* Horizontal Sum (Bottom Left Triangle) - Adjusted positioning */
+        .clue-h { top: 15%; right: 15%; }
+
         .cell.white {
             background-color: var(--cell-white);
             color: #0f172a;
+        }
+
+        .cell.white.empty {
+             color: transparent;
         }
 
         .cell.highlighted {
@@ -263,6 +294,7 @@
             background: rgba(255, 255, 255, 0.9);
             padding: 0 3px;
             border-radius: 2px;
+            z-index: 5;
         }
 
         /* Controls */
@@ -311,6 +343,74 @@
             background: var(--text-primary);
             color: var(--bg-color);
         }
+
+        /* Generation Settings */
+        .settings-panel {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--grid-line);
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        .settings-header {
+            padding: 0.75rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+        }
+        .settings-content {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .settings-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .settings-group label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .settings-group input, .settings-group select {
+            padding: 0.4rem;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            border: 1px solid var(--grid-line);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .settings-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        .btn-generate {
+            background: var(--color-filling);
+            color: #000;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            transition: opacity 0.2s;
+        }
+        .btn-generate:hover {
+            opacity: 0.9;
+        }
+        .btn-generate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -318,6 +418,113 @@
 
     <aside>
         <h1>Kakuro Genius</h1>
+
+        <details class="settings-panel">
+            <summary class="settings-header">Generation Settings</summary>
+            <div class="settings-content">
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Width</label>
+                        <input type="number" id="genWidth" value="10" min="4" max="30">
+                    </div>
+                    <div class="settings-group">
+                        <label>Height</label>
+                        <input type="number" id="genHeight" value="10" min="4" max="30">
+                    </div>
+                </div>
+
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--color-topology); border-bottom: 1px solid var(--grid-line); padding-bottom: 2px;">TOPOLOGY</div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Difficulty</label>
+                        <select id="genTopoDiff">
+                            <option value="very_easy">Very Easy</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Density</label>
+                        <input type="number" id="genDensity" value="0.6" step="0.05" min="0.1" max="0.9">
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Max Run Len</label>
+                        <input type="number" id="genMaxRunLen" value="9" min="2" max="9">
+                    </div>
+                    <div class="settings-group">
+                        <label>Max Sector Len</label>
+                        <input type="number" id="genMaxSectorLen" value="9" min="2" max="20">
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Min Cells</label>
+                        <input type="number" id="genMinCells" value="12" min="0">
+                    </div>
+                    <div class="settings-group">
+                        <label>Num Stamps</label>
+                        <input type="number" id="genNumStamps" value="20" min="0">
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Soft Run Len</label>
+                        <input type="number" id="genMaxRunLenSoft" value="" placeholder="Default" min="0">
+                    </div>
+                    <div class="settings-group">
+                        <label>Soft Prob</label>
+                        <input type="number" id="genMaxRunLenSoftProb" value="" placeholder="Default" step="0.1" min="0" max="1">
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Max Patch</label>
+                        <input type="number" id="genMaxPatch" value="3" min="2" max="10">
+                    </div>
+                    <div class="settings-group" style="justify-content: center;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="genIslandMode" checked> Island Mode
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Stamps (JSON: [[h,w], ...])</label>
+                    <input type="text" id="genStamps" placeholder="Default: [[1,3],[3,1],[2,2],[3,3]]">
+                </div>
+                
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--color-filling); border-bottom: 1px solid var(--grid-line); padding-bottom: 2px;">FILLING</div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label>Difficulty</label>
+                        <select id="genFillDiff">
+                            <option value="very_easy">Very Easy</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Max Nodes</label>
+                        <input type="number" id="genMaxNodes" value="30000" step="5000">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Partition Pref</label>
+                    <select id="genPartPref">
+                        <option value="none">None</option>
+                        <option value="unique">Unique Partitions</option>
+                        <option value="low_entropy">Low Entropy First</option>
+                        <option value="high_entropy">High Entropy First</option>
+                    </select>
+                </div>
+
+                <button class="btn-generate" id="generateBtn" onclick="generateNewPuzzle()">Generate Puzzle</button>
+            </div>
+        </details>
+
         <select id="fileSelect" class="file-select" onchange="loadLog(this.value)">
             <option value="" disabled selected>Select Log File...</option>
         </select>
@@ -687,6 +894,46 @@
             }
         }
 
+        function calculateClues(grid) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const clues = {}; // key: "r,c", val: { h: int, v: int }
+
+            // Helper to get sum of run
+            const getRunSum = (r, c, dr, dc) => {
+                let sum = 0;
+                let k = 1;
+                while (true) {
+                    const nr = r + k*dr;
+                    const nc = c + k*dc;
+                    if (nr >= rows || nc >= cols || grid[nr][nc].type === 'BLOCK') break;
+                    sum += grid[nr][nc].value || 0;
+                    k++;
+                }
+                return sum;
+            };
+
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    if (grid[r][c].type === 'BLOCK') {
+                        // Check Horizontal run to the right
+                        if (c + 1 < cols && grid[r][c+1].type === 'WHITE') {
+                            const sum = getRunSum(r, c, 0, 1);
+                            if (!clues[`${r},${c}`]) clues[`${r},${c}`] = {};
+                            clues[`${r},${c}`].h = sum;
+                        }
+                        // Check Vertical run downwards
+                        if (r + 1 < rows && grid[r+1][c].type === 'WHITE') {
+                            const sum = getRunSum(r, c, 1, 0);
+                            if (!clues[`${r},${c}`]) clues[`${r},${c}`] = {};
+                            clues[`${r},${c}`].v = sum;
+                        }
+                    }
+                }
+            }
+            return clues;
+        }
+
         function renderGrid(step) {
             const gridData = step.grid;
             const extra = step.data || {};
@@ -698,14 +945,18 @@
             const rows = gridData.length;
             const cols = gridData[0].length;
 
-            container.style.gridTemplateColumns = `repeat(${cols}, 44px)`;
-            container.style.gridTemplateRows = `repeat(${rows}, 44px)`;
+            container.style.gridTemplateColumns = `repeat(${cols}, 50px)`;
+            container.style.gridTemplateRows = `repeat(${rows}, 50px)`;
+
+            // Pre-calculate clues based on current numbers
+            const clues = calculateClues(gridData);
 
             // Parse Highlights
             let highlights = new Set();
             if (extra.highlighted_cells) {
                 extra.highlighted_cells.forEach(h => highlights.add(`${h[0]},${h[1]}`));
             }
+            if (extra.bad_cells) extra.bad_cells.forEach(h => highlights.add(`${h.r},${h.c}`));
 
             // Parse Alternative Grid (for ghost view)
             let altValues = {};
@@ -727,6 +978,22 @@
                     // Basic Type
                     if (cell.type === 'BLOCK') {
                         el.classList.add('block');
+                        const cellClues = clues[`${r},${c}`];
+                        if (cellClues) {
+                            el.classList.add('has-clue');
+                            if (cellClues.h !== undefined) {
+                                const hEl = document.createElement('span');
+                                hEl.className = 'clue-val clue-h';
+                                hEl.innerText = cellClues.h;
+                                el.appendChild(hEl);
+                            }
+                            if (cellClues.v !== undefined) {
+                                const vEl = document.createElement('span');
+                                vEl.className = 'clue-val clue-v';
+                                vEl.innerText = cellClues.v;
+                                el.appendChild(vEl);
+                            }
+                        }
                     } else {
                         el.classList.add('white');
                         if (cell.value && cell.value > 0) {
@@ -799,6 +1066,89 @@
             if (e.key === 'ArrowLeft') prevStep();
             if (e.key === ' ') { e.preventDefault(); togglePlay(); }
         });
+
+        async function generateNewPuzzle() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerText = 'Generating...';
+
+            const topoParams = {
+                difficulty: document.getElementById('genTopoDiff').value,
+                density: parseFloat(document.getElementById('genDensity').value),
+                max_run_len: parseInt(document.getElementById('genMaxRunLen').value),
+                max_sector_length: parseInt(document.getElementById('genMaxSectorLen').value),
+                max_patch_size: parseInt(document.getElementById('genMaxPatch').value),
+                island_mode: document.getElementById('genIslandMode').checked,
+                min_cells: parseInt(document.getElementById('genMinCells').value),
+                num_stamps: parseInt(document.getElementById('genNumStamps').value)
+            };
+
+            const softLen = document.getElementById('genMaxRunLenSoft').value;
+            if (softLen !== "") topoParams.max_run_len_soft = parseInt(softLen);
+
+            const softProb = document.getElementById('genMaxRunLenSoftProb').value;
+            if (softProb !== "") topoParams.max_run_len_soft_prob = parseFloat(softProb);
+
+            const stampsStr = document.getElementById('genStamps').value.trim();
+            if (stampsStr !== "") {
+                try {
+                    const stamps = JSON.parse(stampsStr);
+                    if (Array.isArray(stamps)) {
+                        topoParams.stamps = stamps;
+                    }
+                } catch (e) {
+                    console.error("Invalid stamps JSON:", e);
+                    alert("Invalid Stamps JSON format. Using default.");
+                }
+            }
+
+            const payload = {
+                width: parseInt(document.getElementById('genWidth').value),
+                height: parseInt(document.getElementById('genHeight').value),
+                topology_params: topoParams,
+                fill_params: {
+                    difficulty: document.getElementById('genFillDiff').value,
+                    max_nodes: parseInt(document.getElementById('genMaxNodes').value),
+                    partition_preference: document.getElementById('genPartPref').value
+                }
+            };
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // Refresh the log list first
+                    const logListRes = await fetch('/api/logs');
+                    const logListData = await logListRes.json();
+                    
+                    const sel = document.getElementById('fileSelect');
+                    sel.innerHTML = '<option value="" disabled>Select Log File...</option>';
+                    logListData.logs.forEach(log => {
+                        const opt = document.createElement('option');
+                        opt.value = log;
+                        opt.innerText = log;
+                        sel.appendChild(opt);
+                    });
+
+                    // Load the new log
+                    sel.value = result.filename;
+                    loadLog(result.filename);
+                } else {
+                    alert("Generation failed: " + (result.detail || "Unknown error"));
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error during generation: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Generate Puzzle';
+            }
+        }
     </script>
 </body>
 

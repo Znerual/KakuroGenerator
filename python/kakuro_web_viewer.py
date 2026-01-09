@@ -7,8 +7,20 @@ import os
 import json
 import glob
 import sys
+from typing import Optional, Dict, Any
+
+try:
+    from python.kakuro_wrapper import KakuroBoard, CSPSolver
+except ImportError:
+    from kakuro_wrapper import KakuroBoard, CSPSolver
 
 app = FastAPI()
+
+class GenerateRequest(BaseModel):
+    width: int = 10
+    height: int = 10
+    topology_params: Optional[Dict[str, Any]] = None
+    fill_params: Optional[Dict[str, Any]] = None
 
 LOG_DIR = "kakuro_logs"
 if len(sys.argv) > 1:
@@ -25,6 +37,29 @@ async def read_root():
         with open(template_path, "r") as f:
             return f.read()
     return "<h1>Viewer Template Not Found</h1>"
+
+@app.post("/api/generate")
+async def generate_puzzle_endpoint(req: GenerateRequest):
+    try:
+        board = KakuroBoard(req.width, req.height, use_cpp=True)
+        solver = CSPSolver(board)
+        
+        success = solver.generate_puzzle(
+            fill_params=req.fill_params,
+            topo_params=req.topology_params
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Puzzle generation failed")
+            
+        kakuro_id = board.get_kakuro_id()
+        if not kakuro_id:
+            raise HTTPException(status_code=500, detail="Failed to retrieve kakuro ID")
+            
+        return {"success": True, "kakuro_id": kakuro_id, "filename": f"{kakuro_id}.json"}
+    except Exception as e:
+        print(f"Error generating puzzle: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/logs")
 async def list_logs():
