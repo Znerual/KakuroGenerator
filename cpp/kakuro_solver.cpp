@@ -245,23 +245,20 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
             highlights.push_back({c->r, c->c});
           }
         }
-        board->logger->log_step_with_highlights(
-            GenerationLogger::STAGE_FILLING, "uniqueness_conflict",
-            "Uniqueness conflict: multiple solutions found. Differences "
-            "highlighted on original board.",
-            board->get_grid_state(), highlights);
 
-        // Also log the alternative solution
+        // 2. Prepare the alternative grid state
         std::unordered_map<Cell *, int> alt_sol_cells;
         for (auto &pair : *alt_sol_opt) {
           Cell *c = board->get_cell(pair.first.first, pair.first.second);
-          if (c)
-            alt_sol_cells[c] = pair.second;
+          if (c) alt_sol_cells[c] = pair.second;
         }
+        auto alt_grid_state = board->get_grid_state(&alt_sol_cells);
+
         board->logger->log_step_with_highlights(
-            GenerationLogger::STAGE_FILLING, "alternative_solution",
-            "Alternative conflicting solution found.",
-            board->get_grid_state(&alt_sol_cells), highlights);
+            GenerationLogger::STAGE_FILLING, "uniqueness_conflict",
+            "Uniqueness conflict: multiple solutions found. Overlay available.",
+            board->get_grid_state(), highlights, alt_grid_state);
+
       }
 #endif
 
@@ -1243,13 +1240,25 @@ void CSPSolver::solve_for_uniqueness(
         }
       }
 
+      std::unordered_map<Cell *, int> original_assignment;
+      for (Cell *c : board->white_cells) {
+        if (avoid_sol.count({c->r, c->c})) {
+          original_assignment[c] = avoid_sol.at({c->r, c->c});
+        }
+      }
+      auto original_grid_state = board->get_grid_state(&original_assignment);
+
+      // 3. The current board state holds the "Alternative" solution
+      auto alternative_grid_state = board->get_grid_state();
+
       board->logger->log_step_with_highlights(
           GenerationLogger::STAGE_UNIQUENESS,
           GenerationLogger::SUBSTAGE_ALTERNATIVE_FOUND,
           "Found component-wise alternative solution (" +
               std::to_string(found_solutions.size()) + ")",
-          board->get_grid_state(), // Current board state is the alternative
-          highlights);
+          original_grid_state,
+          highlights,
+          alternative_grid_state);
 #endif
     }
     // DO NOT RETURN HERE - continue searching for more alternatives
