@@ -167,6 +167,8 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
   int consecutive_repair_failures = 0;
   int fills_for_this_topology = 0;
 
+  std::vector<ValueConstraint> cumulative_constraints;
+
   for (int fill_attempt = 0;
        fill_attempt < MAX_FILL_ATTEMPTS * MAX_REPAIR_ATTEMPTS; fill_attempt++) {
 
@@ -177,8 +179,18 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
     board->reset_values();
 
     // 1. Fill the board with values
-    if (!solve_fill(params, {}, {}, true))
+    // NEW: Pass the cumulative_constraints to the solver
+    if (!solve_fill(params, {}, cumulative_constraints, true)) {
+      // If filling failed completely with these constraints, we might have over-constrained it.
+      // Clear constraints to allow a fresh start on this topology.
+      if (!cumulative_constraints.empty()) {
+          LOG_DEBUG("  Fill failed with constraints. Clearing learned constraints.");
+          cumulative_constraints.clear();
+          continue;
+      }
+      // If it failed without constraints, this topology might be bad.
       continue;
+    }
 
     // 2. Sync clues to the filled values
     calculate_clues();
@@ -200,14 +212,7 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
         LOG_DEBUG("=== SUCCESS! Unique " << diff.rating << " puzzle ===");
         return true;
       }
-      // If estimator finds multiple solutions but CSP didn't, CSP was
-      // inconclusive
       result = UniquenessResult::MULTIPLE;
-      if (!diff.solutions.empty()) {
-        // If estimator has solutions, we can potentially use them?
-        // Estimator solutions are in a different format (grid of optional
-        // ints). For now, we rely on check_uniqueness to get a compatible map.
-      }
     }
 
     // Check timeout after uniqueness check (expensive operation)
@@ -218,6 +223,37 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
     // 4. Handle Repairs
     if (result == UniquenessResult::MULTIPLE) {
       fills_for_this_topology++;
+
+      // --- NEW: LEARN FROM FAILURE ---
+      // If we have an alternative solution, we know that the current fill (Solution A)
+      // allowed an ambiguity (Solution B). To avoid generating Solution A again,
+      // we pick a cell where they differ and forbid Solution A's value there in the next pass.
+      if (alt_sol_opt) {
+          std::vector<Cell*> diff_cells;
+          for (Cell* c : board->white_cells) {
+              if (c->value && alt_sol_opt->count({c->r, c->c})) {
+                  if (*c->value != alt_sol_opt->at({c->r, c->c})) {
+                      diff_cells.push_back(c);
+                  }
+              }
+          }
+
+          if (!diff_cells.empty()) {
+              // Heuristic: Pick the cell with the most neighbors (highest degree),
+              // as fixing it has the most impact on the board.
+              std::sort(diff_cells.begin(), diff_cells.end(), [this](Cell* a, Cell* b) {
+                  return board->count_white_neighbors(a) > board->count_white_neighbors(b);
+              });
+              
+              // Add a constraint: "In the next fill, this cell cannot be what it is now."
+              Cell* target = diff_cells[0];
+              int bad_val = *target->value;
+              cumulative_constraints.push_back({target, {bad_val}});
+              
+              LOG_DEBUG("  Learning: Forbidding val " << bad_val << " at (" 
+                        << target->r << "," << target->c << ") for next attempt.");
+          }
+      }
 
       if (consecutive_repair_failures >= 3)
         break;
@@ -231,6 +267,7 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
 
       // 10 failed fills -> Try topology repair
       fills_for_this_topology = 0;
+      cumulative_constraints.clear();
 
       // Log that we have a conflict
       LOG_DEBUG("  CONFLICT FOUND after 10 failed fill attempts. Attempting "
@@ -269,7 +306,7 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
       if (!alt_sol) {
         // If robust check found it but didn't return it (though it should now),
         // find it again
-        auto [status, found_alt] = check_uniqueness(100000, fill_attempt);
+        auto [status, found_alt] = check_uniqueness(50000, fill_attempt);
         alt_sol = found_alt;
       }
 
@@ -1261,15 +1298,8 @@ void CSPSolver::solve_for_uniqueness(
           alternative_grid_state);
 #endif
     }
-    // DO NOT RETURN HERE - continue searching for more alternatives
-    return; // Wait, we backtrack from here actually? No, this is a recursive
-            // function. If we want to find MORE, we should backtracking. But
-            // this is the base case of recursion (leaf node). So we return to
-            // explore other branches. "return" here just returns from this
-            // leaf. The caller loop will continue.
-    // Actually, `solve_for_uniqueness` typically returns void and accumulates.
-    // So `return` is correct for "backtrack from this leaf".
-    // BUT we need to stop further recursion if we found enough.
+    
+    return; 
   }
 
   // Check limit - if we found enough, stop recursing
