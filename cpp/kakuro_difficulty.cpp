@@ -174,6 +174,9 @@ bool KakuroDifficultyEstimator::apply_logic_pass(CandidateMap &candidates,
   if (find_naked_singles(candidates, silent, iteration))
     return true;
 
+  if (apply_constraint_propagation(candidates, silent))
+    return true;
+
   // Tier 2: Easy
   if (apply_simple_partitions(candidates, silent))
     return true;
@@ -181,8 +184,7 @@ bool KakuroDifficultyEstimator::apply_logic_pass(CandidateMap &candidates,
   // Tier 3: Medium
   if (find_hidden_singles(candidates, silent))
     return true;
-  if (apply_constraint_propagation(candidates, silent))
-    return true;
+  
 
   // Tier 4: Hard
   if (iteration > 2 && analyze_complex_intersections(candidates, silent))
