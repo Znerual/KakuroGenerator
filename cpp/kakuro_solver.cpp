@@ -10,6 +10,26 @@ namespace kakuro {
 CSPSolver::CSPSolver(std::shared_ptr<KakuroBoard> b)
     : board(b), rng(std::random_device{}()) {}
 
+bool CSPSolver::check_timeout() {
+  auto now = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed = now - start_time_;
+  if (elapsed.count() > time_limit_sec_) {
+    LOG_ERROR("=== TIMEOUT: Generation exceeded " << time_limit_sec_
+                                                << " seconds. Terminating. ===");
+#if KAKURO_ENABLE_LOGGING
+    if (board->logger->is_enabled()) {
+      board->logger->log_step(GenerationLogger::STAGE_FILLING,
+                              GenerationLogger::SUBSTAGE_FAILED,
+                              "Timeout exceeded " + std::to_string(time_limit_sec_) + "s",
+                              board->get_grid_state());
+      board->logger->close();
+    }
+#endif
+    return true;
+  }
+  return false;
+}
+
 bool CSPSolver::generate_puzzle(const std::string &difficulty) {
   FillParams fill_params;
   fill_params.difficulty = difficulty;
@@ -23,11 +43,16 @@ bool CSPSolver::generate_puzzle(const std::string &difficulty) {
 
 bool CSPSolver::generate_puzzle(const FillParams &params,
                                 const TopologyParams &topo_params) {
+  // Reset Timer at start of generation
+  start_time_ = std::chrono::steady_clock::now();
+
   const int MAX_TOPOLOGY_RETRIES = 50;
   LOG_DEBUG("Starting puzzle generation. Difficulty: " << params.difficulty);
 
   for (int topo_attempt = 0; topo_attempt < MAX_TOPOLOGY_RETRIES;
        topo_attempt++) {
+    if (check_timeout())
+      return false;
     if (!prepare_new_topology(topo_params))
       continue;
 
@@ -144,6 +169,11 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
 
   for (int fill_attempt = 0;
        fill_attempt < MAX_FILL_ATTEMPTS * MAX_REPAIR_ATTEMPTS; fill_attempt++) {
+
+    // Check timeout inside fill loop
+    if (check_timeout())
+      return false;
+
     board->reset_values();
 
     // 1. Fill the board with values
@@ -179,6 +209,11 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
         // ints). For now, we rely on check_uniqueness to get a compatible map.
       }
     }
+
+    // Check timeout after uniqueness check (expensive operation)
+    if (check_timeout())
+      return false;
+
 
     // 4. Handle Repairs
     if (result == UniquenessResult::MULTIPLE) {
@@ -264,6 +299,10 @@ CSPSolver::perform_robust_uniqueness_check() {
   // We check 3 times with different search seeds.
   // This catches "symmetric" solutions that a single search might miss.
   for (int i = 0; i < 3; i++) {
+    // Check timeout after uniqueness check (expensive operation)
+    if (check_timeout())
+      return {UniquenessResult::INCONCLUSIVE, std::nullopt};
+
     auto [status, alt_sol] = check_uniqueness(150000, 42 + (i * 100));
 
     if (status == UniquenessResult::MULTIPLE)
@@ -377,6 +416,10 @@ bool CSPSolver::backtrack_fill(
   node_count++;
 
   if (node_count % 1000 == 0) {
+    // Check timeout after uniqueness check (expensive operation)
+    if (check_timeout())
+      return false;
+
     LOG_DEBUG("        Backtrack progress: "
               << node_count << " nodes, " << assignment.size() << "/"
               << board->white_cells.size() << " assigned");
@@ -1151,6 +1194,13 @@ void CSPSolver::solve_for_uniqueness(
     return;
   }
   node_count++;
+
+  if (node_count % 1000 == 0) {
+      if (check_timeout()) {
+          timed_out = true;
+          return;
+      }
+  }
 
   Cell *var = nullptr;
   int min_domain = 10;

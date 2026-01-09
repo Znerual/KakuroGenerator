@@ -415,6 +415,8 @@ public:
 
   CSPSolver(std::shared_ptr<KakuroBoard> b);
 
+  void set_time_limit(double seconds) { time_limit_sec_ = seconds; }
+
   struct ScoreInfo {
     int value;
     double h_score;
@@ -450,6 +452,11 @@ public:
   check_uniqueness(int max_nodes = 10000, int seed_offset = 0);
 
 private:
+  // --- Time Limit Members ---
+  std::chrono::steady_clock::time_point start_time_;
+  double time_limit_sec_ = 30.0; // Default 30 seconds
+  bool check_timeout();          // Returns true if timed out and handles logging/closing
+
   bool
   backtrack_fill(std::unordered_map<Cell *, int> &assignment, int &node_count,
                  int max_nodes, const std::vector<int> &weights,
