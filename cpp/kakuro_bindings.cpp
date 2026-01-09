@@ -32,6 +32,8 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         .def_readwrite("num_stamps", &kakuro::TopologyParams::num_stamps)
         .def_readwrite("min_cells", &kakuro::TopologyParams::min_cells)
         .def_readwrite("max_run_len", &kakuro::TopologyParams::max_run_len)
+        .def_readwrite("max_run_len_soft", &kakuro::TopologyParams::max_run_len_soft)
+        .def_readwrite("max_run_len_soft_prob", &kakuro::TopologyParams::max_run_len_soft_prob)
         .def_readwrite("max_patch_size", &kakuro::TopologyParams::max_patch_size)
         .def_readwrite("island_mode", &kakuro::TopologyParams::island_mode)
         .def_readwrite("stamps", &kakuro::TopologyParams::stamps);
@@ -166,6 +168,10 @@ PYBIND11_MODULE(kakuro_cpp, m) {
                 }
                 return result; // Pybind11 converts this to list of lists of Cells automatically
             })
+        .def("get_kakuro_id", [](const kakuro::KakuroBoard& b) {
+            if (b.logger) return b.logger->get_kakuro_id();
+            return std::string("");
+        })
         .def("get_grid", [](const kakuro::KakuroBoard& b) {
             py::list result;
             for (int r = 0; r < b.height; r++) {
