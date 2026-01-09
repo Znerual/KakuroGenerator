@@ -54,10 +54,22 @@ class KakuroBoard:
                 from kakuro import KakuroBoard as PyKakuroBoard
                 self._board = PyKakuroBoard(width, height)
     
-    def generate_topology(self, density: float = 0.60, max_sector_length: int = 9, difficulty: str = "medium"):
+    def generate_topology(self, density: float = 0.60, max_sector_length: int = 9, difficulty: str = "medium", **kwargs):
         """Generate the board topology."""
-        # Note: Added difficulty argument to match updated C++ API
-        self._board.generate_topology(density, max_sector_length, difficulty)
+        if self.use_cpp:
+            if "params" in kwargs and isinstance(kwargs["params"], kakuro_cpp.TopologyParams):
+                self._board.generate_topology(kwargs["params"])
+            elif "params" in kwargs and isinstance(kwargs["params"], dict):
+                p = kakuro_cpp.TopologyParams()
+                for k, v in kwargs["params"].items():
+                    if hasattr(p, k):
+                        setattr(p, k, v)
+                self._board.generate_topology(p)
+            else:
+                self._board.generate_topology(density, max_sector_length, difficulty)
+        else:
+            # Fallback to pure Python implementation
+            self._board.generate_topology(density=density, max_sector_length=max_sector_length, difficulty=difficulty, **kwargs)
     
     def reset_values(self):
         """Clear all values and clues."""
@@ -66,6 +78,12 @@ class KakuroBoard:
     def get_cell(self, r: int, c: int):
         """Get cell at position (r, c)."""
         return self._board.get_cell(r, c)
+    
+    def get_kakuro_id(self) -> str:
+        """Get the ID of the current kakuro (from C++ logger)."""
+        if self.use_cpp:
+            return self._board.get_kakuro_id()
+        return ""
     
     def to_dict(self):
         """Export board to dictionary format."""
@@ -117,11 +135,33 @@ class CSPSolver:
                 from solver import CSPSolver as PyCSPSolver
                 self._solver = PyCSPSolver(board._board)
     
-    def generate_puzzle(self, difficulty: str = "medium") -> bool:
+    def generate_puzzle(self, difficulty: str = "medium", fill_params=None, topo_params=None) -> bool:
         """
         Generate a complete, unique Kakuro puzzle.
         """
-        return self._solver.generate_puzzle(difficulty)
+        if self.board.use_cpp:
+            f_p = fill_params
+            if isinstance(fill_params, dict):
+                f_p = kakuro_cpp.FillParams()
+                for k, v in fill_params.items():
+                    if hasattr(f_p, k): setattr(f_p, k, v)
+            elif f_p is None:
+                f_p = kakuro_cpp.FillParams()
+                f_p.difficulty = difficulty
+
+            t_p = topo_params
+            if isinstance(topo_params, dict):
+                t_p = kakuro_cpp.TopologyParams()
+                for k, v in topo_params.items():
+                    if hasattr(t_p, k): setattr(t_p, k, v)
+            elif t_p is None:
+                t_p = kakuro_cpp.TopologyParams()
+                t_p.difficulty = difficulty
+
+            return self._solver.generate_puzzle(f_p, t_p)
+        else:
+            # Python implementation might not support full params yet
+            return self._solver.generate_puzzle(difficulty)
     
     def solve_fill(self, difficulty: str = "medium", max_nodes: int = 30000) -> bool:
         """Fill the board with valid numbers."""
