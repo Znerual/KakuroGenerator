@@ -108,6 +108,12 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.max_patch_size = 3;
     if (!params.island_mode.has_value())
       params.island_mode = true;
+    if (!params.max_sector_length.has_value())
+      params.max_sector_length = 5;
+    if (!params.max_run_len_soft.has_value())
+      params.max_run_len_soft = 2;
+    if (!params.max_run_len_soft_prob.has_value())
+      params.max_run_len_soft_prob = 0.8;
   } else if (difficulty == "easy") {
     if (!params.stamps.has_value())
       params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}};
@@ -126,6 +132,8 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.max_patch_size = 3;
     if (!params.island_mode.has_value())
       params.island_mode = true;
+    if (!params.max_sector_length.has_value())
+      params.max_sector_length = 6;
   } else if (difficulty == "medium") {
     if (!params.stamps.has_value())
       params.stamps = {{2, 3}, {3, 2}, {2, 5}, {5, 2},
@@ -137,8 +145,14 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.min_cells = (int)(area * 0.25);
     if (!params.max_run_len.has_value())
       params.max_run_len = 8;
+    if (!params.max_run_len_soft.has_value())
+      params.max_run_len_soft = 4;
+    if (!params.max_run_len_soft_prob.has_value())
+      params.max_run_len_soft_prob = 0.4;
     if (!params.max_patch_size.has_value())
       params.max_patch_size = 3;
+    if (!params.max_sector_length.has_value())
+      params.max_sector_length = 8;
   } else if (difficulty == "hard") {
     if (!params.stamps.has_value())
       params.stamps = {{2, 3}, {3, 2}, {2, 5},
@@ -150,8 +164,14 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.min_cells = (int)(area * 0.25);
     if (!params.max_run_len.has_value())
       params.max_run_len = 9;
+    if (!params.max_run_len_soft.has_value())
+      params.max_run_len_soft = 5;
+    if (!params.max_run_len_soft_prob.has_value())
+      params.max_run_len_soft_prob = 0.3;
     if (!params.max_patch_size.has_value())
       params.max_patch_size = 3;
+    if (!params.max_sector_length.has_value())
+      params.max_sector_length = 9;
   } else if (difficulty == "very_hard") {
     if (!params.stamps.has_value())
       params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 5},
@@ -163,8 +183,14 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.min_cells = (int)(area * 0.25);
     if (!params.max_run_len.has_value())
       params.max_run_len = 9;
+    if (!params.max_run_len_soft.has_value())
+      params.max_run_len_soft = 6;
+    if (!params.max_run_len_soft_prob.has_value())
+      params.max_run_len_soft_prob = 0.25;
     if (!params.max_patch_size.has_value())
       params.max_patch_size = 4;
+    if (!params.max_sector_length.has_value())
+      params.max_sector_length = 9;
   } else if (difficulty == "extreme") {
     if (!params.stamps.has_value())
       params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 5},
@@ -176,8 +202,14 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.min_cells = (int)(area * 0.3);
     if (!params.max_run_len.has_value())
       params.max_run_len = 9;
+    if (!params.max_run_len_soft.has_value())
+      params.max_run_len_soft = 7;
+    if (!params.max_run_len_soft_prob.has_value())
+      params.max_run_len_soft_prob = 0.25;
     if (!params.max_patch_size.has_value())
       params.max_patch_size = 5;
+    if (!params.max_sector_length.has_value())
+      params.max_sector_length = 9;
   }
 }
 
