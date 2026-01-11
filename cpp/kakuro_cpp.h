@@ -51,7 +51,7 @@ struct TopologyParams {
   std::optional<double> density;
   std::optional<int> max_sector_length;
   std::optional<int> num_stamps;
-  std::optional<int> min_cells;
+  std::optional<float> min_cells;
   std::optional<int> max_run_len;
   std::optional<int> max_run_len_soft;
   std::optional<double> max_run_len_soft_prob;
@@ -65,6 +65,34 @@ struct FillParams {
   std::optional<std::vector<int>> weights;
   std::optional<std::string> partition_preference;
   std::optional<int> max_nodes;
+};
+
+enum class TechniqueTier {
+  VERY_EASY = 1, // Intersection of two masks, naked singles
+  EASY = 2,      // Simple partitions (only 1 valid combination)
+  MEDIUM = 3,    // Hidden singles, basic constraint propagation
+  HARD = 4,      // Complex intersections, multi-sector lookahead
+  EXTREME = 5    // Trial and Error / Bifurcation
+};
+
+struct SolveStep {
+  std::string technique;
+  float difficulty_weight;
+  int cells_affected;
+  SolveStep(std::string t, float w, int c)
+      : technique(t), difficulty_weight(w), cells_affected(c) {}
+};
+
+struct DifficultyResult {
+  float score = 0;    // Factor 2: Persistence (Sum of effort)
+  std::string rating; // Factor 1: Capability (Hardest technique)
+  TechniqueTier max_tier = TechniqueTier::VERY_EASY;
+
+  int total_steps = 0;
+  int solution_count = 0;
+  std::string uniqueness;
+  std::vector<SolveStep> solve_path;
+  std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
 };
 
 class GenerationLogger {
@@ -371,6 +399,61 @@ public:
     log_file_.flush();
 #endif
   }
+
+  void log_difficulty(
+      const DifficultyResult &diff,
+      const std::vector<std::vector<std::pair<std::string, int>>> &grid_state) {
+#if KAKURO_ENABLE_LOGGING
+    if (!enabled_ || !log_file_.is_open())
+      return;
+
+    if (!first_entry_)
+      log_file_ << ",\n";
+    first_entry_ = false;
+
+    log_file_ << "  {\n";
+    log_file_ << "    \"id\": " << step_id_++ << ",\n";
+    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n";
+    log_file_ << "    \"s\": \"" << STAGE_DIFFICULTY << "\",\n";
+    log_file_ << "    \"ss\": \"" << SUBSTAGE_COMPLETE << "\",\n";
+    log_file_ << "    \"m\": \"Difficulty estimation complete: "
+              << escape_json(diff.rating) << "\",\n";
+
+    // Difficulty Object
+    log_file_ << "    \"difficulty\": {\n";
+    log_file_ << "      \"rating\": \"" << escape_json(diff.rating) << "\",\n";
+    log_file_ << "      \"score\": " << diff.score << ",\n";
+    log_file_ << "      \"max_tier\": " << (int)diff.max_tier << ",\n";
+    log_file_ << "      \"solution_count\": " << diff.solution_count << ",\n";
+    log_file_ << "      \"uniqueness\": \"" << escape_json(diff.uniqueness)
+              << "\"\n";
+    log_file_ << "    },\n";
+
+    // Standard Grid State
+    if (!grid_state.empty()) {
+      log_file_ << "    \"wh\": [" << grid_state[0].size() << ","
+                << grid_state.size() << "],\n";
+      log_file_ << "    \"g\": [\n";
+      bool first_cell = true;
+      for (size_t r = 0; r < grid_state.size(); r++) {
+        for (size_t c = 0; c < grid_state[r].size(); c++) {
+          const auto &[type, value] = grid_state[r][c];
+          if (type == "WHITE") {
+            if (!first_cell)
+              log_file_ << ",\n";
+            log_file_ << "      [" << r << "," << c << "," << value << "]";
+            first_cell = false;
+          }
+        }
+      }
+      log_file_ << "\n    ]\n";
+    } else {
+      log_file_ << "    \"g\": []\n";
+    }
+    log_file_ << "  }";
+    log_file_.flush();
+#endif
+  }
 };
 
 enum class CellType { BLOCK, WHITE };
@@ -469,34 +552,6 @@ private:
   // int>& assignment); bool is_connected(const
   // std::unordered_set<std::pair<int, int>,
   //                   std::hash<std::pair<int, int>>>& coords);
-};
-
-enum class TechniqueTier {
-  VERY_EASY = 1, // Intersection of two masks, naked singles
-  EASY = 2,      // Simple partitions (only 1 valid combination)
-  MEDIUM = 3,    // Hidden singles, basic constraint propagation
-  HARD = 4,      // Complex intersections, multi-sector lookahead
-  EXTREME = 5    // Trial and Error / Bifurcation
-};
-
-struct SolveStep {
-  std::string technique;
-  float difficulty_weight;
-  int cells_affected;
-  SolveStep(std::string t, float w, int c)
-      : technique(t), difficulty_weight(w), cells_affected(c) {}
-};
-
-struct DifficultyResult {
-  float score = 0;    // Factor 2: Persistence (Sum of effort)
-  std::string rating; // Factor 1: Capability (Hardest technique)
-  TechniqueTier max_tier = TechniqueTier::VERY_EASY;
-
-  int total_steps = 0;
-  int solution_count = 0;
-  std::string uniqueness;
-  std::vector<SolveStep> solve_path;
-  std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
 };
 
 struct PuzzleCell {
