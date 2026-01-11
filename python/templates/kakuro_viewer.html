@@ -182,6 +182,70 @@
             font-weight: bold;
         }
 
+        .step-dur {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--grid-line);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+
+        .step-item.active .step-dur {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+        }
+
+        .sub-profiles {
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            border-left: 1px dashed var(--grid-line);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sub-profile-item {
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .sub-profile-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .profile-toggle {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .profile-toggle:hover {
+            opacity: 1;
+        }
+
+        .profile-toggle.active {
+            opacity: 1;
+            filter: drop-shadow(0 0 2px var(--color-diff));
+        }
+
+        .step-dur {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--grid-line);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+
+        .step-item.active .step-dur {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+        }
+
         /* --- Main Area --- */
         main {
             flex: 1;
@@ -699,6 +763,7 @@
             'uv': 'uniqueness_validation',
             'de': 'difficulty_estimation',
             'params': 'configuration',
+            'p': 'performance_profile',
             'summary': 'Summary Report'
         };
 
@@ -723,16 +788,17 @@
             'cf': 'consistency_check_failed',
             'af': 'alternative_found',
             'ra': 'repair_attempt',
-            'ls': 'logic_step'
+            'ls': 'logic_step',
+            'tm': 'timing'
         };
 
         const STAGE_COLORS = {
             'topology_creation': 'stage-topology',
             'filling': 'stage-filling',
             'uniqueness_validation': 'stage-uniqueness',
-            'uniqueness_validation': 'stage-uniqueness',
             'difficulty_estimation': 'stage-difficulty',
-            'configuration': 'stage-topology'
+            'configuration': 'stage-topology',
+            'performance_profile': 'stage-difficulty'
         };
 
         const SUBSTAGE_ICONS = {
@@ -779,6 +845,7 @@
                 message: step.m,
                 grid: fullGrid,
                 data: step.d || {},
+                dur: step.dur,
                 difficulty: step.difficulty
             };
 
@@ -871,13 +938,12 @@
 
             let currentStage = null;
             let groupDetails = null;
-            let lastSubstage = null;
+            let lastNormalStepEl = null;
 
             currentLogData.forEach((step, index) => {
                 // New Stage Group
-                if (step.stage !== currentStage) {
+                if (step.stage !== currentStage && step.stage !== 'performance_profile') {
                     currentStage = step.stage;
-                    lastSubstage = null; // Reset substage tracking
 
                     groupDetails = document.createElement('details');
                     groupDetails.className = 'stage-group';
@@ -889,31 +955,68 @@
 
                     groupDetails.appendChild(summary);
                     container.appendChild(groupDetails);
+                    lastNormalStepEl = null;
                 }
 
-                // Optimization: Don't list every single number placement in Filling
-                // Only list when Substage changes, or it's a specific event (backtrack/fail)
-                const isInterest = (step.substage !== lastSubstage)
-                    || step.substage === 'backtrack'
-                    || step.substage === 'alternative_found'
-                    || step.substage.includes('fail');
+                if (step.stage === 'performance_profile') {
+                    if (lastNormalStepEl) {
+                        let subContainer = lastNormalStepEl.querySelector('.sub-profiles');
+                        if (!subContainer) {
+                            subContainer = document.createElement('div');
+                            subContainer.className = 'sub-profiles';
+                            subContainer.style.display = 'none';
+                            lastNormalStepEl.appendChild(subContainer);
 
-                if (isInterest) {
-                    lastSubstage = step.substage;
-                    const el = document.createElement('div');
-                    el.className = 'step-item';
-                    el.id = `step-nav-${index}`;
+                            const header = lastNormalStepEl.querySelector('.step-header-row');
+                            const toggle = document.createElement('span');
+                            toggle.className = 'profile-toggle';
+                            toggle.innerHTML = ' ⚙️';
+                            toggle.onclick = (e) => {
+                                e.stopPropagation();
+                                const isHidden = subContainer.style.display === 'none';
+                                subContainer.style.display = isHidden ? 'block' : 'none';
+                                toggle.classList.toggle('active', isHidden);
+                            };
+                            header.appendChild(toggle);
+                        }
 
-                    const icon = SUBSTAGE_ICONS[step.substage] || '•';
-                    const extraClass = step.substage === 'backtrack' ? 'tag-backtrack' :
-                        step.substage === 'alternative_found' ? 'tag-alt' : '';
+                        const subEl = document.createElement('div');
+                        subEl.className = 'sub-profile-item';
+                        subEl.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: var(--text-secondary);">
+                                <span>${step.message.replace('Profile: ', '')}</span>
+                                <span class="step-dur">${step.dur.toFixed(2)}ms</span>
+                            </div>
+                        `;
+                        subEl.onclick = (e) => { e.stopPropagation(); scrub(index); };
+                        subContainer.appendChild(subEl);
+                    }
+                } else {
+                    const isInterest = (index === 0) || (step.substage !== currentLogData[index - 1].substage)
+                        || step.substage === 'backtrack'
+                        || step.substage === 'alternative_found'
+                        || step.substage.includes('fail');
 
-                    el.innerHTML = `
-                    <div class="step-substage ${extraClass}">${icon} ${formatLabel(step.substage)}</div>
-                    <div class="step-msg">${step.message}</div>
-                `;
-                    el.onclick = () => scrub(index);
-                    groupDetails.appendChild(el);
+                    if (isInterest || step.stage === 'configuration' || step.stage === 'Summary Report') {
+                        const el = document.createElement('div');
+                        el.className = 'step-item';
+                        el.id = `step-nav-${index}`;
+
+                        const icon = SUBSTAGE_ICONS[step.substage] || '•';
+                        const extraClass = step.substage === 'backtrack' ? 'tag-backtrack' :
+                            step.substage === 'alternative_found' ? 'tag-alt' : '';
+
+                        el.innerHTML = `
+                        <div class="step-header-row" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="step-substage ${extraClass}">${icon} ${formatLabel(step.substage)}</div>
+                            ${step.dur !== undefined ? `<div class="step-dur">${step.dur.toFixed(1)}ms</div>` : ''}
+                        </div>
+                        <div class="step-msg">${step.message}</div>
+                    `;
+                        el.onclick = () => scrub(index);
+                        groupDetails.appendChild(el);
+                        lastNormalStepEl = el;
+                    }
                 }
             });
         }
@@ -959,9 +1062,15 @@
             badge.style.color = '#000';
 
             document.getElementById('substageLabel').innerText = formatLabel(step.substage);
-            document.getElementById('messageLabel').innerText = step.message;
             document.getElementById('currentStepNum').innerText = currentStepIndex;
             document.getElementById('totalSteps').innerText = currentLogData.length - 1;
+
+            if (step.dur !== undefined) {
+                document.getElementById('messageLabel').innerHTML = step.message +
+                    ` <span style="color:var(--text-secondary); font-size:0.8rem; margin-left:8px;">(${step.dur.toFixed(2)}ms)</span>`;
+            } else {
+                document.getElementById('messageLabel').innerText = step.message;
+            }
 
             // Alternative Warning
             const altWarn = document.getElementById('altWarning');
