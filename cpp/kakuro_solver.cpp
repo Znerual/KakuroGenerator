@@ -61,7 +61,7 @@ void CSPSolver::apply_fill_defaults(FillParams &params) {
           std::initializer_list<int>{1, 2, 5, 10, 10, 10, 5, 2, 1});
     }
     if (!params.partition_preference.has_value()) {
-      params.partition_preference = "few";
+      params.partition_preference = "unique";
     }
   } else {
     if (!params.weights.has_value()) {
@@ -100,7 +100,9 @@ bool CSPSolver::generate_puzzle(const FillParams &params_f,
 #if KAKURO_ENABLE_LOGGING
   if (board->logger) {
     board->logger->start_new_kakuro();
-    board->logger->log_params(params_f, topo_params_t);
+    // Log the RESOLVED parameters (params, topo_params) so inferred defaults
+    // are visible
+    board->logger->log_params(params, topo_params);
   }
 #endif
 
@@ -156,7 +158,7 @@ GeneratedPuzzle CSPSolver::generate_random_puzzle() {
   topo.max_sector_length = 9;
   topo.island_mode = true;
   topo.min_cells =
-      (int)(area * std::uniform_real_distribution<double>(0.18, 0.35)(rng));
+      (float)std::uniform_real_distribution<double>(0.18, 0.35)(rng);
   topo.max_run_len = std::uniform_int_distribution<>(6, 9)(rng);
   topo.max_patch_size = std::uniform_int_distribution<>(2, 4)(rng);
 
@@ -211,7 +213,7 @@ GeneratedPuzzle CSPSolver::generate_random_puzzle() {
 
 bool CSPSolver::prepare_new_topology(const TopologyParams &topo_params) {
   bool success = board->generate_topology(topo_params);
-  if (!success || board->white_cells.size() < 12) {
+  if (!success) {
     return false;
   }
   board->collect_white_cells();
