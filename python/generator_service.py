@@ -3,9 +3,10 @@ import time
 import logging
 import random
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from .database import SessionLocal
-from .models import PuzzleTemplate
-from .kakuro_wrapper import KakuroBoard, CSPSolver, generate_random_kakuro
+from .models import PuzzleTemplate, DifficultyStat
+from .kakuro_wrapper import KakuroBoard, CSPSolver, KakuroDifficultyEstimator, generate_kakuro
 
 logger = logging.getLogger("kakuro_generator")
 
@@ -22,6 +23,7 @@ class GeneratorService:
         self._thread = None
         self.running = False
         self._current_counts = {diff: 0 for diff in DIFFICULTY_LEVELS}
+        self.difficulty_size_ranges = {}
 
     @property
     def status(self) -> dict:
@@ -37,8 +39,9 @@ class GeneratorService:
             "batch_size": BATCH_SIZE
         }
 
-    def start(self):
+    def start(self, difficulty_size_ranges: dict[str, tuple[int, int]]):
         """Start the background generation thread."""
+        self.difficulty_size_ranges = difficulty_size_ranges
         if self.running:
             return
         
@@ -56,6 +59,76 @@ class GeneratorService:
             self._thread.join(timeout=2)
         self.running = False
 
+    def generate_single_puzzle(self, db: Session, target_diff: str, means: dict = None, height: int | None = None, width: int | None = None) -> PuzzleTemplate:
+        """
+        The core logic: Generate -> Score -> Push -> Update Stats -> Return Template.
+        This is used for both background filling and on-demand fallback.
+        """
+        if means is None:
+            means = self.get_means(db)
+
+        # 1. Call C++ Generator
+        if height is None or width is None:
+            width, height = self._get_grid_size(target_diff)
+        board = generate_kakuro(width=width, height=height, difficulty=target_diff, use_cpp=True)
+        difficulty_estimator = KakuroDifficultyEstimator(board)
+        diff = difficulty_estimator.estimate_difficulty_detailed()
+        
+        if not board or not diff:
+            return None
+
+        # 2. Package detailed information
+        difficulty_info = {
+            "rating": diff.rating,
+            "score": round(diff.score, 2),
+            "max_tier": int(diff.max_tier),
+            "total_steps": diff.total_steps,
+            "uniqueness": diff.uniqueness,
+            "solution_count": diff.solution_count,
+            "solve_path": [
+                {"technique": s.technique, "weight": s.difficulty_weight, "cells": s.cells_affected} 
+                for s in diff.solve_path
+            ]
+        }
+
+        # 3. Difficulty Pushing Logic
+        final_diff = target_diff
+        idx = DIFFICULTY_LEVELS.index(target_diff)
+        
+        # Check Push UP (Is score > mean of higher level?)
+        if idx < len(DIFFICULTY_LEVELS) - 1:
+            higher = DIFFICULTY_LEVELS[idx + 1]
+            if diff.score > means[higher]:
+                final_diff = higher
+        
+        # Check Push DOWN (Is score < mean of lower level?)
+        elif idx > 0:
+            lower = DIFFICULTY_LEVELS[idx - 1]
+            if diff.score < means[lower]:
+                final_diff = lower
+
+        # 4. Save Template
+        tmpl = PuzzleTemplate(
+            id=str(uuid.uuid4()),
+            width=board.width,
+            height=board.height,
+            difficulty=final_diff,
+            difficulty_score=diff.score,
+            difficulty_data=difficulty_info,
+            grid=board.to_dict()
+        )
+        db.add(tmpl)
+
+        # 5. Update Statistics for the FINAL difficulty
+        stat = db.query(DifficultyStat).filter_by(difficulty=final_diff).first()
+        if not stat:
+            stat = DifficultyStat(difficulty=final_diff)
+            db.add(stat)
+        stat.sum_scores += diff.score
+        stat.count += 1
+        
+        return tmpl
+
     def _run_loop(self):
         """Main loop that checks pool sizes and triggers generation."""
         logger.info("Generator Service Loop Started")
@@ -71,6 +144,51 @@ class GeneratorService:
                 if self._stop_event.is_set():
                     break
                 time.sleep(0.5)
+
+    def _get_all_means(self, db: Session):
+        """Retrieves a dict of difficulty -> mean_score."""
+        stats = db.query(DifficultyStat).all()
+        means = {s.difficulty: s.mean for s in stats}
+        # Fill in defaults if stats table is empty
+        defaults = {"very_easy": 10.0, "easy": 30.0, "medium": 60.0, "hard": 100.0}
+        for d in DIFFICULTY_LEVELS:
+            if d not in means or means[d] == 0:
+                means[d] = defaults[d]
+        return means
+
+    def _update_stats(self, db: Session, difficulty: str, score: float):
+        """Updates the running sum and count for a difficulty level."""
+        stat = db.query(DifficultyStat).filter_by(difficulty=difficulty).first()
+        if not stat:
+            stat = DifficultyStat(difficulty=difficulty, sum_scores=0.0, count=0)
+            db.add(stat)
+        
+        stat.sum_scores += score
+        stat.count += 1
+        # No commit here, part of the batch transaction
+
+    def _determine_difficulty(self, score: float, requested_diff: str, means: dict) -> str:
+        """
+        Logic: Push up if score > mean of higher level.
+        Push down if score < mean of lower level.
+        """
+        idx = DIFFICULTY_LEVELS.index(requested_diff)
+        
+        # Check Push Up
+        if idx < len(DIFFICULTY_LEVELS) - 1:
+            higher_diff = DIFFICULTY_LEVELS[idx + 1]
+            if score > means[higher_diff]:
+                logger.info(f"Pushing UP: {score} > mean({higher_diff})={means[higher_diff]:.2f}")
+                return higher_diff
+        
+        # Check Push Down
+        if idx > 0:
+            lower_diff = DIFFICULTY_LEVELS[idx - 1]
+            if score < means[lower_diff]:
+                logger.info(f"Pushing DOWN: {score} < mean({lower_diff})={means[lower_diff]:.2f}")
+                return lower_diff
+                
+        return requested_diff
 
     def _get_freshness_threshold(self, db: Session, difficulty: str) -> int:
         """
@@ -93,10 +211,20 @@ class GeneratorService:
         # Default to 1 if no completions, add buffer
         return (max_completions or 0) + FRESHNESS_BUFFER
 
+    def _get_grid_size(self, difficulty: str) -> tuple[int, int]:
+        """Get grid size based on difficulty level."""
+        if difficulty not in self.difficulty_size_ranges:
+            raise ValueError(f"Invalid difficulty level: {difficulty}")
+        
+        min_size, max_size = self.difficulty_size_ranges[difficulty]
+        return random.randint(min_size, max_size), random.randint(min_size, max_size)
+    
+
     def _check_and_refill_pools(self):
         """Check database for fresh puzzle counts and generate if needed."""
         with SessionLocal() as db:
-            any_low = False
+            means = self._get_all_means(db)
+
             for difficulty in DIFFICULTY_LEVELS:
                 if self._stop_event.is_set():
                     return
@@ -112,62 +240,71 @@ class GeneratorService:
 
                 self._current_counts[difficulty] = fresh_count
                 if fresh_count < POOL_TARGET_SIZE:
-                    any_low = True
-
-            if any_low:
-                logger.info("Some pools are low. Starting randomized generation batch...")
-                start_t = time.perf_counter()
-                self._generate_random_batch(db, BATCH_SIZE)
-                duration_ms = (time.perf_counter() - start_t) * 1000
+                    logger.info(f"{difficulty} pool is low. Starting targeted generation batch...")
+                    start_t = time.perf_counter()
+                    self._generate_targeted_batch(db, difficulty, BATCH_SIZE, means)
+                    duration_ms = (time.perf_counter() - start_t) * 1000
                 
-                try:
-                    from .performance import record_metric
-                    record_metric(db, "gen_random_batch_time_ms", duration_ms, "ms")
-                except ImportError:
-                    pass
-                    
-    def _generate_random_batch(self, db: Session, count: int):
-        """Generates random puzzles and categorizes them by estimated difficulty."""
-        generated = 0
-        
-        # Mapping from Estimator Rating (C++) to DB Difficulty
-        RATING_MAP = {
-            "Very Easy": "very_easy",
-            "Easy": "easy",
-            "Medium": "medium",
-            "Hard": "hard",
-            "Extreme": "hard" # Or maybe we support extreme later
-        }
-
-        for _ in range(count):
-            if self._stop_event.is_set():
-                break
-
-            # Use C++ implementation for speed and better difficulty metrics
-            board, diff_info = generate_random_kakuro(use_cpp=True)
+                    try:
+                        from .performance import record_metric
+                        record_metric(db, f"gen_{difficulty}_batch_time_ms", duration_ms, "ms")
+                    except ImportError:
+                        pass
             
-            if board and diff_info:
-                # Success - Map Rating
-                rating_str = diff_info.rating
-                internal_diff = RATING_MAP.get(rating_str, "medium")
-                
-                # Export board to Dict
-                grid_data = board.to_dict()
+                    
+    def _generate_targeted_batch(self, db: Session, target_diff: str, count: int, means: dict, height: int | None = None, width: int | None = None):
+        """Generates puzzles and adjusts their difficulty based on global means."""
+        generated = 0
+        for _ in range(count):
+            if self._stop_event.is_set(): break
 
-                # Save to DB
+            if height is None or width is None:
+                width, height = self._get_grid_size(target_diff)
+            board = generate_kakuro(width=width, height=height, difficulty=target_diff, use_cpp=True)
+            difficulty_estimator = KakuroDifficultyEstimator(board)
+            diff = difficulty_estimator.estimate_difficulty_detailed()
+
+            if board and diff:
+                raw_score = diff.score # Assuming C++ returns a float
+              
+                # Convert the C++ difficulty object to a dictionary
+                difficulty_data = {
+                    "rating": diff.rating,
+                    "score": round(diff.score, 2),
+                    "max_tier": int(diff.max_tier),
+                    "total_steps": diff.total_steps,
+                    "uniqueness": diff.uniqueness,
+                    "solution_count": diff.solution_count,
+                    "solve_path": [
+                        {
+                            "technique": step.technique,
+                            "weight": step.difficulty_weight,
+                            "cells": step.cells_affected
+                        } for step in diff.solve_path
+                    ]
+                }
+                # Apply the requested logic: Compare against means
+                final_diff = self._determine_difficulty(raw_score, target_diff, means)
+                
                 tmpl = PuzzleTemplate(
                     width=board.width,
                     height=board.height,
-                    difficulty=internal_diff,
-                    grid=grid_data
+                    difficulty=final_diff,
+                    difficulty_score=raw_score,
+                    difficulty_data=difficulty_data,
+                    grid=board.to_dict(),
+                    times_used=0
                 )
                 db.add(tmpl)
+                
+                # Update the running average for the FINAL difficulty
+                self._update_stats(db, final_diff, raw_score)
                 generated += 1
-                logger.info(f"Generated {rating_str} puzzle ({board.width}x{board.height})")
         
         if generated > 0:
             db.commit()
-            logger.info(f"Batch completed: {generated} random puzzles saved.")
+            logger.info(f"Saved {generated} puzzles initially targeted as {target_diff}")
+
 
 # Singleton instance
 generator_service = GeneratorService()
