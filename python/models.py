@@ -103,6 +103,9 @@ class PuzzleTemplate(Base):
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
     difficulty = Column(String, nullable=False)
+
+    difficulty_score = Column(Float, nullable=False)
+    difficulty_data = Column(JSON, nullable=False)
     
     # The immutable puzzle data
     grid = Column(JSON, nullable=False) # The structure: black cells, clues
@@ -121,6 +124,17 @@ class PuzzleTemplate(Base):
     # Relationships
     puzzles = relationship("Puzzle", back_populates="template")
 
+class DifficultyStat(Base):
+    """Stores running totals to calculate means efficiently."""
+    __tablename__ = "difficulty_stats"
+    
+    difficulty = Column(String, primary_key=True) # very_easy, easy, etc.
+    sum_scores = Column(Float, default=0.0, nullable=False)
+    count = Column(Integer, default=0, nullable=False)
+
+    @property
+    def mean(self) -> float:
+        return self.sum_scores / self.count if self.count > 0 else 0.0
 
 class Puzzle(Base):
     """Puzzle model for storing user's saved puzzles."""
@@ -148,6 +162,7 @@ class Puzzle(Base):
     # User feedback
     rating = Column(Integer, default=0)
     user_comment = Column(Text, default="")
+    difficulty_vote = Column(Integer, nullable=True) # 1-10 scale
     
     # Status
     status = Column(String, default="started")  # 'started', 'solved', 'given_up'
@@ -175,6 +190,7 @@ class Puzzle(Base):
             "cellNotes": self.cell_notes,
             "notebook": self.notebook,
             "rating": self.rating,
+            "difficultyVote": self.difficulty_vote,
             "userComment": self.user_comment,
             "status": self.status,
             "timestamp": self.created_at.isoformat() if self.created_at else None,
