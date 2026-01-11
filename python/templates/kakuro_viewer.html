@@ -246,13 +246,11 @@
 
         .cell.block.has-clue {
             /* Diagonal line from Top-Left to Bottom-Right */
-            background: linear-gradient(
-                to bottom left, 
-                var(--cell-block) 48%, 
-                var(--grid-line) 48%, 
-                var(--grid-line) 52%, 
-                var(--cell-block) 52%
-            );
+            background: linear-gradient(to bottom left,
+                    var(--cell-block) 48%,
+                    var(--grid-line) 48%,
+                    var(--grid-line) 52%,
+                    var(--cell-block) 52%);
         }
 
         /* Clue Numbers */
@@ -263,12 +261,18 @@
             color: var(--clue-text);
             font-family: monospace;
         }
-        
+
         /* Vertical Sum (Top Right Triangle) - Adjusted positioning */
-        .clue-v { bottom: 15%; left: 15%; }
-        
+        .clue-v {
+            bottom: 15%;
+            left: 15%;
+        }
+
         /* Horizontal Sum (Bottom Left Triangle) - Adjusted positioning */
-        .clue-h { top: 15%; right: 15%; }
+        .clue-h {
+            top: 15%;
+            right: 15%;
+        }
 
         .cell.white {
             background-color: var(--cell-white);
@@ -276,7 +280,7 @@
         }
 
         .cell.white.empty {
-             color: transparent;
+            color: transparent;
         }
 
         .cell.highlighted {
@@ -352,6 +356,7 @@
             margin-bottom: 1rem;
             overflow: hidden;
         }
+
         .settings-header {
             padding: 0.75rem;
             cursor: pointer;
@@ -362,6 +367,7 @@
             align-items: center;
             background: rgba(0, 0, 0, 0.4);
         }
+
         .settings-content {
             padding: 0.75rem;
             display: flex;
@@ -370,17 +376,21 @@
             max-height: 400px;
             overflow-y: auto;
         }
+
         .settings-group {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
         }
+
         .settings-group label {
             font-size: 0.75rem;
             color: var(--text-secondary);
             font-weight: 600;
         }
-        .settings-group input, .settings-group select {
+
+        .settings-group input,
+        .settings-group select {
             padding: 0.4rem;
             background: var(--bg-color);
             color: var(--text-primary);
@@ -388,11 +398,13 @@
             border-radius: 4px;
             font-size: 0.8rem;
         }
+
         .settings-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.5rem;
         }
+
         .btn-generate {
             background: var(--color-filling);
             color: #000;
@@ -404,12 +416,76 @@
             margin-top: 0.5rem;
             transition: opacity 0.2s;
         }
+
         .btn-generate:hover {
             opacity: 0.9;
         }
+
         .btn-generate:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        /* Difficulty Dashboard Styles */
+        .difficulty-panel {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--grid-line);
+            border-radius: 8px;
+            display: none;
+            /* Hidden by default */
+        }
+
+        .diff-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .diff-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .diff-card .label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .diff-card .value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .tech-list {
+            max-height: 150px;
+            overflow-y: auto;
+            background: #000;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .tech-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 5px;
+            border-bottom: 1px solid #222;
+        }
+
+        .rating-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 1.2rem;
+            display: inline-block;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -433,7 +509,9 @@
                     </div>
                 </div>
 
-                <div style="font-size: 0.7rem; font-weight: 700; color: var(--color-topology); border-bottom: 1px solid var(--grid-line); padding-bottom: 2px;">TOPOLOGY</div>
+                <div
+                    style="font-size: 0.7rem; font-weight: 700; color: var(--color-topology); border-bottom: 1px solid var(--grid-line); padding-bottom: 2px;">
+                    TOPOLOGY</div>
                 <div class="settings-row">
                     <div class="settings-group">
                         <label>Difficulty</label>
@@ -476,7 +554,8 @@
                     </div>
                     <div class="settings-group">
                         <label>Soft Prob</label>
-                        <input type="number" id="genMaxRunLenSoftProb" value="" placeholder="Default" step="0.1" min="0" max="1">
+                        <input type="number" id="genMaxRunLenSoftProb" value="" placeholder="Default" step="0.1" min="0"
+                            max="1">
                     </div>
                 </div>
                 <div class="settings-row">
@@ -494,8 +573,10 @@
                     <label>Stamps (JSON: [[h,w], ...])</label>
                     <input type="text" id="genStamps" placeholder="Default: [[1,3],[3,1],[2,2],[3,3]]">
                 </div>
-                
-                <div style="font-size: 0.7rem; font-weight: 700; color: var(--color-filling); border-bottom: 1px solid var(--grid-line); padding-bottom: 2px;">FILLING</div>
+
+                <div
+                    style="font-size: 0.7rem; font-weight: 700; color: var(--color-filling); border-bottom: 1px solid var(--grid-line); padding-bottom: 2px;">
+                    FILLING</div>
                 <div class="settings-row">
                     <div class="settings-group">
                         <label>Difficulty</label>
@@ -539,6 +620,29 @@
 
     <main>
         <div class="stats-overlay">
+            <div id="difficultyDashboard" class="difficulty-panel">
+                <div id="ratingBadge" class="rating-badge">MEDIUM</div>
+                <div class="diff-grid">
+                    <div class="diff-card">
+                        <div class="label">Score</div>
+                        <div id="sumScore" class="value">0</div>
+                    </div>
+                    <div class="diff-card">
+                        <div class="label">Uniqueness</div>
+                        <div id="sumUniqueness" class="value">-</div>
+                    </div>
+                    <div class="diff-card">
+                        <div class="label">Steps</div>
+                        <div id="sumSteps" class="value">0</div>
+                    </div>
+                    <div class="diff-card">
+                        <div class="label">Tier</div>
+                        <div id="sumTier" class="value">0</div>
+                    </div>
+                </div>
+                <div class="label" style="margin-bottom:5px;">Technique Solve Path:</div>
+                <div id="techList" class="tech-list"></div>
+            </div>
             <div id="stageBadge" class="stat-badge" style="background: #334155;">-</div>
             <div style="font-size: 1.2rem; font-weight: 600;" id="substageLabel">-</div>
             <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;" id="messageLabel">-</div>
@@ -593,7 +697,9 @@
             'tc': 'topology_creation',
             'f': 'filling',
             'uv': 'uniqueness_validation',
-            'de': 'difficulty_estimation'
+            'de': 'difficulty_estimation',
+            'params': 'configuration',
+            'summary': 'Summary Report'
         };
 
         const SUBSTAGE_MAP = {
@@ -624,7 +730,9 @@
             'topology_creation': 'stage-topology',
             'filling': 'stage-filling',
             'uniqueness_validation': 'stage-uniqueness',
-            'difficulty_estimation': 'stage-difficulty'
+            'uniqueness_validation': 'stage-uniqueness',
+            'difficulty_estimation': 'stage-difficulty',
+            'configuration': 'stage-topology'
         };
 
         const SUBSTAGE_ICONS = {
@@ -640,23 +748,28 @@
             if (step.stage) return step;
 
             const [width, height] = step.wh || [0, 0];
-            
+
             // Reconstruct full grid (default all to BLOCK)
             let fullGrid = null;
             if (width > 0 && height > 0) {
-                fullGrid = Array.from({ length: height }, () => 
+                fullGrid = Array.from({ length: height }, () =>
                     Array.from({ length: width }, () => ({ type: 'BLOCK', value: 0 }))
                 );
-                
+
                 // Fill in WHITE cells
                 if (step.g) {
                     step.g.forEach(([r, c, v]) => {
                         if (fullGrid[r] && fullGrid[r][c]) {
-                            fullGrid[r][c] = { type: 'WHITE', value: v };
+                            fullGrid[r][c] = { type: 'WHITE', value: parseInt(v) || 0 };
                         }
                     });
                 }
+            } else if (currentStepIndex > 0 && currentLogData[currentStepIndex - 1]) {
+                // Fallback: If current step has no grid info (wh), 
+                // carry over the grid from the previous step
+                fullGrid = JSON.parse(JSON.stringify(currentLogData[currentStepIndex - 1].grid));
             }
+
 
             const decoded = {
                 step_id: step.id,
@@ -665,7 +778,8 @@
                 substage: SUBSTAGE_MAP[step.ss] || step.ss,
                 message: step.m,
                 grid: fullGrid,
-                data: step.d || {}
+                data: step.d || {},
+                difficulty: step.difficulty
             };
 
             // Recursively decode data if needed
@@ -675,7 +789,7 @@
             }
             if (decoded.data.ag) {
                 // Reconstruct alternative grid if it exists (using same dimensions)
-                const altGrid = Array.from({ length: height }, () => 
+                const altGrid = Array.from({ length: height }, () =>
                     Array.from({ length: width }, () => ({ type: 'BLOCK', value: 0 }))
                 );
                 decoded.data.ag.forEach(([r, c, v]) => {
@@ -730,6 +844,13 @@
                 .then(data => {
                     currentLogData = data.steps.map(decodeStep);
                     currentStepIndex = 0;
+
+                    // Check for params step and apply to UI
+                    const paramStep = currentLogData.find(s => s.stage === 'configuration');
+                    if (paramStep) {
+                        applyParamsToUI(paramStep);
+                    }
+
                     stopPlay();
                     buildTimelineUI();
                     updateUI();
@@ -829,6 +950,7 @@
             else if (step.stage.includes('filling')) badge.style.background = 'var(--color-filling)';
             else if (step.stage.includes('unique')) badge.style.background = 'var(--color-unique)';
             else if (step.stage.includes('diff')) badge.style.background = 'var(--color-diff)';
+            else if (step.stage === 'Summary Report') badge.style.background = 'var(--color-filling)'; // Summary color
             else badge.style.background = '#334155';
             badge.style.color = '#000';
 
@@ -845,6 +967,32 @@
             // Slider
             document.getElementById('timeline').max = currentLogData.length - 1;
             document.getElementById('timeline').value = currentStepIndex;
+
+            const dash = document.getElementById('difficultyDashboard');
+            if (step.stage === 'Summary Report' && step.difficulty) {
+                dash.style.display = 'block';
+                const d = step.difficulty;
+
+                const ratingBadge = document.getElementById('ratingBadge');
+                ratingBadge.innerText = d.rating;
+                ratingBadge.style.backgroundColor = `var(--color-diff)`; // Or use a tier-based color
+                ratingBadge.style.color = '#000';
+
+                document.getElementById('sumScore').innerText = d.score;
+                document.getElementById('sumUniqueness').innerText = d.uniqueness;
+                document.getElementById('sumSteps').innerText = d.total_steps;
+                document.getElementById('sumTier').innerText = d.max_tier + "/5";
+
+                const list = document.getElementById('techList');
+                list.innerHTML = d.solve_path.map(p => `
+                    <div class="tech-item">
+                        <span>${p.technique} (${p.cells} cells)</span>
+                        <span style="color:var(--color-filling)">+${p.weight}</span>
+                    </div>
+                `).join('');
+            } else {
+                dash.style.display = 'none';
+            }
 
             // Grid
             renderGrid(step);
@@ -904,26 +1052,27 @@
                 let sum = 0;
                 let k = 1;
                 while (true) {
-                    const nr = r + k*dr;
-                    const nc = c + k*dc;
+                    const nr = r + k * dr;
+                    const nc = c + k * dc;
                     if (nr >= rows || nc >= cols || grid[nr][nc].type === 'BLOCK') break;
-                    sum += grid[nr][nc].value || 0;
+                    const val = Number(grid[nr][nc].value) || 0;
+                    sum += val;
                     k++;
                 }
                 return sum;
             };
 
-            for(let r=0; r<rows; r++) {
-                for(let c=0; c<cols; c++) {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
                     if (grid[r][c].type === 'BLOCK') {
                         // Check Horizontal run to the right
-                        if (c + 1 < cols && grid[r][c+1].type === 'WHITE') {
+                        if (c + 1 < cols && grid[r][c + 1].type === 'WHITE') {
                             const sum = getRunSum(r, c, 0, 1);
                             if (!clues[`${r},${c}`]) clues[`${r},${c}`] = {};
                             clues[`${r},${c}`].h = sum;
                         }
                         // Check Vertical run downwards
-                        if (r + 1 < rows && grid[r+1][c].type === 'WHITE') {
+                        if (r + 1 < rows && grid[r + 1][c].type === 'WHITE') {
                             const sum = getRunSum(r, c, 1, 0);
                             if (!clues[`${r},${c}`]) clues[`${r},${c}`] = {};
                             clues[`${r},${c}`].v = sum;
@@ -1125,7 +1274,7 @@
                     // Refresh the log list first
                     const logListRes = await fetch('/api/logs');
                     const logListData = await logListRes.json();
-                    
+
                     const sel = document.getElementById('fileSelect');
                     sel.innerHTML = '<option value="" disabled>Select Log File...</option>';
                     logListData.logs.forEach(log => {
@@ -1147,6 +1296,39 @@
             } finally {
                 btn.disabled = false;
                 btn.innerText = 'Generate Puzzle';
+            }
+        }
+
+        function applyParamsToUI(step) {
+            if (!step.data || !step.data.fill || !step.data.topo) return;
+            const fill = step.data.fill;
+            const topo = step.data.topo;
+
+            console.log("Applying params:", fill, topo);
+
+            // Fill Params
+            if (fill.difficulty) document.getElementById('genFillDiff').value = fill.difficulty;
+            if (fill.max_nodes) document.getElementById('genMaxNodes').value = fill.max_nodes;
+            if (fill.partition_preference) document.getElementById('genPartPref').value = fill.partition_preference;
+
+            // Topo Params
+            if (topo.difficulty) document.getElementById('genTopoDiff').value = topo.difficulty;
+            if (topo.density) document.getElementById('genDensity').value = topo.density;
+            if (topo.max_run_len) document.getElementById('genMaxRunLen').value = topo.max_run_len;
+            if (topo.max_sector_length) document.getElementById('genMaxSectorLen').value = topo.max_sector_length;
+            if (topo.max_patch_size) document.getElementById('genMaxPatch').value = topo.max_patch_size;
+            if (topo.min_cells) document.getElementById('genMinCells').value = topo.min_cells;
+            if (topo.num_stamps) document.getElementById('genNumStamps').value = topo.num_stamps;
+
+            if (topo.island_mode !== undefined) {
+                document.getElementById('genIslandMode').checked = topo.island_mode === true || topo.island_mode === "true";
+            }
+
+            if (topo.max_run_len_soft) document.getElementById('genMaxRunLenSoft').value = topo.max_run_len_soft;
+            if (topo.max_run_len_soft_prob) document.getElementById('genMaxRunLenSoftProb').value = topo.max_run_len_soft_prob;
+
+            if (topo.stamps) {
+                document.getElementById('genStamps').value = JSON.stringify(topo.stamps);
             }
         }
     </script>
