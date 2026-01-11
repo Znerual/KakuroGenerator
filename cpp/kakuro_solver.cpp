@@ -14,14 +14,14 @@ bool CSPSolver::check_timeout() {
   auto now = std::chrono::steady_clock::now();
   std::chrono::duration<double> elapsed = now - start_time_;
   if (elapsed.count() > time_limit_sec_) {
-    LOG_ERROR("=== TIMEOUT: Generation exceeded " << time_limit_sec_
-                                                << " seconds. Terminating. ===");
+    LOG_ERROR("=== TIMEOUT: Generation exceeded "
+              << time_limit_sec_ << " seconds. Terminating. ===");
 #if KAKURO_ENABLE_LOGGING
     if (board->logger->is_enabled()) {
-      board->logger->log_step(GenerationLogger::STAGE_FILLING,
-                              GenerationLogger::SUBSTAGE_FAILED,
-                              "Timeout exceeded " + std::to_string(time_limit_sec_) + "s",
-                              board->get_grid_state());
+      board->logger->log_step(
+          GenerationLogger::STAGE_FILLING, GenerationLogger::SUBSTAGE_FAILED,
+          "Timeout exceeded " + std::to_string(time_limit_sec_) + "s",
+          board->get_grid_state());
       board->logger->close();
     }
 #endif
@@ -181,12 +181,14 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
     // 1. Fill the board with values
     // NEW: Pass the cumulative_constraints to the solver
     if (!solve_fill(params, {}, cumulative_constraints, true)) {
-      // If filling failed completely with these constraints, we might have over-constrained it.
-      // Clear constraints to allow a fresh start on this topology.
+      // If filling failed completely with these constraints, we might have
+      // over-constrained it. Clear constraints to allow a fresh start on this
+      // topology.
       if (!cumulative_constraints.empty()) {
-          LOG_DEBUG("  Fill failed with constraints. Clearing learned constraints.");
-          cumulative_constraints.clear();
-          continue;
+        LOG_DEBUG(
+            "  Fill failed with constraints. Clearing learned constraints.");
+        cumulative_constraints.clear();
+        continue;
       }
       // If it failed without constraints, this topology might be bad.
       continue;
@@ -219,44 +221,45 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
     if (check_timeout())
       return false;
 
-
     // 4. Handle Repairs
     if (result == UniquenessResult::MULTIPLE) {
       fills_for_this_topology++;
 
       // --- NEW: LEARN FROM FAILURE ---
-      // If we have an alternative solution, we know that the current fill (Solution A)
-      // allowed an ambiguity (Solution B). To avoid generating Solution A again,
-      // we pick a cell where they differ and forbid Solution A's value there in the next pass.
+      // If we have an alternative solution, we know that the current fill
+      // (Solution A) allowed an ambiguity (Solution B). To avoid generating
+      // Solution A again, we pick a cell where they differ and forbid Solution
+      // A's value there in the next pass.
       if (alt_sol_opt) {
-          std::vector<Cell*> diff_cells;
-          for (Cell* c : board->white_cells) {
-              if (c->value && alt_sol_opt->count({c->r, c->c})) {
-                  if (*c->value != alt_sol_opt->at({c->r, c->c})) {
-                      diff_cells.push_back(c);
-                  }
-              }
+        std::vector<Cell *> diff_cells;
+        for (Cell *c : board->white_cells) {
+          if (c->value && alt_sol_opt->count({c->r, c->c})) {
+            if (*c->value != alt_sol_opt->at({c->r, c->c})) {
+              diff_cells.push_back(c);
+            }
           }
+        }
 
-          if (!diff_cells.empty()) {
-              // Heuristic: Pick the cell with the most neighbors (highest degree),
-              // as fixing it has the most impact on the board.
-              std::sort(diff_cells.begin(), diff_cells.end(), [this](Cell* a, Cell* b) {
-                  return board->count_white_neighbors(a) > board->count_white_neighbors(b);
-              });
-              
-              // Add a constraint: "In the next fill, this cell cannot be what it is now."
-              Cell* target = diff_cells[0];
-              int bad_val = *target->value;
-              cumulative_constraints.push_back({target, {bad_val}});
-              
-              LOG_DEBUG("  Learning: Forbidding val " << bad_val << " at (" 
-                        << target->r << "," << target->c << ") for next attempt.");
-          }
+        if (!diff_cells.empty()) {
+          // Heuristic: Pick the cell with the most neighbors (highest degree),
+          // as fixing it has the most impact on the board.
+          std::sort(diff_cells.begin(), diff_cells.end(),
+                    [this](Cell *a, Cell *b) {
+                      return board->count_white_neighbors(a) >
+                             board->count_white_neighbors(b);
+                    });
+
+          // Add a constraint: "In the next fill, this cell cannot be what it is
+          // now."
+          Cell *target = diff_cells[0];
+          int bad_val = *target->value;
+          cumulative_constraints.push_back({target, {bad_val}});
+
+          LOG_DEBUG("  Learning: Forbidding val "
+                    << bad_val << " at (" << target->r << "," << target->c
+                    << ") for next attempt.");
+        }
       }
-
-      if (consecutive_repair_failures >= 3)
-        break;
 
       if (fills_for_this_topology < MAX_FILL_ATTEMPTS) {
         LOG_DEBUG("  Non-unique solution. Retrying fill for current topology ("
@@ -265,13 +268,9 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
         continue;
       }
 
-      // 10 failed fills -> Try topology repair
-      fills_for_this_topology = 0;
-      cumulative_constraints.clear();
-
-      // Log that we have a conflict
-      LOG_DEBUG("  CONFLICT FOUND after 10 failed fill attempts. Attempting "
-                "topology repair.");
+      // Re-identify sectors just to be safe before repair
+      board->collect_white_cells();
+      board->identify_sectors();
 
 #if KAKURO_ENABLE_LOGGING
       if (alt_sol_opt) {
@@ -287,7 +286,8 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
         std::unordered_map<Cell *, int> alt_sol_cells;
         for (auto &pair : *alt_sol_opt) {
           Cell *c = board->get_cell(pair.first.first, pair.first.second);
-          if (c) alt_sol_cells[c] = pair.second;
+          if (c)
+            alt_sol_cells[c] = pair.second;
         }
         auto alt_grid_state = board->get_grid_state(&alt_sol_cells);
 
@@ -295,28 +295,23 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
             GenerationLogger::STAGE_FILLING, "uniqueness_conflict",
             "Uniqueness conflict: multiple solutions found. Overlay available.",
             board->get_grid_state(), highlights, alt_grid_state);
-
       }
 #endif
 
-      // Reuse the alt_sol found during robust check if available
-      std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>
-          alt_sol = alt_sol_opt;
-
-      if (!alt_sol) {
-        // If robust check found it but didn't return it (though it should now),
-        // find it again
-        auto [status, found_alt] = check_uniqueness(50000, fill_attempt);
-        alt_sol = found_alt;
-      }
-
-      if (alt_sol && repair_topology_robust(*alt_sol)) {
-        board->collect_white_cells();
-        board->identify_sectors();
-        fill_attempt = -1; // Restart fill loop for new topology
-        consecutive_repair_failures = 0;
+      if (alt_sol_opt && repair_topology_robust(*alt_sol_opt)) {
+        // SUCCESS: The board has changed and is still valid.
+        LOG_DEBUG(
+            "  Repair successful. Restarting fill loop on modified topology.");
+        fills_for_this_topology = 0;
+        cumulative_constraints.clear();
+        // Reset loop to start fresh on this modified board
+        continue;
       } else {
-        consecutive_repair_failures++;
+        // FAILURE: Could not find a valid repair that maintained
+        // connectivity/rules.
+        LOG_DEBUG("  Repair failed or board invalid. Discarding topology.");
+        return false; // This exits to generate_puzzle() which calls
+                      // prepare_new_topology()
       }
     }
   }
@@ -570,8 +565,6 @@ bool CSPSolver::backtrack_fill(
     if (is_consistent_number(var, val, assignment, ignore_clues)) {
       assignment[var] = val;
 
-
-
       if (backtrack_fill(assignment, node_count, max_nodes, weights,
                          ignore_clues, partition_preference,
                          forbidden_constraints)) {
@@ -699,8 +692,8 @@ bool CSPSolver::has_high_global_ambiguity() {
             highlights.push_back({bc->r, bc->c});
             if (b_count > 0)
               extra << ",";
-            extra << "{\"r\":" << bc->r << ",\"c\":" << bc->c
-                  << ",\"d\":" << d << "}";
+            extra << "{\"r\":" << bc->r << ",\"c\":" << bc->c << ",\"d\":" << d
+                  << "}";
             b_count++;
           }
         }
@@ -1230,10 +1223,10 @@ void CSPSolver::solve_for_uniqueness(
   node_count++;
 
   if (node_count % 1000 == 0) {
-      if (check_timeout()) {
-          timed_out = true;
-          return;
-      }
+    if (check_timeout()) {
+      timed_out = true;
+      return;
+    }
   }
 
   Cell *var = nullptr;
@@ -1293,13 +1286,11 @@ void CSPSolver::solve_for_uniqueness(
           GenerationLogger::SUBSTAGE_ALTERNATIVE_FOUND,
           "Found component-wise alternative solution (" +
               std::to_string(found_solutions.size()) + ")",
-          original_grid_state,
-          highlights,
-          alternative_grid_state);
+          original_grid_state, highlights, alternative_grid_state);
 #endif
     }
-    
-    return; 
+
+    return;
   }
 
   // Check limit - if we found enough, stop recursing
@@ -1442,107 +1433,95 @@ bool CSPSolver::repair_topology_robust(
 
   // Sort by neighbor count (prefer blocking high-connectivity cells)
   std::shuffle(diffs.begin(), diffs.end(), rng);
-  std::sort(diffs.begin(), diffs.end(), [this](Cell *a, Cell *b) {
-    return board->count_white_neighbors(a) > board->count_white_neighbors(b);
-  });
 
-  // Calculate minimum acceptable size
-  int current_size = (int)board->white_cells.size();
-  int min_required =
-      std::max(12, current_size - (current_size / 4)); // Allow 25% reduction
-
-  LOG_DEBUG("  Current size: " << current_size
-                               << ", min required: " << min_required);
-
-  // Snapshot current state
-  std::vector<std::vector<CellType>> snapshot(
-      board->height, std::vector<CellType>(board->width));
+  // 2. Snapshot the grid state
+  struct GridSnapshot {
+    std::vector<std::vector<CellType>> types;
+  } backup;
+  backup.types.resize(board->height, std::vector<CellType>(board->width));
   for (int r = 0; r < board->height; r++) {
     for (int c = 0; c < board->width; c++) {
-      snapshot[r][c] = board->grid[r][c].type;
+      backup.types[r][c] = board->grid[r][c].type;
     }
   }
 
-  // Try blocking each differing cell (limit attempts)
-  int max_attempts = std::min(5, (int)diffs.size());
+  // 3. Try multiple repair candidates
+  // We try more than before to increase the chance of success
+  int max_candidates_to_test = std::min(15, (int)diffs.size());
 
-  for (int i = 0; i < max_attempts; i++) {
+  for (int i = 0; i < max_candidates_to_test; i++) {
     Cell *target = diffs[i];
-    LOG_DEBUG("    Trying cell(" << target->r << "," << target->c << ") ["
-                                 << (i + 1) << "/" << max_attempts << "]");
 
-    // Restore snapshot
+    // Restore to clean snapshot before each attempt
     for (int r = 0; r < board->height; r++) {
       for (int c = 0; c < board->width; c++) {
-        board->grid[r][c].type = snapshot[r][c];
+        board->grid[r][c].type = backup.types[r][c];
       }
     }
-    board->collect_white_cells();
-    board->identify_sectors();
 
-    LOG_DEBUG("      Iteration state: white_cells="
-              << board->white_cells.size()
-              << ", sectors_h=" << board->sectors_h.size()
-              << ", sectors_v=" << board->sectors_v.size());
+    // Try the smart removal
+    if (board->try_remove_and_reconnect(target->r, target->c)) {
+      // Run full stabilization to ensure the new "bridge" didn't create new
+      // issues
+      board->stabilize_grid(false);
+    } else {
+      continue;
+    }
 
-    // Block the target cell
-    board->set_block(target->r, target->c);
-    board->set_block(board->height - 1 - target->r,
-                     board->width - 1 - target->c);
+    // CHECK IF IT ACTUALLY CHANGED
+    bool changed = false;
+    for (int r = 0; r < board->height; r++) {
+      for (int c = 0; c < board->width; c++) {
+        if (board->grid[r][c].type != backup.types[r][c]) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed)
+        break;
+    }
 
-    // Apply stabilization
-    board->break_large_patches(3);
-    board->prune_singles();
-    board->break_single_runs();
-
+    if (!changed) {
 #if KAKURO_ENABLE_LOGGING
-    board->logger->log_step(GenerationLogger::STAGE_UNIQUENESS,
+      board->logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
+                              GenerationLogger::SUBSTAGE_REPAIR_ATTEMPT,
+                              "Topology repair did not change the board",
+                              board->get_grid_state());
+#endif
+      continue;
+    }
+
+    board->identify_sectors();
+    if (!board->validate_topology_structure()) {
+#if KAKURO_ENABLE_LOGGING
+      board->logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
+                              GenerationLogger::SUBSTAGE_REPAIR_ATTEMPT,
+                              "Topology repair failed to create a valid board",
+                              board->get_grid_state());
+#endif
+      continue;
+    }
+
+    if (board->white_cells.size() <= 12) {
+#if KAKURO_ENABLE_LOGGING
+      board->logger->log_step(
+          GenerationLogger::STAGE_TOPOLOGY,
+          GenerationLogger::SUBSTAGE_REPAIR_ATTEMPT,
+          "Topology repair failed to create a valid board (too small)",
+          board->get_grid_state());
+#endif
+      continue;
+    }
+
+    // If we got here, the board is valid and DIFFERENT
+#if KAKURO_ENABLE_LOGGING
+    board->logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
                             GenerationLogger::SUBSTAGE_REPAIR_ATTEMPT,
-                            "Attempting repair: blocking (" +
-                                std::to_string(target->r) + "," +
-                                std::to_string(target->c) + ")",
+                            "Topology repaired successfully",
                             board->get_grid_state());
 #endif
-
-    // Validate
-    board->collect_white_cells();
-
-    if ((int)board->white_cells.size() < min_required) {
-      LOG_DEBUG("    Failed: too few cells (" << board->white_cells.size()
-                                              << ")");
-      continue;
-    }
-
-    if (!board->check_connectivity()) {
-      LOG_DEBUG("    Failed: connectivity check");
-      continue;
-    }
-
-    if (!board->validate_clue_headers()) {
-      LOG_DEBUG("    Failed: clue headers check");
-      continue;
-    }
-
-    board->identify_sectors();
-
-    // Additional check: make sure we still have enough sectors
-    if (board->sectors_h.size() + board->sectors_v.size() < 6) {
-      LOG_DEBUG("    Failed: too few sectors");
-      continue;
-    }
-
-    LOG_DEBUG("    Repair successful!");
     return true;
   }
-
-  // Restore original state if all repairs failed
-  for (int r = 0; r < board->height; r++) {
-    for (int c = 0; c < board->width; c++) {
-      board->grid[r][c].type = snapshot[r][c];
-    }
-  }
-  board->collect_white_cells();
-  board->identify_sectors();
 
   LOG_DEBUG("  All repair attempts failed");
   return false;

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <deque>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -16,7 +17,6 @@
 #include <random>
 #include <sstream>
 #include <string>
-#include <sys/stat.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -30,9 +30,17 @@ namespace kakuro {
 // ============================================================================
 #define KAKURO_ENABLE_LOGGING 1
 
-#define LOG_DEBUG(msg) do {} while(0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[DEBUG] " << msg << std::endl; } } while (0)
-#define LOG_INFO(msg) do {} while(0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[INFO] " << msg << std::endl; } } while (0)
-#define LOG_ERROR(msg) do {} while(0) // { std::cerr << "[ERROR] " << msg << std::endl; }
+#define LOG_DEBUG(msg)                                                         \
+  do {                                                                         \
+  } while (0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[DEBUG] " << msg
+              // << std::endl; } } while (0)
+#define LOG_INFO(msg)                                                          \
+  do {                                                                         \
+  } while (0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[INFO] " << msg <<
+              // std::endl; } } while (0)
+#define LOG_ERROR(msg)                                                         \
+  do {                                                                         \
+  } while (0) // { std::cerr << "[ERROR] " << msg << std::endl; }
 
 // ============================================================================
 // GENERATION LOGGER - Structured JSON logging for visualization
@@ -41,38 +49,47 @@ namespace kakuro {
 class GenerationLogger {
 public:
   // Stages (Aliases for efficiency)
-  static constexpr const char *STAGE_TOPOLOGY = "tc"; // topology_creation
-  static constexpr const char *STAGE_FILLING = "f";   // filling
+  static constexpr const char *STAGE_TOPOLOGY = "tc";   // topology_creation
+  static constexpr const char *STAGE_FILLING = "f";     // filling
   static constexpr const char *STAGE_UNIQUENESS = "uv"; // uniqueness_validation
   static constexpr const char *STAGE_DIFFICULTY = "de"; // difficulty_estimation
 
   // Substages - Topology
-  static constexpr const char *SUBSTAGE_START = "s";      // start
-  static constexpr const char *SUBSTAGE_STAMP_PLACEMENT = "sp"; // stamp_placement
-  static constexpr const char *SUBSTAGE_LATTICE_GROWTH = "lg";  // lattice_growth
-  static constexpr const char *SUBSTAGE_PATCH_BREAKING = "pb";  // patch_breaking
-  static constexpr const char *SUBSTAGE_VALIDATION_FAILED = "vf"; // validation_failed
-  static constexpr const char *SUBSTAGE_CONNECTIVITY_CHECK = "cc"; // connectivity_check
-  static constexpr const char *SUBSTAGE_COMPLETE = "c";    // complete
-  static constexpr const char *SUBSTAGE_FAILED = "f";      // failed
+  static constexpr const char *SUBSTAGE_START = "s"; // start
+  static constexpr const char *SUBSTAGE_STAMP_PLACEMENT =
+      "sp"; // stamp_placement
+  static constexpr const char *SUBSTAGE_LATTICE_GROWTH = "lg"; // lattice_growth
+  static constexpr const char *SUBSTAGE_PATCH_BREAKING = "pb"; // patch_breaking
+  static constexpr const char *SUBSTAGE_VALIDATION_FAILED =
+      "vf"; // validation_failed
+  static constexpr const char *SUBSTAGE_CONNECTIVITY_CHECK =
+      "cc";                                             // connectivity_check
+  static constexpr const char *SUBSTAGE_COMPLETE = "c"; // complete
+  static constexpr const char *SUBSTAGE_FAILED = "f";   // failed
 
   // Substages - Topology Extended
-  static constexpr const char *SUBSTAGE_SEED_PLACEMENT = "sep"; // seed_placement
-  static constexpr const char *SUBSTAGE_SLICE_RUNS = "sr";     // slice_runs
-  static constexpr const char *SUBSTAGE_BREAK_PATCHES = "bp";   // break_patches
-  static constexpr const char *SUBSTAGE_PRUNE_SINGLES = "ps";   // prune_singles
-  static constexpr const char *SUBSTAGE_BREAK_SINGLE_RUNS = "bsr"; // break_single_runs
-  static constexpr const char *SUBSTAGE_STABILIZE_GRID = "sg";     // stabilize_grid
-  static constexpr const char *SUBSTAGE_FIX_INVALID_RUNS = "fir";   // fix_invalid_runs
+  static constexpr const char *SUBSTAGE_SEED_PLACEMENT =
+      "sep";                                                  // seed_placement
+  static constexpr const char *SUBSTAGE_SLICE_RUNS = "sr";    // slice_runs
+  static constexpr const char *SUBSTAGE_BREAK_PATCHES = "bp"; // break_patches
+  static constexpr const char *SUBSTAGE_PRUNE_SINGLES = "ps"; // prune_singles
+  static constexpr const char *SUBSTAGE_BREAK_SINGLE_RUNS =
+      "bsr"; // break_single_runs
+  static constexpr const char *SUBSTAGE_STABILIZE_GRID = "sg"; // stabilize_grid
+  static constexpr const char *SUBSTAGE_FIX_INVALID_RUNS =
+      "fir"; // fix_invalid_runs
 
   // Substages - Filling
-  static constexpr const char *SUBSTAGE_NUMBER_PLACEMENT = "np"; // number_placement
-  static constexpr const char *SUBSTAGE_BACKTRACK = "bt";        // backtrack
-  static constexpr const char *SUBSTAGE_CONSISTENCY_FAILED = "cf"; // consistency_check_failed
+  static constexpr const char *SUBSTAGE_NUMBER_PLACEMENT =
+      "np";                                               // number_placement
+  static constexpr const char *SUBSTAGE_BACKTRACK = "bt"; // backtrack
+  static constexpr const char *SUBSTAGE_CONSISTENCY_FAILED =
+      "cf"; // consistency_check_failed
 
   // Substages - Uniqueness
-  static constexpr const char *SUBSTAGE_ALTERNATIVE_FOUND = "af"; // alternative_found
-  static constexpr const char *SUBSTAGE_REPAIR_ATTEMPT = "ra";     // repair_attempt
+  static constexpr const char *SUBSTAGE_ALTERNATIVE_FOUND =
+      "af"; // alternative_found
+  static constexpr const char *SUBSTAGE_REPAIR_ATTEMPT = "ra"; // repair_attempt
 
   // Substages - Difficulty
   static constexpr const char *SUBSTAGE_LOGIC_STEP = "ls"; // logic_step
@@ -90,11 +107,10 @@ private:
                   now.time_since_epoch()) %
               1000;
     auto time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm;
-    localtime_r(&time, &tm);
+    std::tm *tm_ptr = std::localtime(&time);
 
     std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
+    oss << std::put_time(tm_ptr, "%Y-%m-%dT%H:%M:%S");
     oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
     return oss.str();
   }
@@ -130,7 +146,12 @@ public:
     if (log_file_.is_open())
       return; // Continue in the same file if already open
 
-    mkdir(log_dir.c_str(), 0755);
+    std::error_code ec;
+    std::filesystem::create_directories(log_dir, ec);
+    if (ec) {
+      LOG_ERROR("Failed to create log directory: " + ec.message());
+      return;
+    }
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   now.time_since_epoch())
@@ -173,22 +194,24 @@ public:
     first_entry_ = false;
 
     log_file_ << "  {\n";
-    log_file_ << "    \"id\": " << step_id_++ << ",\n";   // step_id
+    log_file_ << "    \"id\": " << step_id_++ << ",\n";         // step_id
     log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n"; // timestamp
-    log_file_ << "    \"s\": \"" << stage << "\",\n";      // stage
-    log_file_ << "    \"ss\": \"" << substage << "\",\n";   // substage
+    log_file_ << "    \"s\": \"" << stage << "\",\n";           // stage
+    log_file_ << "    \"ss\": \"" << substage << "\",\n";       // substage
     log_file_ << "    \"m\": \"" << escape_json(message) << "\",\n"; // message
 
     // Compressed Grid: Output dimensions and only white cells
     if (!grid_state.empty()) {
-      log_file_ << "    \"wh\": [" << grid_state[0].size() << "," << grid_state.size() << "],\n"; // width, height
-      log_file_ << "    \"g\": [\n"; // grid (white cells only)
+      log_file_ << "    \"wh\": [" << grid_state[0].size() << ","
+                << grid_state.size() << "],\n"; // width, height
+      log_file_ << "    \"g\": [\n";            // grid (white cells only)
       bool first_cell = true;
       for (size_t r = 0; r < grid_state.size(); r++) {
         for (size_t c = 0; c < grid_state[r].size(); c++) {
           const auto &[type, value] = grid_state[r][c];
           if (type == "WHITE") {
-            if (!first_cell) log_file_ << ",\n";
+            if (!first_cell)
+              log_file_ << ",\n";
             log_file_ << "      [" << r << "," << c << "," << value << "]";
             first_cell = false;
           }
@@ -235,9 +258,11 @@ public:
       for (size_t r = 0; r < alt_grid.size(); r++) {
         for (size_t c = 0; c < alt_grid[r].size(); c++) {
           const auto &[type, value] = alt_grid[r][c];
-          // We only log WHITE cells to save space, matching the main grid format
+          // We only log WHITE cells to save space, matching the main grid
+          // format
           if (type == "WHITE") {
-            if (!first_val) data << ",";
+            if (!first_val)
+              data << ",";
             data << "[" << r << "," << c << "," << value << "]";
             first_val = false;
           }
@@ -246,7 +271,7 @@ public:
       data << "]";
     }
     data << "}";
-    
+
     log_step(stage, substage, message, grid_state, data.str());
 #endif
   }
@@ -344,6 +369,8 @@ public:
   bool validate_clue_headers();
   bool check_connectivity();
   int count_white_neighbors(Cell *cell);
+  bool try_remove_and_reconnect(int r, int c);
+  std::vector<std::vector<std::pair<int, int>>> find_components();
 
   bool place_random_seed();
   void grow_lattice(double density, int max_sector_length);
@@ -458,7 +485,7 @@ private:
   // --- Time Limit Members ---
   std::chrono::steady_clock::time_point start_time_;
   double time_limit_sec_ = 30.0; // Default 30 seconds
-  bool check_timeout();          // Returns true if timed out and handles logging/closing
+  bool check_timeout(); // Returns true if timed out and handles logging/closing
 
   bool
   backtrack_fill(std::unordered_map<Cell *, int> &assignment, int &node_count,

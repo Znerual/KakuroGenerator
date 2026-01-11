@@ -155,8 +155,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.max_sector_length = 8;
   } else if (difficulty == "hard") {
     if (!params.stamps.has_value())
-      params.stamps = {{2, 3}, {3, 2}, {2, 5},
-                       {5, 2}};
+      params.stamps = {{2, 3}, {3, 2}, {2, 5}, {5, 2}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
           std::uniform_int_distribution<>(10, 12)(rng) * area / 100;
@@ -383,6 +382,22 @@ bool KakuroBoard::generate_topology(const TopologyParams &params) {
 }
 
 bool KakuroBoard::validate_topology_structure() {
+  auto fail = [&](int r, int c, const std::string &msg) {
+    LOG_DEBUG("Topology Validation Failed at (" << r << "," << c
+                                                << "): " << msg);
+#if KAKURO_ENABLE_LOGGING
+    if (logger && logger->is_enabled()) {
+      logger->log_step_with_highlights(
+          GenerationLogger::STAGE_TOPOLOGY,
+          GenerationLogger::SUBSTAGE_VALIDATION_FAILED,
+          "Structure Error: " + msg, get_grid_state(),
+          {{r, c}} // Highlight the problematic cell
+      );
+    }
+#endif
+    return false;
+  };
+
   // Check horizontal sectors
   for (const auto &sector : sectors_h) {
     if (sector->empty())
@@ -393,9 +408,12 @@ bool KakuroBoard::validate_topology_structure() {
     int clue_c = first->c - 1;
 
     if (clue_c < 0 || clue_c >= width)
-      return false;
+      return fail(first->r, first->c,
+                  "Horizontal sector starts at col 0 (no room for clue block) "
+                  "or goes out too far");
     if (grid[clue_r][clue_c].type != CellType::BLOCK)
-      return false;
+      return fail(clue_r, clue_c,
+                  "Horizontal sector not preceded by a BLOCK cell");
   }
 
   // Check vertical sectors
@@ -408,9 +426,12 @@ bool KakuroBoard::validate_topology_structure() {
     int clue_c = first->c;
 
     if (clue_r < 0 || clue_r >= height)
-      return false;
+      return fail(first->r, first->c,
+                  "Vertical sector starts at row 0 (no room for clue block) "
+                  "or goes out too far");
     if (grid[clue_r][clue_c].type != CellType::BLOCK)
-      return false;
+      return fail(clue_r, clue_c,
+                  "Vertical sector not preceded by a BLOCK cell");
   }
 
   // Check that no block cell has orphaned clues
@@ -433,24 +454,21 @@ bool KakuroBoard::validate_topology_structure() {
         }
         if (!has_white) {
           LOG_DEBUG("Orphaned horizontal clue at (" << r << "," << c << ")");
-          return false;
+          return fail(
+              r, c,
+              "Block has horizontal clue but no white cells to the right");
         }
       }
 
       // If this block has a vertical clue, there must be white cells below
       if (grid[r][c].clue_v.has_value()) {
         bool has_white = false;
-        for (int rr = r + 1; rr < height; rr++) {
-          if (grid[rr][c].type == CellType::WHITE) {
-            has_white = true;
-            break;
-          }
-          if (grid[rr][c].type == CellType::BLOCK)
-            break;
+        // A valid clue must have at least one white cell immediately below
+        if (r + 1 < height && grid[r + 1][c].type == CellType::WHITE) {
+          has_white = true;
         }
         if (!has_white) {
-          LOG_DEBUG("Orphaned vertical clue at (" << r << "," << c << ")");
-          return false;
+          return fail(r, c, "Block has vertical clue but no white cells below");
         }
       }
     }
@@ -766,107 +784,179 @@ void KakuroBoard::apply_slice(int fixed_idx, int start, int length,
   set_block(height - 1 - r, width - 1 - c);
 }
 
-bool KakuroBoard::prune_singles() {
-  bool changed = true;
-  bool any_change = false;
-  int safety_limit = 100;
-  while (changed && --safety_limit > 0) {
-    changed = false;
+std::vector<std::vector<std::pair<int, int>>> KakuroBoard::find_components() {
+  collect_white_cells();
+  std::vector<std::vector<std::pair<int, int>>> components;
+  std::unordered_set<std::pair<int, int>, PairHash> visited;
 
-    for (int r = 1; r < height - 1; r++) {
-      for (int c = 1; c < width - 1; c++) {
-        if (grid[r][c].type == CellType::WHITE) {
-          // Calculate Neighbors
-          int h_nbs = 0;
-          if (grid[r][c - 1].type == CellType::WHITE)
-            h_nbs++;
-          if (grid[r][c + 1].type == CellType::WHITE)
-            h_nbs++;
+  for (Cell *start_node : white_cells) {
+    if (visited.count({start_node->r, start_node->c}))
+      continue;
 
-          int v_nbs = 0;
-          if (grid[r - 1][c].type == CellType::WHITE)
-            v_nbs++;
-          if (grid[r + 1][c].type == CellType::WHITE)
-            v_nbs++;
+    std::vector<std::pair<int, int>> comp;
+    std::queue<Cell *> q;
+    q.push(start_node);
+    visited.insert({start_node->r, start_node->c});
 
-          if (h_nbs == 0 || v_nbs == 0) {
-            // Identify symmetric counterpart
-            int sym_r = height - 1 - r;
-            int sym_c = width - 1 - c;
+    while (!q.empty()) {
+      Cell *curr = q.front();
+      q.pop();
+      comp.push_back({curr->r, curr->c});
 
-            // 1. Try to set to BLOCK
-            CellType old_type = grid[r][c].type;
-            CellType sym_old_type = grid[sym_r][sym_c].type;
+      int dr[] = {0, 0, 1, -1};
+      int dc[] = {1, -1, 0, 0};
+      for (int i = 0; i < 4; i++) {
+        Cell *n = get_cell(curr->r + dr[i], curr->c + dc[i]);
+        if (n && n->type == CellType::WHITE && !visited.count({n->r, n->c})) {
+          visited.insert({n->r, n->c});
+          q.push(n);
+        }
+      }
+    }
+    components.push_back(comp);
+  }
+  return components;
+}
 
-            set_block(r, c);
-            set_block(sym_r, sym_c);
+bool KakuroBoard::try_remove_and_reconnect(int r, int c) {
+  // 1. Store state for potential revert
+  Cell *target = get_cell(r, c);
+  if (!target || target->type != CellType::WHITE)
+    return false;
 
-            // 2. Check connectivity
-            if (check_connectivity()) {
-              changed = true;
-              any_change = true;
-            } else {
-              // Revert
-              grid[r][c].type = old_type;
-              grid[sym_r][sym_c].type = sym_old_type;
-              collect_white_cells(); // Essential to keep list in sync after
-                                     // revert
+  reset_values();
 
-              // 3. Addition strategy: Since we can't remove it, add neighbors
-              // to make it not a single.
-              bool added = false;
-              if (h_nbs == 0) {
-                // Try horizontal addition
-                if (c > 1) {
-                  set_white(r, c - 1);
-                  set_white(height - 1 - r, width - 1 - (c - 1));
-                  added = true;
-                } else if (c < width - 2) {
-                  set_white(r, c + 1);
-                  set_white(height - 1 - r, width - 1 - (c + 1));
-                  added = true;
-                }
-              }
+  // 3. Snapshot types for potential revert
+  std::vector<std::vector<CellType>> backup(height,
+                                            std::vector<CellType>(width));
+  for (int i = 0; i < height; i++) {
+    for (int j = 0; j < width; j++) {
+      backup[i][j] = grid[i][j].type;
+    }
+  }
 
-              if (v_nbs == 0) {
-                // Try vertical addition
-                if (r > 1) {
-                  set_white(r - 1, c);
-                  set_white(height - 1 - (r - 1), width - 1 - c);
-                  added = true;
-                } else if (r < height - 2) {
-                  set_white(r + 1, c);
-                  set_white(height - 1 - (r + 1), width - 1 - c);
-                  added = true;
-                }
-              }
+  int sym_r = height - 1 - r;
+  int sym_c = width - 1 - c;
+  Cell *sym_target = get_cell(sym_r, sym_c);
 
-              if (added) {
-                changed = true;
-                any_change = true;
-                collect_white_cells();
+  // 2. Perform removal
+  target->type = CellType::BLOCK;
+  sym_target->type = CellType::BLOCK;
+
+  auto components = find_components();
+
+  // 3. If still connected or empty, we are done
+  if (components.size() <= 1) {
+#if KAKURO_ENABLE_LOGGING
+    logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
+                     GenerationLogger::SUBSTAGE_PRUNE_SINGLES,
+                     "Removed single cells without disconnecting",
+                     get_grid_state());
+
+#endif
+    collect_white_cells();
+    identify_sectors();
+    return true;
+  }
+
+  // 4. Broken connectivity: Try to Reconnect elsewhere
+  // Find potential bridge cells (BLOCK cells that touch at least 2 different
+  // components)
+  std::vector<std::pair<int, int>> bridge_candidates;
+
+  for (int i = 1; i < height - 1; i++) {
+    for (int j = 1; j < width - 1; j++) {
+      if (grid[i][j].type == CellType::BLOCK) {
+        // Don't use the cell we just removed or its symmetry
+        if ((i == r && j == c) || (i == sym_r && j == sym_c))
+          continue;
+
+        std::unordered_set<int> touching_components;
+        int dr[] = {0, 0, 1, -1};
+        int dc[] = {1, -1, 0, 0};
+        for (int k = 0; k < 4; k++) {
+          int ni = i + dr[k], nj = j + dc[k];
+          for (size_t comp_idx = 0; comp_idx < components.size(); comp_idx++) {
+            for (auto &p : components[comp_idx]) {
+              if (p.first == ni && p.second == nj) {
+                touching_components.insert(comp_idx);
+                break;
               }
             }
           }
+        }
+
+        if (touching_components.size() >= 2) {
+          bridge_candidates.push_back({i, j});
         }
       }
     }
   }
 
-  if (any_change) {
+  if (!bridge_candidates.empty()) {
+    // Pick a random bridge
+    std::uniform_int_distribution<> dist(0, (int)bridge_candidates.size() - 1);
+    auto bridge = bridge_candidates[dist(rng)];
+
+    set_white(bridge.first, bridge.second);
+    set_white(height - 1 - bridge.first, width - 1 - bridge.second);
+
+    // Final connectivity check
+    if (check_connectivity())
+#if KAKURO_ENABLE_LOGGING
+      logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
+                       GenerationLogger::SUBSTAGE_PRUNE_SINGLES,
+                       "Removed single cells with fixing disconnection",
+                       get_grid_state());
+
+#endif
     collect_white_cells();
     identify_sectors();
+
+    return true;
   }
 
-  if (safety_limit == 0)
-    LOG_ERROR("prune_singles reached safety limit");
-#if KAKURO_ENABLE_LOGGING
-  if (any_change) {
-    logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
-                     GenerationLogger::SUBSTAGE_PRUNE_SINGLES,
-                     "Pruned/Fixed single cells", get_grid_state());
+  for (int i = 0; i < height; i++) {
+    for (int j = 0; j < width; j++)
+      grid[i][j].type = backup[i][j];
   }
-#endif
+  collect_white_cells();
+  identify_sectors();
+  return false;
+}
+
+bool KakuroBoard::prune_singles() {
+  bool any_change = false;
+  bool changed = true;
+  int limit = 10;
+
+  while (changed && --limit > 0) {
+    changed = false;
+    collect_white_cells();
+
+    for (size_t i = 0; i < white_cells.size(); i++) {
+      Cell *c = white_cells[i];
+      int h_nbs = 0;
+      if (get_cell(c->r, c->c - 1)->type == CellType::WHITE)
+        h_nbs++;
+      if (get_cell(c->r, c->c + 1)->type == CellType::WHITE)
+        h_nbs++;
+      int v_nbs = 0;
+      if (get_cell(c->r - 1, c->c)->type == CellType::WHITE)
+        v_nbs++;
+      if (get_cell(c->r + 1, c->c)->type == CellType::WHITE)
+        v_nbs++;
+
+      if (h_nbs == 0 || v_nbs == 0) {
+        if (try_remove_and_reconnect(c->r, c->c)) {
+          changed = true;
+          any_change = true;
+          collect_white_cells(); // List changed
+          break;
+        }
+      }
+    }
+  }
   return any_change;
 }
 
@@ -1154,12 +1244,12 @@ bool KakuroBoard::stabilize_grid(bool gentle) {
       if (fix_invalid_runs())
         changed = true;
     }
-    if (ensure_connectivity())
+    if (prune_singles())
       changed = true;
-
     if (break_single_runs())
       changed = true;
-
+    if (ensure_connectivity())
+      changed = true;
     any_change |= changed;
     iterations++;
   }
