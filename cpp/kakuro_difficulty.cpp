@@ -37,6 +37,7 @@ KakuroDifficultyEstimator::KakuroDifficultyEstimator(
 }
 
 DifficultyResult KakuroDifficultyEstimator::estimate_difficulty_detailed() {
+  PROFILE_FUNCTION(board->logger);
   solve_log.clear();
   found_solutions.clear();
   partition_cache.clear();
