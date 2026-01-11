@@ -102,6 +102,7 @@ public:
   static constexpr const char *STAGE_FILLING = "f";     // filling
   static constexpr const char *STAGE_UNIQUENESS = "uv"; // uniqueness_validation
   static constexpr const char *STAGE_DIFFICULTY = "de"; // difficulty_estimation
+  static constexpr const char *STAGE_PROFILE = "p";     // profile
 
   // Substages - Topology
   static constexpr const char *SUBSTAGE_START = "s"; // start
@@ -142,6 +143,7 @@ public:
 
   // Substages - Difficulty
   static constexpr const char *SUBSTAGE_LOGIC_STEP = "ls"; // logic_step
+  static constexpr const char *SUBSTAGE_TIMING = "tm";     // timing
 
 private:
   std::ofstream log_file_;
@@ -149,6 +151,7 @@ private:
   bool first_entry_ = true;
   bool enabled_ = false;
   std::string current_kakuro_id_;
+  std::chrono::steady_clock::time_point last_step_time_;
 
   static std::string get_timestamp() {
     auto now = std::chrono::system_clock::now();
@@ -214,6 +217,7 @@ public:
       enabled_ = true;
       step_id_ = 0;
       first_entry_ = true;
+      last_step_time_ = std::chrono::steady_clock::now();
       log_file_ << "[\n";
     }
 #endif
@@ -243,9 +247,14 @@ public:
       log_file_ << ",\n";
     first_entry_ = false;
 
+    auto now = std::chrono::steady_clock::now();
+    double duration_ms = std::chrono::duration<double, std::milli>(now - last_step_time_).count();
+    last_step_time_ = now;
+
     log_file_ << "  {\n";
     log_file_ << "    \"id\": " << step_id_++ << ",\n";         // step_id
     log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n"; // timestamp
+    log_file_ << "    \"dur\": " << std::fixed << std::setprecision(2) << duration_ms << ",\n"; // duration since last step
     log_file_ << "    \"s\": \"" << stage << "\",\n";           // stage
     log_file_ << "    \"ss\": \"" << substage << "\",\n";       // substage
     log_file_ << "    \"m\": \"" << escape_json(message) << "\",\n"; // message
@@ -454,7 +463,58 @@ public:
     log_file_.flush();
 #endif
   }
+
+  void log_profile(const std::string &name, double duration_ms) {
+#if KAKURO_ENABLE_LOGGING
+    if (!enabled_ || !log_file_.is_open())
+      return;
+
+    if (!first_entry_)
+      log_file_ << ",\n";
+    first_entry_ = false;
+
+    log_file_ << "  {\n";
+    log_file_ << "    \"id\": " << step_id_++ << ",\n";
+    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n";
+    log_file_ << "    \"s\": \"" << STAGE_PROFILE << "\",\n";
+    log_file_ << "    \"ss\": \"" << SUBSTAGE_TIMING << "\",\n";
+    log_file_ << "    \"m\": \"Profile: " << escape_json(name) << "\",\n";
+    log_file_ << "    \"dur\": " << std::fixed << std::setprecision(3)
+              << duration_ms << "\n";
+    log_file_ << "  }";
+    log_file_.flush();
+#endif
+  }
 };
+
+// ============================================================================
+// PROFILING TOOLS
+// ============================================================================
+
+class ScopedTimer {
+public:
+  ScopedTimer(const std::string &name, std::shared_ptr<GenerationLogger> logger)
+      : name_(name), logger_(logger),
+        start_(std::chrono::steady_clock::now()) {}
+
+  ~ScopedTimer() {
+    auto end = std::chrono::steady_clock::now();
+    double duration =
+        std::chrono::duration<double, std::milli>(end - start_).count();
+    if (logger_ && logger_->is_enabled()) {
+      logger_->log_profile(name_, duration);
+    }
+  }
+
+private:
+  std::string name_;
+  std::shared_ptr<GenerationLogger> logger_;
+  std::chrono::steady_clock::time_point start_;
+};
+
+#define PROFILE_SCOPE(name, logger)                                            \
+  kakuro::ScopedTimer timer##__LINE__(name, logger)
+#define PROFILE_FUNCTION(logger) PROFILE_SCOPE(__func__, logger)
 
 enum class CellType { BLOCK, WHITE };
 
