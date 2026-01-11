@@ -269,10 +269,10 @@ async def read_index():
 # Minimum white cells required to accept a puzzle
 # verification fails if the puzzle is "too empty"
 MIN_CELLS_MAP = {
-    "very_easy": 6,   # Allow small puzzles
-    "easy": 10,
-    "medium": 15,
-    "hard": 20
+    "very_easy": 0.15,
+    "easy": 0.20,
+    "medium": 0.25,
+    "hard": 0.25
 }
 
 DIFFICULTY_POINTS = {
@@ -312,8 +312,10 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
             height = random.randint(min_s, max_s)
 
 
-    # Adjust minimum white cells and sector length for very easy
-    min_white_cells = MIN_CELLS_MAP.get(difficulty, 12)
+    # Adjust minimum white cells relative to area
+    min_ratio = MIN_CELLS_MAP.get(difficulty, 0.15)
+    area = (width - 2) * (height - 2)
+    min_white_cells = int(area * min_ratio)
 
     # 2. Generation Loop
     # The solver.generate_puzzle method has its own internal retry loop for topology/uniqueness,
