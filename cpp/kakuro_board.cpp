@@ -213,6 +213,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
 }
 
 bool KakuroBoard::generate_topology(const TopologyParams &params) {
+  PROFILE_FUNCTION(logger);
   const int MAX_RETRIES = 60;
 
   // Baseline Defaults (only if NOT in ANY difficulty block or provided in
@@ -391,6 +392,7 @@ bool KakuroBoard::generate_topology(const TopologyParams &params) {
 }
 
 bool KakuroBoard::validate_topology_structure() {
+  PROFILE_FUNCTION(logger);
   auto fail = [&](int r, int c, const std::string &msg) {
     LOG_DEBUG("Topology Validation Failed at (" << r << "," << c
                                                 << "): " << msg);
@@ -514,7 +516,7 @@ bool KakuroBoard::place_random_seed() {
       std::vector<std::pair<int, int>> coords = {
           {r, c}, {r, c - 1}, {r, c + 1}, {r - 1, c}, {r + 1, c}};
 
-      for (auto [cr, cc] : coords) {
+    for (auto [cr, cc] : coords) {
         set_white(cr, cc);
         set_white(height - 1 - cr, width - 1 - cc);
       }
@@ -619,6 +621,7 @@ void KakuroBoard::grow_lattice(double density, int max_sector_length) {
 
 bool KakuroBoard::generate_stamps(
     const std::vector<std::pair<int, int>> &shapes, int iterations) {
+  PROFILE_FUNCTION(logger);
   int current_iter = 0;
   int failures = 0;
 
@@ -663,6 +666,7 @@ void KakuroBoard::stamp_rect(int r, int c, int h, int w) {
 }
 
 bool KakuroBoard::slice_long_runs(int max_len) {
+  PROFILE_FUNCTION(logger);
   bool changed = false;
   // Horizontal
   for (int r = 1; r < height - 1; r++) {
@@ -1240,6 +1244,7 @@ bool KakuroBoard::break_large_patches(int size) {
 }
 
 bool KakuroBoard::stabilize_grid(bool gentle) {
+  PROFILE_FUNCTION(logger);
   bool changed = true;
   bool any_change = false;
   int iterations = 0;
@@ -1370,39 +1375,20 @@ void KakuroBoard::block_sym(Cell *cell) {
 }
 
 bool KakuroBoard::ensure_connectivity() {
+  PROFILE_FUNCTION(logger);
   collect_white_cells();
+  auto components = find_components(); // This line replaces the manual component finding logic
   if (white_cells.empty())
     return false;
   std::unordered_set<std::pair<int, int>, PairHash> white_set;
   for (auto c : white_cells)
     white_set.insert({c->r, c->c});
 
-  std::vector<std::vector<std::pair<int, int>>> components;
-  std::unordered_set<std::pair<int, int>, PairHash> visited;
+  // The manual component finding logic that was here is now replaced by find_components()
+  // std::vector<std::vector<std::pair<int, int>>> components;
+  // std::unordered_set<std::pair<int, int>, PairHash> visited;
+  // ... (rest of the manual component finding logic)
 
-  for (auto c : white_cells) {
-    if (visited.count({c->r, c->c}))
-      continue;
-    std::vector<std::pair<int, int>> comp;
-    std::queue<std::pair<int, int>> q;
-    q.push({c->r, c->c});
-    visited.insert({c->r, c->c});
-    while (!q.empty()) {
-      auto [r, col] = q.front();
-      q.pop();
-      comp.push_back({r, col});
-      int dr[] = {0, 0, 1, -1};
-      int dc[] = {1, -1, 0, 0};
-      for (int i = 0; i < 4; i++) {
-        std::pair<int, int> next = {r + dr[i], col + dc[i]};
-        if (white_set.count(next) && !visited.count(next)) {
-          visited.insert(next);
-          q.push(next);
-        }
-      }
-    }
-    components.push_back(comp);
-  }
   if (components.empty())
     return false;
 
@@ -1448,6 +1434,7 @@ void KakuroBoard::collect_white_cells() {
 }
 
 void KakuroBoard::identify_sectors() {
+  PROFILE_FUNCTION(logger);
   // Clear existing shared_ptr lists
   sectors_h.clear();
   sectors_v.clear();
