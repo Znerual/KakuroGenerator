@@ -782,6 +782,10 @@
                 difficulty: step.difficulty
             };
 
+            // Capture params if present (they are top-level in the log entry)
+            if (step.fill) decoded.data.fill = step.fill;
+            if (step.topo) decoded.data.topo = step.topo;
+
             // Recursively decode data if needed
             if (decoded.data.hc) {
                 decoded.data.highlighted_cells = decoded.data.hc;
@@ -1034,6 +1038,37 @@
                     `;
                     scoreTableBody.appendChild(tr);
                 });
+            } else if (step.stage === 'configuration') {
+                scoreData.style.display = 'block';
+                scoreTableBody.innerHTML = '';
+                const header = document.querySelector('#scoreData div');
+                header.innerHTML = 'CONFIGURATION <button style="float:right; font-size:0.7rem; padding: 2px 6px; cursor: pointer;" onclick="showParamModal(currentLogData[' + currentStepIndex + '].data)">View Full JSON</button>';
+                header.style.color = 'var(--text-primary)';
+
+                // Add summary rows to the table
+                const addRow = (label, value) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="3" style="padding: 4px; color: var(--text-secondary)">${label}</td><td colspan="2" style="padding: 4px; font-weight: bold;">${value}</td>`;
+                    scoreTableBody.appendChild(tr);
+                };
+
+                if (step.data) {
+                    const fill = step.data.fill || {};
+                    const topo = step.data.topo || {};
+                    // Check specifically for width/height in the step or data (step.wh was used in decodeStep)
+                    const dims = step.grid ? `${step.grid[0].length}x${step.grid.length}` : "Unknown";
+
+                    addRow("Difficulty", fill.difficulty || topo.difficulty || "Unknown");
+                    addRow("Grid Size", dims);
+                    if (topo.min_cells) {
+                        // min_cells might be a float (ratio) or int
+                        const mc = topo.min_cells;
+                        const label = mc <= 1.0 ? `Min Cells (Ratio)` : `Min Cells (Abs)`;
+                        const val = mc <= 1.0 ? (mc * 100).toFixed(0) + "%" : mc;
+                        addRow(label, val);
+                    }
+                    if (topo.density) addRow("Density", topo.density.toFixed(2));
+                }
             } else {
                 scoreData.style.display = 'none';
                 const header = document.querySelector('#scoreData div');
@@ -1330,6 +1365,121 @@
             if (topo.stamps) {
                 document.getElementById('genStamps').value = JSON.stringify(topo.stamps);
             }
+        }
+    </script>
+
+    <!-- Param Modal -->
+    <div id="paramModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeParamModal()">&times;</span>
+            <h2>Generation Parameters</h2>
+            <div id="paramContent" class="param-json"></div>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal-content {
+            background-color: var(--panel-bg);
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid var(--grid-line);
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            color: var(--text-primary);
+        }
+
+        .close-btn {
+            color: var(--text-secondary);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .param-json {
+            font-family: monospace;
+            white-space: pre-wrap;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .param-table th,
+        .param-table td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--grid-line);
+        }
+
+        .param-table th {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+    </style>
+
+    <script>
+        function closeParamModal() {
+            document.getElementById('paramModal').style.display = 'none';
+        }
+
+        function showParamModal(data) {
+            const container = document.getElementById('paramContent');
+
+            let html = '';
+
+            // FILL PARAMS
+            if (data.fill) {
+                html += '<h3 style="color:var(--color-filling)">Fill Parameters</h3>';
+                html += '<table class="param-table"><thead><tr><th>Param</th><th>Value</th></tr></thead><tbody>';
+                for (const [key, val] of Object.entries(data.fill)) {
+                    html += `<tr><td>${key}</td><td>${JSON.stringify(val)}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+
+            // TOPO PARAMS
+            if (data.topo) {
+                html += '<h3 style="color:var(--color-topology); margin-top: 20px;">Topology Parameters</h3>';
+                html += '<table class="param-table"><thead><tr><th>Param</th><th>Value</th></tr></thead><tbody>';
+                for (const [key, val] of Object.entries(data.topo)) {
+                    // Start stamps on new line if too long
+                    let displayVal = JSON.stringify(val);
+                    if (key === 'stamps' && displayVal.length > 50) {
+                        displayVal = `<div style="max-height:60px; overflow-y:auto; font-size:0.75rem">${displayVal}</div>`;
+                    }
+                    html += `<tr><td>${key}</td><td>${displayVal}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+
+            container.innerHTML = html;
+            document.getElementById('paramModal').style.display = 'block';
         }
     </script>
 </body>
