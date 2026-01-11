@@ -30,9 +30,54 @@ bool CSPSolver::check_timeout() {
   return false;
 }
 
+void CSPSolver::apply_fill_defaults(FillParams &params) {
+  if (params.difficulty == "very_easy") {
+    if (!params.weights.has_value()) {
+      params.weights = std::make_optional<std::vector<int>>(
+          std::initializer_list<int>{20, 15, 5, 1, 1, 1, 5, 15, 20});
+    }
+    if (!params.partition_preference.has_value()) {
+      params.partition_preference = "unique";
+    }
+  } else if (params.difficulty == "easy") {
+    if (!params.weights.has_value()) {
+      params.weights = std::make_optional<std::vector<int>>(
+          std::initializer_list<int>{10, 8, 6, 2, 1, 2, 6, 8, 10});
+    }
+    if (!params.partition_preference.has_value()) {
+      params.partition_preference = "unique";
+    }
+  } else if (params.difficulty == "medium") {
+    if (!params.weights.has_value()) {
+      params.weights = std::make_optional<std::vector<int>>(
+          std::initializer_list<int>{5, 5, 5, 5, 5, 5, 5, 5, 5});
+    }
+    if (!params.partition_preference.has_value()) {
+      params.partition_preference = "few";
+    }
+  } else if (params.difficulty == "hard") {
+    if (!params.weights.has_value()) {
+      params.weights = std::make_optional<std::vector<int>>(
+          std::initializer_list<int>{1, 2, 5, 10, 10, 10, 5, 2, 1});
+    }
+    if (!params.partition_preference.has_value()) {
+      params.partition_preference = "few";
+    }
+  } else {
+    if (!params.weights.has_value()) {
+      params.weights = std::make_optional<std::vector<int>>(
+          std::initializer_list<int>{5, 5, 5, 5, 5, 5, 5, 5, 5});
+    }
+    if (!params.partition_preference.has_value()) {
+      params.partition_preference = "";
+    }
+  }
+}
+
 bool CSPSolver::generate_puzzle(const std::string &difficulty) {
   FillParams fill_params;
   fill_params.difficulty = difficulty;
+  apply_fill_defaults(fill_params);
 
   TopologyParams topo_params;
   topo_params.difficulty = difficulty;
@@ -41,10 +86,23 @@ bool CSPSolver::generate_puzzle(const std::string &difficulty) {
   return generate_puzzle(fill_params, topo_params);
 }
 
-bool CSPSolver::generate_puzzle(const FillParams &params,
-                                const TopologyParams &topo_params) {
+bool CSPSolver::generate_puzzle(const FillParams &params_f,
+                                const TopologyParams &topo_params_t) {
+
+  FillParams params = params_f;
+  TopologyParams topo_params = topo_params_t;
+
+  apply_fill_defaults(params);
+  board->apply_topology_defaults(topo_params);
   // Reset Timer at start of generation
   start_time_ = std::chrono::steady_clock::now();
+
+#if KAKURO_ENABLE_LOGGING
+  if (board->logger) {
+    board->logger->start_new_kakuro();
+    board->logger->log_params(params_f, topo_params_t);
+  }
+#endif
 
   const int MAX_TOPOLOGY_RETRIES = 50;
   LOG_DEBUG("Starting puzzle generation. Difficulty: " << params.difficulty);
@@ -396,33 +454,8 @@ bool CSPSolver::solve_fill(
       }
     }
   }
-
-  std::vector<int> weights;
-  std::string partition_preference = "";
-
-  std::string difficulty = params.difficulty;
-  if (difficulty == "very_easy") {
-    weights = {20, 15, 5, 1, 1, 1, 5, 15, 20};
-    partition_preference = "unique";
-  } else if (difficulty == "easy") {
-    weights = {10, 8, 6, 2, 1, 2, 6, 8, 10};
-    partition_preference = "few";
-  } else if (difficulty == "hard") {
-    weights = {1, 2, 5, 10, 10, 10, 5, 2, 1};
-    partition_preference = "";
-  } else if (difficulty == "medium") {
-    weights = {5, 5, 5, 5, 5, 5, 5, 5, 5};
-    partition_preference = "few";
-  } else {
-    weights = {5, 5, 5, 5, 5, 5, 5, 5, 5};
-    partition_preference = "";
-  }
-
-  // Overrides
-  if (params.weights.has_value())
-    weights = *params.weights;
-  if (params.partition_preference.has_value())
-    partition_preference = *params.partition_preference;
+  std::vector<int> weights = params.weights.value();
+  std::string partition_preference = params.partition_preference.value();
 
   bool result =
       backtrack_fill(assignment, node_count, max_nodes, weights, ignore_clues,
