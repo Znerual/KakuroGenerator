@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -32,6 +32,8 @@ from kakuro.generator_service import generator_service
 import kakuro.config as config
 from kakuro.performance import Timer, log_system_performance, record_metric
 import kakuro.performance as performance
+import kakuro.generate_book as book_gen
+import io
 
 # Configure logging
 root_logger = logging.getLogger()
@@ -165,6 +167,9 @@ def startup_event():
             if "template_id" not in columns:
                 logger.info("Migrating database: Adding template_id to puzzles table")
                 conn.execute(text("ALTER TABLE puzzles ADD COLUMN template_id TEXT"))
+            if "difficulty_vote" not in columns:
+                logger.info("Migrating database: Adding difficulty_vote to puzzles table")
+                conn.execute(text("ALTER TABLE puzzles ADD COLUMN difficulty_vote INTEGER"))
         
         if "users" in table_names:
             columns = [c["name"] for c in inspector.get_columns("users")]
@@ -193,7 +198,12 @@ def startup_event():
             if "times_skipped" not in columns:
                 logger.info("Migrating database: Adding times_skipped to puzzle_templates table")
                 conn.execute(text("ALTER TABLE puzzle_templates ADD COLUMN times_skipped INTEGER DEFAULT 0"))
-        
+            if "difficulty_score" not in columns:
+                logger.info("Migration: Adding difficulty_score and difficulty_data to templates")
+                # SQLite doesn't support adding NOT NULL columns without default
+                conn.execute(text("ALTER TABLE puzzle_templates ADD COLUMN difficulty_score FLOAT DEFAULT 0.0"))
+                conn.execute(text("ALTER TABLE puzzle_templates ADD COLUMN difficulty_data JSON DEFAULT '{}'"))
+
         # Create score_records table if it doesn't exist
         if "score_records" not in table_names:
             logger.info("Migrating database: Creating score_records table")
@@ -212,10 +222,24 @@ def startup_event():
             conn.execute(text("CREATE INDEX idx_score_records_user_id ON score_records(user_id)"))
             conn.execute(text("CREATE INDEX idx_score_records_created_at ON score_records(created_at)"))
 
+        if "difficulty_stats" not in table_names:
+            logger.info("Migration: Creating difficulty_stats table")
+            conn.execute(text("""
+                CREATE TABLE difficulty_stats (
+                    difficulty TEXT PRIMARY KEY,
+                    sum_scores FLOAT DEFAULT 0.0,
+                    count INTEGER DEFAULT 0
+                )
+            """))
+            # Seed initial stats so the generator doesn't crash on first run
+            for d in ["very_easy", "easy", "medium", "hard"]:
+                conn.execute(text("INSERT INTO difficulty_stats (difficulty, sum_scores, count) VALUES (:d, 0.0, 0)"), {"d": d})
+
+        conn.commit()
     logger.info("Database initialized")
     
     # Start background generator
-    generator_service.start()
+    generator_service.start(DIFFICULTY_SIZE_RANGES)
     
     # Start system monitor
     threading.Thread(target=system_monitor_task, daemon=True).start()
@@ -366,6 +390,7 @@ class SaveRequest(BaseModel):
     cellNotes: Dict[str, str]
     notebook: str
     rating: int
+    difficultyVote: Optional[int] = None
     userComment: str
     timestamp: Optional[str] = None
     template_id: Optional[str] = None
@@ -391,6 +416,7 @@ def save_puzzle_endpoint(
                 puzzle.cell_notes = request.cellNotes
                 puzzle.notebook = request.notebook
                 puzzle.rating = request.rating
+                puzzle.difficulty_vote = request.difficultyVote
                 puzzle.user_comment = request.userComment
                 
                 # Update solved count if status changed to solved
@@ -425,6 +451,7 @@ def save_puzzle_endpoint(
                     cell_notes=request.cellNotes,
                     notebook=request.notebook,
                     rating=request.rating,
+                    difficulty_vote=request.difficultyVote,
                     user_comment=request.userComment,
                     template_id=request.template_id
                 )
@@ -599,20 +626,27 @@ def get_puzzle_feed(
     """
     Returns a feed of puzzles from the pre-generated pool.
     """
+    return fetch_new_puzzles_from_pool(db, current_user, difficulty, limit)
+
+def fetch_new_puzzles_from_pool(db: Session, current_user: Optional[User], difficulty: str, limit: int):
+    """
+    Helper to fetch filtered puzzles from the template pool or generate fallbacks.
+    Does NOT save 'Puzzle' instances to DB (returns dicts).
+    """
     puzzles_to_return = []
     MIN_USES_FOR_QUALITY = 5   # Minimum uses before evaluating skip ratio
     MAX_SKIP_RATIO = 0.5       # Max 50% skip rate
 
     # query pool
     query = db.query(PuzzleTemplate).filter(
-    PuzzleTemplate.difficulty == difficulty,
-    # Filter out low-quality puzzles (high skip ratio)
-    # Only apply when times_used >= MIN_USES_FOR_QUALITY
-    ~(
-        (PuzzleTemplate.times_used >= MIN_USES_FOR_QUALITY) &
-        (cast(PuzzleTemplate.times_skipped, Float) / PuzzleTemplate.times_used > MAX_SKIP_RATIO)
+        PuzzleTemplate.difficulty == difficulty,
+        # Filter out low-quality puzzles (high skip ratio)
+        # Only apply when times_used >= MIN_USES_FOR_QUALITY
+        ~(
+            (PuzzleTemplate.times_used >= MIN_USES_FOR_QUALITY) &
+            (cast(PuzzleTemplate.times_skipped, Float) / PuzzleTemplate.times_used > MAX_SKIP_RATIO)
+        )
     )
-)
 
     if current_user:
         # Subquery to find template_ids that the user has already interacted with
@@ -624,7 +658,6 @@ def get_puzzle_feed(
         query = query.filter(~PuzzleTemplate.id.in_(subquery))
     
     # Fetch random templates from the pool
-    # We fetch slightly more to handle potential race conditions or just providing variety
     existing_templates = query.order_by(func.random()).limit(limit).all()
     
     for tmpl in existing_templates:
@@ -632,7 +665,7 @@ def get_puzzle_feed(
         tmpl.times_used = (tmpl.times_used or 0) + 1
         
         puzzles_to_return.append({
-            "id": str(uuid.uuid4()), # New instance ID for the user to start
+            "id": str(uuid.uuid4()), # New instance ID
             "template_id": tmpl.id,
             "width": tmpl.width,
             "height": tmpl.height,
@@ -650,10 +683,14 @@ def get_puzzle_feed(
     # 2. GENERATE FALLBACK if pool is empty or user exhausted it
     needed = limit - len(puzzles_to_return)
     if needed > 0:
-        logger.info(f"Feed pool exhausted for user (needed {needed}), generating fallback...")
-        from python.kakuro_wrapper import KakuroBoard, CSPSolver
+        logger.info(f"Pool exhausted (needed {needed}), generating fallback...")
+        # Need to import KakuroBoard/CSPSolver here if not available globally or use wrapper
+        # The file has imports at top: from kakuro import KakuroBoard, CSPSolver
+        # But wait, lines 654 inside get_puzzle_feed had: from python.kakuro_wrapper import ...
+        # I should check if I need that specific wrapper or the one imported at top.
+        # Top level says: from kakuro import KakuroBoard, CSPSolver
+        # Let's use the top level ones.
         
-        # Size logic
         min_s, max_s = DIFFICULTY_SIZE_RANGES.get(difficulty, (10, 10))
         min_white = MIN_CELLS_MAP.get(difficulty, 12)
         
@@ -661,45 +698,88 @@ def get_puzzle_feed(
             w = random.randint(min_s, max_s)
             h = random.randint(min_s, max_s)
             
-            # Retry loop
-            for attempt in range(10):
-                board = KakuroBoard(w, h)
-                solver = CSPSolver(board)
-                if solver.generate_puzzle(difficulty=difficulty):
-                    if len(board.white_cells) >= min_white:
-                        # Success
-                        grid_data = []
-                        for r in range(h):
-                            row_data = []
-                            for c in range(w):
-                                cell = board.get_cell(r, c)
-                                row_data.append(cell.to_dict())
-                            grid_data.append(row_data)
-                        
-                        # Create Template so it becomes part of the pool for others
-                        tmpl = PuzzleTemplate(
-                            width=w, 
-                            height=h, 
-                            difficulty=difficulty, 
-                            grid=grid_data
-                        )
-                        db.add(tmpl)
-                        db.commit() 
-                        
-                        puzzles_to_return.append({
-                            "id": str(uuid.uuid4()),
-                            "template_id": tmpl.id,
-                            "width": w,
-                            "height": h,
-                            "difficulty": difficulty,
-                            "grid": grid_data,
-                            "status": "started",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "source": "generated_fallback"
-                        })
-                        break
-
+            tmpl = generator_service.generate_single_puzzle(db, difficulty, means, height=h, width=w)
+            if not tmpl:
+                continue
+          
+            db.commit() 
+            
+            puzzles_to_return.append({
+                    "id": str(uuid.uuid4()),
+                    "template_id": tmpl.id,
+                    "width": tmpl.width,
+                    "height": tmpl.height,
+                    "difficulty": tmpl.difficulty,
+                    "grid": tmpl.grid,
+                    "status": "started",
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "source": "generated_on_demand"
+                })
+    
     return puzzles_to_return
+
+
+@app.get("/solution/{puzzle_id}")
+def solution_redirect(puzzle_id: str):
+    """
+    Redirects to the main app with the solution_id parameter.
+    This allows the frontend to load and display the specific puzzle/solution.
+    """
+    return RedirectResponse(url=f"/?solution_id={puzzle_id}")
+
+
+@app.post("/api/generate-book")
+def generate_book_endpoint(
+    difficulty: str = "medium",
+    num_puzzles: int = 4,
+    current_user: User = Depends(get_required_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generates a PDF book for the user with puzzles from the pool.
+    """
+    # 1. Fetch puzzles from the pool (filtered for this user)
+    # This ensures no duplicates seen before.
+    puzzle_dicts = fetch_new_puzzles_from_pool(db, current_user, difficulty, limit=num_puzzles)
+    
+    # 2. Save them to the DB as 'Puzzle' instances representing this user's book
+    saved_puzzles_data = []
+    
+    for p_data in puzzle_dicts:
+        # Create user puzzle entry
+        # p_data already has a new 'id' from the fetch function
+        new_puzzle = Puzzle(
+            id=p_data['id'],
+            template_id=p_data['template_id'],
+            user_id=current_user.id,
+            width=p_data['width'],
+            height=p_data['height'],
+            difficulty=p_data['difficulty'],
+            grid=p_data['grid'],
+            status="book", # Distinguish from 'started'? Or just 'started'.
+            rating=0
+        )
+        db.add(new_puzzle)
+        saved_puzzles_data.append(p_data)
+        
+    db.commit()
+    
+    # 3. Generate PDF
+    pdf_buffer = io.BytesIO()
+    
+    base_url = config.APP_HOST
+    if not base_url.startswith("http"):
+        base_url = f"http://{base_url}" 
+    
+    book_gen.generate_pdf(saved_puzzles_data, file_obj=pdf_buffer, base_url=base_url)
+    
+    pdf_buffer.seek(0)
+    
+    return StreamingResponse(
+        pdf_buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": "attachment; filename=kakuro_book.pdf"}
+    )
 
 @app.get("/leaderboard/all-time")
 def get_all_time_leaderboard(db: Session = Depends(get_db)):
