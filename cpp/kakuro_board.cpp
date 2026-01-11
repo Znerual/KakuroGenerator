@@ -99,9 +99,9 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.stamps = {{2, 2}, {2, 3}, {3, 2}, {2, 4}, {4, 2}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
-          std::uniform_int_distribution<>(6, 8)(rng) * area / 100;
+          std::uniform_int_distribution<>(12, 20)(rng) * area / 100;
     if (!params.min_cells.has_value())
-      params.min_cells = 16;
+      params.min_cells = 0.25f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 5;
     if (!params.max_patch_size.has_value())
@@ -121,7 +121,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.num_stamps =
           std::uniform_int_distribution<>(8, 10)(rng) * area / 100;
     if (!params.min_cells.has_value())
-      params.min_cells = 22;
+      params.min_cells = 0.30f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 6;
     if (!params.max_run_len_soft.has_value())
@@ -142,7 +142,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.num_stamps =
           std::uniform_int_distribution<>(8, 12)(rng) * area / 100;
     if (!params.min_cells.has_value())
-      params.min_cells = (int)(area * 0.25);
+      params.min_cells = 0.35f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 8;
     if (!params.max_run_len_soft.has_value())
@@ -155,12 +155,12 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.max_sector_length = 8;
   } else if (difficulty == "hard") {
     if (!params.stamps.has_value())
-      params.stamps = {{2, 3}, {3, 2}, {2, 5}, {5, 2}};
+      params.stamps = {{2, 3}, {3, 2}, {2, 5}, {5, 2}, {2, 6}, {6, 2}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
           std::uniform_int_distribution<>(10, 12)(rng) * area / 100;
     if (!params.min_cells.has_value())
-      params.min_cells = (int)(area * 0.25);
+      params.min_cells = 0.35f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 9;
     if (!params.max_run_len_soft.has_value())
@@ -179,7 +179,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.num_stamps =
           std::uniform_int_distribution<>(12, 16)(rng) * area / 100;
     if (!params.min_cells.has_value())
-      params.min_cells = (int)(area * 0.25);
+      params.min_cells = 0.5f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 9;
     if (!params.max_run_len_soft.has_value())
@@ -198,7 +198,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
       params.num_stamps =
           std::uniform_int_distribution<>(14, 20)(rng) * area / 100;
     if (!params.min_cells.has_value())
-      params.min_cells = (int)(area * 0.3);
+      params.min_cells = 0.50f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 9;
     if (!params.max_run_len_soft.has_value())
@@ -220,7 +220,7 @@ bool KakuroBoard::generate_topology(const TopologyParams &params) {
   std::vector<std::pair<int, int>> stamps = params.stamps.value_or(
       std::vector<std::pair<int, int>>{{1, 3}, {3, 1}, {2, 2}, {3, 3}});
   int num_stamps = params.num_stamps.value_or(20);
-  int min_cells = params.min_cells.value_or(12);
+  float min_cells_param = params.min_cells.value_or(0.4f);
   int max_run_len = params.max_run_len.value_or(9);
   int max_run_len_soft = params.max_run_len_soft.value_or(0);
   double max_run_len_soft_prob = params.max_run_len_soft_prob.value_or(0.0);
@@ -228,6 +228,15 @@ bool KakuroBoard::generate_topology(const TopologyParams &params) {
   bool island_mode = params.island_mode.value_or(true);
   double density = params.density.value_or(0.60);
   int max_sector_length = params.max_sector_length.value_or(9);
+
+  // Calculate target min cells (handle both relative ratio and legacy absolute)
+  int area = (width - 2) * (height - 2);
+  int target_min_cells;
+  if (min_cells_param > 1.0f) {
+    target_min_cells = (int)min_cells_param;
+  } else {
+    target_min_cells = (int)(area * min_cells_param);
+  }
 
   for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
     white_cells.clear();
@@ -320,13 +329,13 @@ bool KakuroBoard::generate_topology(const TopologyParams &params) {
     collect_white_cells();
 
     // Final Validation
-    if ((int)white_cells.size() < min_cells) {
+    if ((int)white_cells.size() < target_min_cells) {
 #if KAKURO_ENABLE_LOGGING
       logger->log_step(
           GenerationLogger::STAGE_TOPOLOGY,
           GenerationLogger::SUBSTAGE_VALIDATION_FAILED,
           "Too few white cells: " + std::to_string(white_cells.size()) + " < " +
-              std::to_string(min_cells),
+              std::to_string(target_min_cells),
           get_grid_state());
 #endif
       continue;
@@ -369,7 +378,7 @@ bool KakuroBoard::generate_topology(const TopologyParams &params) {
     return true;
   }
   LOG_ERROR("Failed to generate topology after "
-            << MAX_RETRIES << " retries. min_cells=" << min_cells
+            << MAX_RETRIES << " retries. min_cells=" << target_min_cells
             << ", target_density=" << density);
 #if KAKURO_ENABLE_LOGGING
   logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
