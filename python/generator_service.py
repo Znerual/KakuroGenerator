@@ -254,6 +254,9 @@ class GeneratorService:
                     
     def _generate_targeted_batch(self, db: Session, target_diff: str, count: int, means: dict, height: int | None = None, width: int | None = None):
         """Generates puzzles and adjusts their difficulty based on global means."""
+        # Pre-fetch stats to avoid "flush-on-query" issues or duplicate "add" in batch
+        stats_map = {s.difficulty: s for s in db.query(DifficultyStat).all()}
+
         generated = 0
         for _ in range(count):
             if self._stop_event.is_set(): break
@@ -298,7 +301,15 @@ class GeneratorService:
                 db.add(tmpl)
                 
                 # Update the running average for the FINAL difficulty
-                self._update_stats(db, final_diff, raw_score)
+                if final_diff not in stats_map:
+                    new_stat = DifficultyStat(difficulty=final_diff, sum_scores=0.0, count=0)
+                    db.add(new_stat)
+                    stats_map[final_diff] = new_stat
+                
+                stat = stats_map[final_diff]
+                stat.sum_scores += raw_score
+                stat.count += 1
+                
                 generated += 1
         
         if generated > 0:
