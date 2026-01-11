@@ -385,6 +385,7 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
 std::pair<UniquenessResult,
           std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>>
 CSPSolver::perform_robust_uniqueness_check() {
+  PROFILE_FUNCTION(board->logger);
   // We check 3 times with different search seeds.
   // This catches "symmetric" solutions that a single search might miss.
   for (int i = 0; i < 3; i++) {
@@ -419,6 +420,7 @@ bool CSPSolver::solve_fill(
     const std::unordered_map<Cell *, int> &forced_assignments,
     const std::vector<ValueConstraint> &forbidden_constraints,
     bool ignore_clues) {
+  PROFILE_FUNCTION(board->logger);
   int max_nodes = params.max_nodes.value_or(30000);
   LOG_DEBUG("      solve_fill: difficulty="
             << params.difficulty << ", max_nodes=" << max_nodes
@@ -1208,31 +1210,41 @@ void CSPSolver::calculate_clues() {
 std::pair<UniquenessResult,
           std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>>
 CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
+  PROFILE_FUNCTION(board->logger);
   LOG_DEBUG("  Checking uniqueness using Logical Estimator...");
 
   // 1. Back up current solution
   std::unordered_map<Cell *, int> original_sol;
   std::unordered_map<std::pair<int, int>, int, PairHash> original_sol_coords;
-  for (Cell *c : board->white_cells) {
-    if (c->value) {
-      original_sol[c] = *c->value;
-      original_sol_coords[{c->r, c->c}] = *c->value;
+  {
+    PROFILE_SCOPE("Uniqueness_Backup", board->logger);
+    for (Cell *c : board->white_cells) {
+      if (c->value) {
+        original_sol[c] = *c->value;
+        original_sol_coords[{c->r, c->c}] = *c->value;
+      }
+      c->value = std::nullopt; // Clear for solving
     }
-    c->value = std::nullopt; // Clear for solving
   }
 
   std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found;
   int node_count = 0;
   bool timed_out = false;
 
-  solve_for_uniqueness(found, original_sol_coords, node_count, max_nodes,
-                       seed_offset, timed_out);
+  {
+    PROFILE_SCOPE("Uniqueness_Main_Solve", board->logger);
+    solve_for_uniqueness(found, original_sol_coords, node_count, max_nodes,
+                         seed_offset, timed_out);
+  }
 
-  for (Cell *c : board->white_cells) {
-    if (original_sol.count(c))
-      c->value = original_sol[c];
-    else
-      c->value = std::nullopt;
+  {
+    PROFILE_SCOPE("Uniqueness_Restore", board->logger);
+    for (Cell *c : board->white_cells) {
+      if (original_sol.count(c))
+        c->value = original_sol[c];
+      else
+        c->value = std::nullopt;
+    }
   }
 
   if (!found.empty()) {
@@ -1248,6 +1260,7 @@ void CSPSolver::solve_for_uniqueness(
         &found_solutions,
     const std::unordered_map<std::pair<int, int>, int, PairHash> &avoid_sol,
     int &node_count, int max_nodes, int seed, bool &timed_out) {
+  PROFILE_SCOPE("Uniqueness_RecursiveStep", board->logger);
 
   if (!found_solutions.empty())
     return;
@@ -1268,21 +1281,25 @@ void CSPSolver::solve_for_uniqueness(
   int min_domain = 10;
 
   // MRV Selection
-  for (Cell *c : board->white_cells) {
-    if (!c->value.has_value()) {
-      int d_size = get_domain_size(c, nullptr, false);
-      if (d_size == 0)
-        return;
-      if (d_size < min_domain) {
-        min_domain = d_size;
-        var = c;
+  {
+    PROFILE_SCOPE("Uniqueness_MRV_Search", board->logger);
+    for (Cell *c : board->white_cells) {
+      if (!c->value.has_value()) {
+        int d_size = get_domain_size(c, nullptr, false);
+        if (d_size == 0)
+          return;
+        if (d_size < min_domain) {
+          min_domain = d_size;
+          var = c;
+        }
+        if (min_domain == 1)
+          break;
       }
-      if (min_domain == 1)
-        break;
     }
   }
 
   if (!var) {
+    PROFILE_SCOPE("Uniqueness_SolutionCheck", board->logger);
     // Found A solution. Is it different?
     std::unordered_map<std::pair<int, int>, int, PairHash> sol;
     bool is_different = false;
@@ -1335,12 +1352,15 @@ void CSPSolver::solve_for_uniqueness(
   std::vector<int> vals = {1, 2, 3, 4, 5, 6, 7, 8, 9};
   int target_val = avoid_sol.at({var->r, var->c});
 
-  std::shuffle(vals.begin(), vals.end(),
-               std::default_random_engine(seed + node_count));
+  {
+    PROFILE_SCOPE("Uniqueness_ValueOrdering", board->logger);
+    std::shuffle(vals.begin(), vals.end(),
+                 std::default_random_engine(seed + node_count));
 
-  // Move the 'avoid' value to the end of the list
-  std::partition(vals.begin(), vals.end(),
-                 [&](int v) { return v != target_val; });
+    // Move the 'avoid' value to the end of the list
+    std::partition(vals.begin(), vals.end(),
+                   [&](int v) { return v != target_val; });
+  }
 
   for (int v : vals) {
     if (is_valid_move(var, v, nullptr, false)) {
@@ -1357,6 +1377,7 @@ void CSPSolver::solve_for_uniqueness(
 int CSPSolver::get_domain_size(
     Cell *cell, const std::unordered_map<Cell *, int> *assignment,
     bool ignore_clues) {
+  PROFILE_SCOPE("Uniqueness_DomainSize", board->logger);
   int count = 0;
   for (int v = 1; v <= 9; v++) {
     if (is_valid_move(cell, v, assignment, ignore_clues)) {
@@ -1369,6 +1390,7 @@ int CSPSolver::get_domain_size(
 bool CSPSolver::is_valid_move(Cell *cell, int val,
                               const std::unordered_map<Cell *, int> *assignment,
                               bool ignore_clues) {
+  PROFILE_SCOPE("Uniqueness_MoveValidation", board->logger);
   auto check_sector = [&](std::shared_ptr<std::vector<Cell *>> sector,
                           bool is_horz) {
     if (!sector || sector->empty())
