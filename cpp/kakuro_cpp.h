@@ -46,6 +46,27 @@ namespace kakuro {
 // GENERATION LOGGER - Structured JSON logging for visualization
 // ============================================================================
 
+struct TopologyParams {
+  std::string difficulty = "medium";
+  std::optional<double> density;
+  std::optional<int> max_sector_length;
+  std::optional<int> num_stamps;
+  std::optional<int> min_cells;
+  std::optional<int> max_run_len;
+  std::optional<int> max_run_len_soft;
+  std::optional<double> max_run_len_soft_prob;
+  std::optional<int> max_patch_size;
+  std::optional<bool> island_mode;
+  std::optional<std::vector<std::pair<int, int>>> stamps;
+};
+
+struct FillParams {
+  std::string difficulty = "medium";
+  std::optional<std::vector<int>> weights;
+  std::optional<std::string> partition_preference;
+  std::optional<int> max_nodes;
+};
+
 class GenerationLogger {
 public:
   // Stages (Aliases for efficiency)
@@ -380,27 +401,6 @@ struct PairHash {
     auto h2 = std::hash<T2>{}(p.second);
     return h1 ^ (h2 << 1);
   }
-};
-
-struct TopologyParams {
-  std::string difficulty = "medium";
-  std::optional<double> density;
-  std::optional<int> max_sector_length;
-  std::optional<int> num_stamps;
-  std::optional<int> min_cells;
-  std::optional<int> max_run_len;
-  std::optional<int> max_run_len_soft;
-  std::optional<double> max_run_len_soft_prob;
-  std::optional<int> max_patch_size;
-  std::optional<bool> island_mode;
-  std::optional<std::vector<std::pair<int, int>>> stamps;
-};
-
-struct FillParams {
-  std::string difficulty = "medium";
-  std::optional<std::vector<int>> weights;
-  std::optional<std::string> partition_preference;
-  std::optional<int> max_nodes;
 };
 
 class KakuroBoard {
