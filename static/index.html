@@ -142,6 +142,24 @@
                             <span class="tool-icon">💾</span>
                             <span class="tool-label">Save Progress</span>
                         </button>
+                        <button id="btn-download-book" class="btn-tool"
+                            style="margin-top: 1rem; border-color: var(--accent-color);">
+                            <span class="tool-icon">📖</span>
+                            <span class="tool-label">PDF Book</span>
+                        </button>
+
+                        <div class="manual-id-input"
+                            style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <label
+                                style="font-size: 0.8rem; display: block; margin-bottom: 0.5rem; color: var(--text-muted);">Find
+                                Solution by ID:</label>
+                            <div style="display: flex; gap: 5px;">
+                                <input type="text" id="manual-puzzle-id" class="form-input"
+                                    style="padding: 5px; font-size: 0.8rem;" placeholder="UUID...">
+                                <button id="btn-find-puzzle" class="btn-secondary"
+                                    style="padding: 5px 10px;">🔍</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Notebook Panel (expands below tools) -->
@@ -163,6 +181,19 @@
             <h2>🎉 Puzzle Complete!</h2>
             <p>How would you rate this puzzle?</p>
             <div id="stars-container" class="stars-container"></div>
+
+            <div class="difficulty-rating-section" style="margin: 15px 0; width: 100%;">
+                <p style="margin-bottom: 5px; font-size: 0.9rem; color: var(--text-muted);">How was the difficulty?</p>
+                <div class="slider-labels"
+                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">
+                    <span>Too Easy</span>
+                    <span>Perfect</span>
+                    <span>Too Hard</span>
+                </div>
+                <input type="range" id="difficulty-slider" min="1" max="10" value="5" class="slider"
+                    style="width: 100%;">
+            </div>
+
             <textarea id="rating-comment" class="rating-comment-box"
                 placeholder="Share your thoughts about this puzzle (optional)..."></textarea>
             <div class="rating-actions">
@@ -375,6 +406,9 @@
             </div>
             <button id="btn-mobile-generate" class="btn-large btn-primary" style="margin-top: 20px;">
                 Generate Puzzle
+            </button>
+            <button id="btn-mobile-download-book" class="btn-large btn-secondary" style="margin-top: 10px;">
+                📖 Download PDF Book
             </button>
         </div>
     </div>

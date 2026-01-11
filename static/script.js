@@ -56,12 +56,33 @@ function init() {
     const btnNotebook = document.getElementById('btn-notebook');
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
     const btnMobileThemeToggle = document.getElementById('btn-mobile-theme-toggle');
+    const btnDownloadBook = document.getElementById('btn-download-book');
     console.log('btnNoteMode:', btnNoteMode);
 
     btnGenerate.addEventListener('click', fetchPuzzle);
     btnCheck.addEventListener('click', checkPuzzle);
     btnSave.addEventListener('click', saveCurrentState);
     btnLibrary.addEventListener('click', openLibrary);
+
+    // Bind Manual ID Lookup
+    const btnFind = document.getElementById('btn-find-puzzle');
+    const inputFind = document.getElementById('manual-puzzle-id');
+    if (btnFind && inputFind) {
+        btnFind.addEventListener('click', () => {
+            const val = inputFind.value.trim();
+            if (val) loadSolutionMode(val);
+        });
+    }
+
+    // Bind Mobile Download
+    const btnMobileDownload = document.getElementById('btn-mobile-download-book');
+    if (btnMobileDownload) {
+        btnMobileDownload.addEventListener('click', downloadBook);
+    }
+
+    if (btnDownloadBook) {
+        btnDownloadBook.addEventListener('click', downloadBook);
+    }
 
     if (btnNoteMode) {
         console.log('Adding event listener to note mode button');
@@ -132,12 +153,17 @@ function init() {
         }
     }, { capture: true }); // Capture phase ensures we catch it first
 
-    // Add Autosave to Desktop Notebook
-    const notebookTextarea = document.getElementById('notebook-textarea');
-    if (notebookTextarea) {
-        notebookTextarea.addEventListener('input', () => {
-            triggerAutosave();
-        });
+    // Check for solution_id in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const solutionId = urlParams.get('solution_id');
+    if (solutionId) {
+        // Clear params so refresh doesn't stick
+        window.history.replaceState({}, document.title, "/");
+        // We probably need to wait for auth to init first if we want to log it?
+        // But for viewing solution, maybe we don't strictly need auth, but rating requires it?
+        // Let's defer slightly
+        setTimeout(() => loadSolutionMode(solutionId), 500);
+        return; // Skip default fetchPuzzle
     }
 
     // Check if we should show the tutorial
@@ -406,7 +432,9 @@ function loadPuzzleIntoState(data) {
     state.colNotes = data.colNotes || Array(data.width).fill('');
     state.cellNotes = data.cellNotes || {};
     state.notebook = data.notebook || '';
+    state.notebook = data.notebook || '';
     state.rating = data.rating || 0;
+    state.difficultyVote = data.difficultyVote || 5;
     state.userComment = data.userComment || '';
     state.editingNote = null;
     state.showErrors = false;
@@ -590,7 +618,9 @@ async function saveCurrentState(silent = false) {
         colNotes: state.colNotes,
         cellNotes: state.cellNotes,
         notebook: state.notebook,
+        notebook: state.notebook,
         rating: state.rating,
+        difficultyVote: state.difficultyVote,
         userComment: state.userComment
     };
 
@@ -1584,7 +1614,22 @@ function showRatingModal() {
     const modal = document.getElementById('rating-modal');
     if (modal) {
         modal.style.display = 'block';
+        modal.style.display = 'block';
         renderStars();
+        renderDifficultySlider();
+    }
+}
+
+function renderDifficultySlider() {
+    const slider = document.getElementById('difficulty-slider');
+    if (slider) {
+        slider.value = state.difficultyVote || 5; // Default to 'Perfect' (5) if not set
+
+        // Remove existing listener to avoid duplicates if re-rendering usually not needed as we just set value
+        // But good practice if complex logic
+        slider.oninput = (e) => {
+            state.difficultyVote = parseInt(e.target.value);
+        };
     }
 }
 
@@ -1628,6 +1673,12 @@ function submitRating() {
     const commentTextarea = document.getElementById('rating-comment');
     if (commentTextarea) {
         state.userComment = commentTextarea.value;
+    }
+
+    // Capture slider value one last time (redundant but safe)
+    const slider = document.getElementById('difficulty-slider');
+    if (slider) {
+        state.difficultyVote = parseInt(slider.value);
     }
 
     // Close modal
