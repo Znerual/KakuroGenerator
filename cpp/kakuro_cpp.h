@@ -173,6 +173,7 @@ public:
   void close() {
     if (log_file_.is_open()) {
       log_file_ << "\n]";
+      log_file_.flush();
       log_file_.close();
       enabled_ = false;
     }
@@ -273,6 +274,80 @@ public:
     data << "}";
 
     log_step(stage, substage, message, grid_state, data.str());
+#endif
+  }
+
+  void log_params(const FillParams &fill_p, const TopologyParams &topo_p) {
+#if KAKURO_ENABLE_LOGGING
+    if (!enabled_ || !log_file_.is_open())
+      return;
+
+    if (!first_entry_)
+      log_file_ << ",\n";
+    first_entry_ = false;
+
+    log_file_ << "  {\n";
+    log_file_ << "    \"id\": " << step_id_++ << ",\n";
+    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n";
+    log_file_ << "    \"s\": \"params\",\n";
+    log_file_ << "    \"ss\": \"init\",\n";
+    log_file_ << "    \"m\": \"Generation Parameters\",\n";
+
+    // Serialize FillParams
+    log_file_ << "    \"fill\": {";
+    log_file_ << "\"difficulty\": \"" << fill_p.difficulty << "\"";
+    if (fill_p.max_nodes)
+      log_file_ << ", \"max_nodes\": " << *fill_p.max_nodes;
+    if (fill_p.partition_preference)
+      log_file_ << ", \"partition_preference\": \""
+                << *fill_p.partition_preference << "\"";
+    if (fill_p.weights) {
+      log_file_ << ", \"weights\": [";
+      for (size_t i = 0; i < fill_p.weights->size(); ++i) {
+        log_file_ << (*fill_p.weights)[i]
+                  << (i < fill_p.weights->size() - 1 ? "," : "");
+      }
+      log_file_ << "]";
+    }
+    log_file_ << "},\n";
+
+    // Serialize TopologyParams
+    log_file_ << "    \"topo\": {";
+    log_file_ << "\"difficulty\": \"" << topo_p.difficulty << "\"";
+    if (topo_p.density)
+      log_file_ << ", \"density\": " << *topo_p.density;
+    if (topo_p.max_sector_length)
+      log_file_ << ", \"max_sector_length\": " << *topo_p.max_sector_length;
+    if (topo_p.num_stamps)
+      log_file_ << ", \"num_stamps\": " << *topo_p.num_stamps;
+    if (topo_p.min_cells)
+      log_file_ << ", \"min_cells\": " << *topo_p.min_cells;
+    if (topo_p.max_run_len)
+      log_file_ << ", \"max_run_len\": " << *topo_p.max_run_len;
+    if (topo_p.max_run_len_soft)
+      log_file_ << ", \"max_run_len_soft\": " << *topo_p.max_run_len_soft;
+    if (topo_p.max_run_len_soft_prob)
+      log_file_ << ", \"max_run_len_soft_prob\": "
+                << *topo_p.max_run_len_soft_prob;
+    if (topo_p.max_patch_size)
+      log_file_ << ", \"max_patch_size\": " << *topo_p.max_patch_size;
+    if (topo_p.island_mode)
+      log_file_ << ", \"island_mode\": "
+                << (*topo_p.island_mode ? "true" : "false");
+
+    if (topo_p.stamps) {
+      log_file_ << ", \"stamps\": [";
+      for (size_t i = 0; i < topo_p.stamps->size(); ++i) {
+        log_file_ << "[" << (*topo_p.stamps)[i].first << ","
+                  << (*topo_p.stamps)[i].second << "]"
+                  << (i < topo_p.stamps->size() - 1 ? "," : "");
+      }
+      log_file_ << "]";
+    }
+    log_file_ << "}\n";
+
+    log_file_ << "  }";
+    log_file_.flush();
 #endif
   }
 };
@@ -444,6 +519,7 @@ public:
   std::mt19937 rng;
 
   CSPSolver(std::shared_ptr<KakuroBoard> b);
+  void apply_fill_defaults(FillParams &params);
 
   void set_time_limit(double seconds) { time_limit_sec_ = seconds; }
 
