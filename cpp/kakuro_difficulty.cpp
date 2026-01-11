@@ -139,6 +139,12 @@ DifficultyResult KakuroDifficultyEstimator::estimate_difficulty_detailed() {
     res.uniqueness = "Inconclusive (Timeout)";
   }
 
+#if KAKURO_ENABLE_LOGGING
+  if (board->logger && board->logger->is_enabled()) {
+    board->logger->log_difficulty(res, board->get_grid_state());
+  }
+#endif
+
   for (const auto &sol : found_solutions)
     res.solutions.push_back(render_solution(sol));
   return res;
@@ -184,7 +190,6 @@ bool KakuroDifficultyEstimator::apply_logic_pass(CandidateMap &candidates,
   // Tier 3: Medium
   if (find_hidden_singles(candidates, silent))
     return true;
-  
 
   // Tier 4: Hard
   if (iteration > 2 && analyze_complex_intersections(candidates, silent))
