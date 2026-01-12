@@ -683,11 +683,6 @@ private:
 
 class KakuroDifficultyEstimator {
 public:
-  explicit KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard> b);
-  DifficultyResult estimate_difficulty_detailed();
-  float estimate_difficulty();
-
-private:
   struct SectorInfo {
     std::vector<Cell *> cells;
     int clue;
@@ -698,6 +693,15 @@ private:
     int clue;
     int length;
   };
+  typedef std::unordered_map<Cell *, uint16_t> CandidateMap;
+
+  explicit KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard> b);
+  DifficultyResult estimate_difficulty_detailed();
+  float estimate_difficulty();
+  bool apply_sector_constraints(const SectorInfo &sec, CandidateMap &candidates);
+
+private:
+  
 
   std::unordered_map<Cell *, SectorMetadata> cell_to_h;
   std::unordered_map<Cell *, SectorMetadata> cell_to_v;
@@ -709,7 +713,7 @@ private:
   std::unordered_set<Cell *> logged_singles;
 
   // Using bitmasks (1 << value) for performance. 0x3FE = digits 1-9.
-  typedef std::unordered_map<Cell *, uint16_t> CandidateMap;
+  
   static constexpr uint16_t ALL_CANDIDATES = 0x3FE;
 
   int mask_to_digit(uint16_t mask) const;
@@ -734,8 +738,6 @@ private:
   find_highly_constrained_sectors(const CandidateMap &candidates);
 
   // Infrastructure
-  bool apply_sector_constraints(const SectorInfo &sec,
-                                CandidateMap &candidates);
   void discover_solutions(CandidateMap candidates, int limit);
   bool try_bifurcation(CandidateMap &candidates);
 
@@ -775,6 +777,45 @@ private:
 
   std::map<std::pair<int, int>, std::vector<std::vector<int>>> partition_cache;
   std::unordered_map<uint32_t, uint16_t> partition_mask_cache;
+};
+
+class HybridUniquenessChecker {
+public:
+    HybridUniquenessChecker(std::shared_ptr<KakuroBoard> board) 
+        : board_(board) {}
+
+    // Main entry point - replaces check_uniqueness in CSPSolver
+    std::pair<UniquenessResult, 
+              std::optional<std::unordered_map<std::pair<int, int>, int, PairHash>>>
+    check_uniqueness_hybrid(int max_nodes = 150000, int seed_offset = 0);
+
+private:
+    std::shared_ptr<KakuroBoard> board_;
+    
+    // Candidate tracking (bitmask per cell)
+    using CandidateMap = std::unordered_map<Cell*, uint16_t>;
+    static constexpr uint16_t ALL_CANDIDATES = 0x3FE; // bits 1-9
+    
+    // Apply logical deduction to reduce search space
+    bool apply_logical_reduction(CandidateMap& candidates, 
+                                  const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol);
+    
+    // Hybrid search: logic first, then backtrack
+    void hybrid_search(
+        std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>& found_solutions,
+        const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol,
+        CandidateMap& candidates,
+        int& node_count, 
+        int max_nodes, 
+        int seed, 
+        bool& timed_out);
+    
+    // Convert between bitmask and vector
+    std::vector<int> mask_to_values(uint16_t mask) const;
+    int count_set_bits(uint16_t mask) const;
+    
+    // Check if a value is valid given current partial solution
+    bool is_valid_with_candidates(Cell* cell, int val, const CandidateMap& candidates);
 };
 
 } // namespace kakuro
