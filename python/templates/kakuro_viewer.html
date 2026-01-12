@@ -234,40 +234,77 @@
 
         /* Profiling Table Styles */
         .profiling-container {
-            display: none; /* Hidden by default */
+            display: none;
             margin-top: 1rem;
             border-top: 1px solid var(--grid-line);
             padding-top: 0.5rem;
-            max-height: 500px;
+            max-height: 60vh; /* Dynamic height based on screen */
             overflow-y: auto;
-            width: 300px; /* Slightly wider for columns */
+            min-width: 450px; /* Significantly wider */
+            background: rgba(15, 23, 42, 0.5); 
+            border-radius: 4px;
         }
-        
+
+        /* Custom Scrollbar for the table container */
+        .profiling-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .profiling-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        .profiling-container::-webkit-scrollbar-thumb {
+            background: var(--grid-line);
+            border-radius: 4px;
+        }
+        .profiling-container::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
         .profiling-table {
             width: 100%;
-            border-collapse: collapse;
-            font-size: 0.7rem;
-            font-family: monospace;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.75rem; /* Slightly larger text */
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
         }
 
         .profiling-table th {
             text-align: left;
             color: var(--text-secondary);
-            border-bottom: 1px solid var(--grid-line);
-            padding: 4px 2px;
+            border-bottom: 2px solid var(--grid-line);
+            padding: 8px 6px;
             position: sticky;
             top: 0;
-            background: var(--panel-bg);
+            background: #1e293b; /* Match panel bg so it covers scrolling content */
+            z-index: 2;
+            font-weight: 600;
         }
 
         .profiling-table td {
-            padding: 3px 2px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 6px 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             color: var(--text-primary);
+            vertical-align: middle;
         }
 
-        .profiling-table tr:hover {
-            background-color: rgba(255,255,255,0.05);
+        .profiling-table tr:hover td {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Column Specifics */
+        .col-op { width: 40%; }
+        .col-num { text-align: right; width: 15%; }
+        .col-bar { text-align: right; width: 25%; }
+        
+        /* Operation Name Truncation */
+        .op-name {
+            display: block;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .perf-bar-bg {
@@ -858,10 +895,10 @@
             <table class="profiling-table">
                 <thead>
                     <tr>
-                        <th>Operation</th>
-                        <th>Calls</th>
-                        <th>Total</th>
-                        <th>Avg</th>
+                        <th class="col-op">Operation</th>
+                        <th class="col-num">Calls</th>
+                        <th class="col-bar">Total Time</th>
+                        <th class="col-num">Avg</th>
                     </tr>
                 </thead>
                 <tbody id="profilingTableBody"></tbody>
@@ -1322,19 +1359,27 @@
                 
                 step.data.stats.forEach(s => {
                     const tr = document.createElement('tr');
+
+                    // Clean up the name: Remove "Profile: " and underscores
+                    const cleanName = s.operation
+                        .replace('Profile: ', '')
+                        .replace(/_/g, ' '); 
+
                     const widthPct = (s.total_ms / maxTotal) * 100;
-                    const barColor = widthPct > 50 ? 'var(--color-error)' : 'var(--color-filling)';
+                    const barColor = widthPct > 20 ? 'var(--color-error)' : 'var(--color-filling)';
                     
                     tr.innerHTML = `
-                        <td style="font-weight:bold;">${s.operation}</td>
-                        <td style="text-align:right">${s.calls}</td>
+                        <td title="${cleanName}">
+                            <span class="op-name">${cleanName}</span>
+                        </td>
+                        <td style="text-align:right; color:var(--text-secondary)">${s.calls.toLocaleString()}</td>
                         <td style="text-align:right">
-                            ${s.total_ms.toFixed(1)}ms
-                            <div style="height:2px; background:#334155; width:100%; margin-top:2px; position:relative;">
+                            <div style="font-weight:bold;">${s.total_ms.toFixed(1)}ms</div>
+                            <div style="height:3px; background:#334155; width:100%; margin-top:3px; border-radius:2px; overflow:hidden;">
                                 <div style="height:100%; width:${widthPct}%; background:${barColor};"></div>
                             </div>
                         </td>
-                        <td style="text-align:right">${s.avg_ms.toFixed(3)}ms</td>
+                        <td style="text-align:right; font-family:monospace;">${s.avg_ms.toFixed(3)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
