@@ -111,21 +111,21 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
     if (!params.max_sector_length.has_value())
       params.max_sector_length = 5;
     if (!params.max_run_len_soft.has_value())
-      params.max_run_len_soft = 2;
+      params.max_run_len_soft = 3;
     if (!params.max_run_len_soft_prob.has_value())
-      params.max_run_len_soft_prob = 0.8;
+      params.max_run_len_soft_prob = 0.4;
   } else if (difficulty == "easy") {
     if (!params.stamps.has_value())
       params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
-          std::uniform_int_distribution<>(8, 10)(rng) * area / 100;
+          std::uniform_int_distribution<>(14, 20)(rng) * area / 100;
     if (!params.min_cells.has_value())
       params.min_cells = 0.30f;
     if (!params.max_run_len.has_value())
       params.max_run_len = 6;
     if (!params.max_run_len_soft.has_value())
-      params.max_run_len_soft = 3;
+      params.max_run_len_soft = 4;
     if (!params.max_run_len_soft_prob.has_value())
       params.max_run_len_soft_prob = 0.5;
     if (!params.max_patch_size.has_value())
@@ -146,7 +146,7 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
     if (!params.max_run_len.has_value())
       params.max_run_len = 8;
     if (!params.max_run_len_soft.has_value())
-      params.max_run_len_soft = 4;
+      params.max_run_len_soft = 5;
     if (!params.max_run_len_soft_prob.has_value())
       params.max_run_len_soft_prob = 0.4;
     if (!params.max_patch_size.has_value())
@@ -801,7 +801,10 @@ bool KakuroBoard::apply_slice(int fixed_idx, int start, int length,
   int mid_offset = length / 2;
   int r = is_horz ? fixed_idx : start + mid_offset;
   int c = is_horz ? start + mid_offset : fixed_idx;
-  return try_remove_and_reconnect(r, c);
+  set_block(r, c);
+  set_block(height - 1 - r, width - 1 - c);
+  return true;
+  // return try_remove_and_reconnect(r, c);
 }
 
 std::vector<std::vector<std::pair<int, int>>> KakuroBoard::find_components() {
@@ -862,6 +865,14 @@ bool KakuroBoard::try_remove_and_reconnect(int r, int c) {
   // 2. Perform removal
   target->type = CellType::BLOCK;
   sym_target->type = CellType::BLOCK;
+
+#if KAKURO_ENABLE_LOGGING
+    logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
+                     GenerationLogger::SUBSTAGE_PRUNE_SINGLES,
+                     "Removed single cells",
+                     get_grid_state());
+
+#endif
 
   auto components = find_components();
 
