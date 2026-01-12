@@ -111,12 +111,12 @@ void KakuroBoard::apply_topology_defaults(TopologyParams &params) {
     if (!params.max_sector_length.has_value())
       params.max_sector_length = 5;
     if (!params.max_run_len_soft.has_value())
-      params.max_run_len_soft = 3;
+      params.max_run_len_soft = 4;
     if (!params.max_run_len_soft_prob.has_value())
       params.max_run_len_soft_prob = 0.4;
   } else if (difficulty == "easy") {
     if (!params.stamps.has_value())
-      params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}};
+      params.stamps = {{2, 3}, {3, 2}, {2, 4}, {4, 2}, {2, 5}, {5, 2}};
     if (!params.num_stamps.has_value())
       params.num_stamps =
           std::uniform_int_distribution<>(14, 20)(rng) * area / 100;
@@ -801,10 +801,7 @@ bool KakuroBoard::apply_slice(int fixed_idx, int start, int length,
   int mid_offset = length / 2;
   int r = is_horz ? fixed_idx : start + mid_offset;
   int c = is_horz ? start + mid_offset : fixed_idx;
-  set_block(r, c);
-  set_block(height - 1 - r, width - 1 - c);
-  return true;
-  // return try_remove_and_reconnect(r, c);
+  return try_remove_and_reconnect(r, c);
 }
 
 std::vector<std::vector<std::pair<int, int>>> KakuroBoard::find_components() {
@@ -931,6 +928,12 @@ bool KakuroBoard::try_remove_and_reconnect(int r, int c) {
 
     set_white(bridge.first, bridge.second);
     set_white(height - 1 - bridge.first, width - 1 - bridge.second);
+#if KAKURO_ENABLE_LOGGING
+    logger->log_step(GenerationLogger::STAGE_TOPOLOGY,
+                     GenerationLogger::SUBSTAGE_PRUNE_SINGLES,
+                     "Testing bridge cells",
+                     get_grid_state());
+#endif
 
     // Final connectivity check
     if (check_connectivity())
