@@ -147,25 +147,11 @@ public:
 
 private:
   std::ofstream log_file_;
+  std::ofstream prof_file_;
   int step_id_ = 0;
-  bool first_entry_ = true;
   bool enabled_ = false;
   std::string current_kakuro_id_;
   std::chrono::steady_clock::time_point last_step_time_;
-
-  static std::string get_timestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  now.time_since_epoch()) %
-              1000;
-    auto time = std::chrono::system_clock::to_time_t(now);
-    std::tm *tm_ptr = std::localtime(&time);
-
-    std::ostringstream oss;
-    oss << std::put_time(tm_ptr, "%Y-%m-%dT%H:%M:%S");
-    oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
-    return oss.str();
-  }
 
   static std::string escape_json(const std::string &s) {
     std::ostringstream oss;
@@ -210,26 +196,30 @@ public:
                   .count();
     current_kakuro_id_ = "kakuro_" + std::to_string(ms);
 
-    std::string filepath = log_dir + "/" + current_kakuro_id_ + ".json";
+    std::string filepath = log_dir + "/" + current_kakuro_id_ + ".jsonl";
+    std::string prof_filepath = log_dir + "/_" + current_kakuro_id_ + ".jsonl";
     log_file_.open(filepath);
+    prof_file_.open(prof_filepath);
 
-    if (log_file_.is_open()) {
+    if (log_file_.is_open() && prof_file_.is_open()) {
       enabled_ = true;
       step_id_ = 0;
-      first_entry_ = true;
       last_step_time_ = std::chrono::steady_clock::now();
-      log_file_ << "[\n";
+      // JSONL: No opening bracket
     }
 #endif
   }
 
   void close() {
     if (log_file_.is_open()) {
-      log_file_ << "\n]";
       log_file_.flush();
       log_file_.close();
-      enabled_ = false;
     }
+    if (prof_file_.is_open()) {
+      prof_file_.flush();
+      prof_file_.close();
+    }
+    enabled_ = false;
   }
 
   std::string get_kakuro_id() const { return current_kakuro_id_; }
@@ -243,48 +233,40 @@ public:
     if (!enabled_ || !log_file_.is_open())
       return;
 
-    if (!first_entry_)
-      log_file_ << ",\n";
-    first_entry_ = false;
-
     auto now = std::chrono::steady_clock::now();
     double duration_ms = std::chrono::duration<double, std::milli>(now - last_step_time_).count();
     last_step_time_ = now;
 
-    log_file_ << "  {\n";
-    log_file_ << "    \"id\": " << step_id_++ << ",\n";         // step_id
-    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n"; // timestamp
-    log_file_ << "    \"dur\": " << std::fixed << std::setprecision(2) << duration_ms << ",\n"; // duration since last step
-    log_file_ << "    \"s\": \"" << stage << "\",\n";           // stage
-    log_file_ << "    \"ss\": \"" << substage << "\",\n";       // substage
-    log_file_ << "    \"m\": \"" << escape_json(message) << "\",\n"; // message
+    // JSONL: Each entry is a single-line JSON object
+    log_file_ << "{\"id\":" << step_id_++
+              << ",\"dur\":" << std::fixed << std::setprecision(2) << duration_ms
+              << ",\"s\":\"" << stage << "\""
+              << ",\"ss\":\"" << substage << "\""
+              << ",\"m\":\"" << escape_json(message) << "\"";
 
-    // Compressed Grid: Output dimensions and only white cells
     if (!grid_state.empty()) {
-      log_file_ << "    \"wh\": [" << grid_state[0].size() << ","
-                << grid_state.size() << "],\n"; // width, height
-      log_file_ << "    \"g\": [\n";            // grid (white cells only)
+      log_file_ << ",\"wh\":[" << grid_state[0].size() << "," << grid_state.size() << "]"
+                << ",\"g\":[";
       bool first_cell = true;
       for (size_t r = 0; r < grid_state.size(); r++) {
         for (size_t c = 0; c < grid_state[r].size(); c++) {
           const auto &[type, value] = grid_state[r][c];
           if (type == "WHITE") {
-            if (!first_cell)
-              log_file_ << ",\n";
-            log_file_ << "      [" << r << "," << c << "," << value << "]";
+            if (!first_cell) log_file_ << ",";
+            log_file_ << "[" << r << "," << c << "," << value << "]";
             first_cell = false;
           }
         }
       }
-      log_file_ << "\n    ]";
+      log_file_ << "]";
     } else {
-      log_file_ << "    \"g\": []";
+      log_file_ << ",\"g\":[]";
     }
 
     if (!extra_data.empty()) {
-      log_file_ << ",\n    \"d\": " << extra_data; // data
+      log_file_ << ",\"d\":" << extra_data;
     }
-    log_file_ << "\n  }";
+    log_file_ << "}\n"; // End of line for JSONL
     log_file_.flush();
 #endif
   }
@@ -340,71 +322,45 @@ public:
     if (!enabled_ || !log_file_.is_open())
       return;
 
-    if (!first_entry_)
-      log_file_ << ",\n";
-    first_entry_ = false;
-
-    log_file_ << "  {\n";
-    log_file_ << "    \"id\": " << step_id_++ << ",\n";
-    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n";
-    log_file_ << "    \"s\": \"params\",\n";
-    log_file_ << "    \"ss\": \"init\",\n";
-    log_file_ << "    \"m\": \"Generation Parameters\",\n";
+    log_file_ << "{\"id\":" << step_id_++ << ",\"s\":\"params\",\"ss\":\"init\",\"m\":\"Generation Parameters\"";
 
     // Serialize FillParams
-    log_file_ << "    \"fill\": {";
-    log_file_ << "\"difficulty\": \"" << fill_p.difficulty << "\"";
+    log_file_ << ",\"fill\":{";
+    log_file_ << "\"difficulty\":\"" << fill_p.difficulty << "\"";
     if (fill_p.max_nodes)
-      log_file_ << ", \"max_nodes\": " << *fill_p.max_nodes;
+      log_file_ << ",\"max_nodes\":" << *fill_p.max_nodes;
     if (fill_p.partition_preference)
-      log_file_ << ", \"partition_preference\": \""
-                << *fill_p.partition_preference << "\"";
+      log_file_ << ",\"partition_preference\":\"" << *fill_p.partition_preference << "\"";
     if (fill_p.weights) {
-      log_file_ << ", \"weights\": [";
+      log_file_ << ",\"weights\":[";
       for (size_t i = 0; i < fill_p.weights->size(); ++i) {
-        log_file_ << (*fill_p.weights)[i]
-                  << (i < fill_p.weights->size() - 1 ? "," : "");
+        log_file_ << (*fill_p.weights)[i] << (i < fill_p.weights->size() - 1 ? "," : "");
       }
       log_file_ << "]";
     }
-    log_file_ << "},\n";
+    log_file_ << "}";
 
     // Serialize TopologyParams
-    log_file_ << "    \"topo\": {";
-    log_file_ << "\"difficulty\": \"" << topo_p.difficulty << "\"";
-    if (topo_p.density)
-      log_file_ << ", \"density\": " << *topo_p.density;
-    if (topo_p.max_sector_length)
-      log_file_ << ", \"max_sector_length\": " << *topo_p.max_sector_length;
-    if (topo_p.num_stamps)
-      log_file_ << ", \"num_stamps\": " << *topo_p.num_stamps;
-    if (topo_p.min_cells)
-      log_file_ << ", \"min_cells\": " << *topo_p.min_cells;
-    if (topo_p.max_run_len)
-      log_file_ << ", \"max_run_len\": " << *topo_p.max_run_len;
-    if (topo_p.max_run_len_soft)
-      log_file_ << ", \"max_run_len_soft\": " << *topo_p.max_run_len_soft;
-    if (topo_p.max_run_len_soft_prob)
-      log_file_ << ", \"max_run_len_soft_prob\": "
-                << *topo_p.max_run_len_soft_prob;
-    if (topo_p.max_patch_size)
-      log_file_ << ", \"max_patch_size\": " << *topo_p.max_patch_size;
-    if (topo_p.island_mode)
-      log_file_ << ", \"island_mode\": "
-                << (*topo_p.island_mode ? "true" : "false");
-
+    log_file_ << ",\"topo\":{";
+    log_file_ << "\"difficulty\":\"" << topo_p.difficulty << "\"";
+    if (topo_p.density) log_file_ << ",\"density\":" << *topo_p.density;
+    if (topo_p.max_sector_length) log_file_ << ",\"max_sector_length\":" << *topo_p.max_sector_length;
+    if (topo_p.num_stamps) log_file_ << ",\"num_stamps\":" << *topo_p.num_stamps;
+    if (topo_p.min_cells) log_file_ << ",\"min_cells\":" << *topo_p.min_cells;
+    if (topo_p.max_run_len) log_file_ << ",\"max_run_len\":" << *topo_p.max_run_len;
+    if (topo_p.max_run_len_soft) log_file_ << ",\"max_run_len_soft\":" << *topo_p.max_run_len_soft;
+    if (topo_p.max_run_len_soft_prob) log_file_ << ",\"max_run_len_soft_prob\":" << *topo_p.max_run_len_soft_prob;
+    if (topo_p.max_patch_size) log_file_ << ",\"max_patch_size\":" << *topo_p.max_patch_size;
+    if (topo_p.island_mode) log_file_ << ",\"island_mode\":" << (*topo_p.island_mode ? "true" : "false");
     if (topo_p.stamps) {
-      log_file_ << ", \"stamps\": [";
+      log_file_ << ",\"stamps\":[";
       for (size_t i = 0; i < topo_p.stamps->size(); ++i) {
-        log_file_ << "[" << (*topo_p.stamps)[i].first << ","
-                  << (*topo_p.stamps)[i].second << "]"
+        log_file_ << "[" << (*topo_p.stamps)[i].first << "," << (*topo_p.stamps)[i].second << "]"
                   << (i < topo_p.stamps->size() - 1 ? "," : "");
       }
       log_file_ << "]";
     }
-    log_file_ << "}\n";
-
-    log_file_ << "  }";
+    log_file_ << "}}\n"; // Close object and end line
     log_file_.flush();
 #endif
   }
@@ -416,73 +372,51 @@ public:
     if (!enabled_ || !log_file_.is_open())
       return;
 
-    if (!first_entry_)
-      log_file_ << ",\n";
-    first_entry_ = false;
+    log_file_ << "{\"id\":" << step_id_++ 
+              << ",\"s\":\"" << STAGE_DIFFICULTY << "\""
+              << ",\"ss\":\"" << SUBSTAGE_COMPLETE << "\""
+              << ",\"m\":\"Difficulty estimation complete: " << escape_json(diff.rating) << "\""
+              << ",\"difficulty\":{"
+              << "\"rating\":\"" << escape_json(diff.rating) << "\""
+              << ",\"score\":" << diff.score
+              << ",\"max_tier\":" << (int)diff.max_tier
+              << ",\"solution_count\":" << diff.solution_count
+              << ",\"uniqueness\":\"" << escape_json(diff.uniqueness) << "\"}";
 
-    log_file_ << "  {\n";
-    log_file_ << "    \"id\": " << step_id_++ << ",\n";
-    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n";
-    log_file_ << "    \"s\": \"" << STAGE_DIFFICULTY << "\",\n";
-    log_file_ << "    \"ss\": \"" << SUBSTAGE_COMPLETE << "\",\n";
-    log_file_ << "    \"m\": \"Difficulty estimation complete: "
-              << escape_json(diff.rating) << "\",\n";
-
-    // Difficulty Object
-    log_file_ << "    \"difficulty\": {\n";
-    log_file_ << "      \"rating\": \"" << escape_json(diff.rating) << "\",\n";
-    log_file_ << "      \"score\": " << diff.score << ",\n";
-    log_file_ << "      \"max_tier\": " << (int)diff.max_tier << ",\n";
-    log_file_ << "      \"solution_count\": " << diff.solution_count << ",\n";
-    log_file_ << "      \"uniqueness\": \"" << escape_json(diff.uniqueness)
-              << "\"\n";
-    log_file_ << "    },\n";
-
-    // Standard Grid State
     if (!grid_state.empty()) {
-      log_file_ << "    \"wh\": [" << grid_state[0].size() << ","
-                << grid_state.size() << "],\n";
-      log_file_ << "    \"g\": [\n";
+      log_file_ << ",\"wh\":[" << grid_state[0].size() << "," << grid_state.size() << "]"
+                << ",\"g\":[";
       bool first_cell = true;
       for (size_t r = 0; r < grid_state.size(); r++) {
         for (size_t c = 0; c < grid_state[r].size(); c++) {
           const auto &[type, value] = grid_state[r][c];
           if (type == "WHITE") {
-            if (!first_cell)
-              log_file_ << ",\n";
-            log_file_ << "      [" << r << "," << c << "," << value << "]";
+            if (!first_cell) log_file_ << ",";
+            log_file_ << "[" << r << "," << c << "," << value << "]";
             first_cell = false;
           }
         }
       }
-      log_file_ << "\n    ]\n";
+      log_file_ << "]}";
     } else {
-      log_file_ << "    \"g\": []\n";
+      log_file_ << ",\"g\":[]}";
     }
-    log_file_ << "  }";
+    log_file_ << "\n";
     log_file_.flush();
 #endif
   }
 
   void log_profile(const std::string &name, double duration_ms) {
 #if KAKURO_ENABLE_LOGGING
-    if (!enabled_ || !log_file_.is_open())
+    if (!enabled_ || !prof_file_.is_open())
       return;
 
-    if (!first_entry_)
-      log_file_ << ",\n";
-    first_entry_ = false;
-
-    log_file_ << "  {\n";
-    log_file_ << "    \"id\": " << step_id_++ << ",\n";
-    log_file_ << "    \"t\": \"" << get_timestamp() << "\",\n";
-    log_file_ << "    \"s\": \"" << STAGE_PROFILE << "\",\n";
-    log_file_ << "    \"ss\": \"" << SUBSTAGE_TIMING << "\",\n";
-    log_file_ << "    \"m\": \"Profile: " << escape_json(name) << "\",\n";
-    log_file_ << "    \"dur\": " << std::fixed << std::setprecision(3)
-              << duration_ms << "\n";
-    log_file_ << "  }";
-    log_file_.flush();
+    prof_file_ << "{\"id\":" << step_id_++ 
+               << ",\"s\":\"" << STAGE_PROFILE << "\""
+               << ",\"ss\":\"" << SUBSTAGE_TIMING << "\""
+               << ",\"m\":\"Profile: " << escape_json(name) << "\""
+               << ",\"dur\":" << std::fixed << std::setprecision(3) << duration_ms << "}\n";
+    prof_file_.flush();
 #endif
   }
 };
