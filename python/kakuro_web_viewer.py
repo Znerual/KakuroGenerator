@@ -138,9 +138,10 @@ def optimize_log_data(data: list):
         substage = step.get("ss")
         
         # 1. Cluster uniqueness conflicts
-        if substage == "uniqueness_conflict":
+        # Check both "uniqueness_conflict" (manual string) and "af" (C++ constant)
+        if substage in ["uniqueness_conflict", "af"]:
             cluster_steps = []
-            while i < len(data) and data[i].get("ss") == "uniqueness_conflict":
+            while i < len(data) and data[i].get("ss") in ["uniqueness_conflict", "af"]:
                 cluster_steps.append(data[i])
                 i += 1
             
@@ -208,7 +209,11 @@ def save_log_jsonl(filepath: str, data: list):
 async def list_logs():
     if not os.path.exists(LOG_DIR):
         return {"logs": []}
-    files = sorted(glob.glob(os.path.join(LOG_DIR, "*.json")), key=os.path.getmtime, reverse=True)
+    # List both .json (legacy) and .jsonl (new) files, excluding profiling files
+    files = []
+    for ext in ["*.json", "*.jsonl"]:
+        files.extend(glob.glob(os.path.join(LOG_DIR, f"kakuro_{ext}")))
+    files = sorted(files, key=os.path.getmtime, reverse=True)
     return {"logs": [os.path.basename(f) for f in files]}
 
 @app.get("/api/logs/{filename}")
@@ -218,72 +223,49 @@ async def get_log(filename: str, prof: int = 0):
         raise HTTPException(status_code=404, detail="Log file not found")
     
     try:
-        def read_jsonl(path):
-            if not os.path.exists(path):
-                return []
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-            if not content:
-                return []
-            
+        def parse_robust_content(content):
             data = []
+            if not content: return data
             if content.startswith("["):
-                # Legacy recovery logic... (omitted for brevity in this helper, but used below)
-                pass
-            
-            lines = content.splitlines()
-            for line in lines:
-                line = line.strip()
-                if not line or line in ["[", "]", "],"]: continue
-                try:
-                    if line.endswith(","): line = line[:-1]
-                    data.append(json.loads(line))
-                except: continue
-            return data
-
-        # 1. Read main file
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-        
-        data = []
-        if content.startswith("["):
-            # Legacy recovery
-            content_clean = content.strip()
-            if content_clean.endswith("]"):
-                try: data = json.loads(content_clean)
-                except: pass
-            if not data:
+                # Legacy recovery
+                content_clean = content.strip()
+                if content_clean.endswith("]"):
+                    try: return json.loads(content_clean)
+                    except: pass
                 last_bracket = content_clean.rfind("}")
                 while last_bracket != -1:
                     try:
                         probe = content_clean[:last_bracket+1].strip()
                         if not probe.endswith("]"): probe += "\n]"
-                        data = json.loads(probe)
-                        break
+                        return json.loads(probe)
                     except: last_bracket = content_clean.rfind("}", 0, last_bracket)
-        else:
-            for line in content.splitlines():
-                line = line.strip()
-                if not line or line in ["[", "]", "],"]: continue
-                try:
-                    if line.endswith(","): line = line[:-1]
-                    data.append(json.loads(line))
-                except: continue
+                return []
+            else:
+                for line in content.splitlines():
+                    line = line.strip()
+                    if not line or line in ["[", "]", "],"]: continue
+                    try:
+                        if line.endswith(","): line = line[:-1]
+                        data.append(json.loads(line))
+                    except: continue
+                return data
 
+        # 1. Read main file
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        data = parse_robust_content(content)
         main_data_len = len(data)
         
         # 2. Optionally read profiling file
         if prof:
+            # Profiling file is prefixed with underscore. 
+            # It might have .json or .jsonl extension depending on transition state.
+            basename, ext = os.path.splitext(filename)
             prof_path = os.path.join(LOG_DIR, "_" + filename)
             if os.path.exists(prof_path):
-                prof_data = []
                 with open(prof_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line: continue
-                        try:
-                            prof_data.append(json.loads(line))
-                        except: continue
+                    prof_content = f.read().strip()
+                prof_data = parse_robust_content(prof_content)
                 data.extend(prof_data)
                 # Sort by id to restore original sequence
                 data.sort(key=lambda x: x.get("id", 0))
@@ -294,12 +276,17 @@ async def get_log(filename: str, prof: int = 0):
         # 3. Optimize
         optimized = optimize_log_data(data)
         
-        # 4. Save back main file if migrated or optimized (ONLY if NOT loading extra profiling data to avoid pollution)
+        # 4. Save back main file if migrated or optimized (ONLY if NOT loading extra profiling data)
         if not prof:
-            was_legacy = content.startswith("[")
+            was_legacy = content.startswith("[") or filename.endswith(".json")
+            target_path = filepath
+            # If migrating from .json to .jsonl
+            if filename.endswith(".json"):
+                 target_path = os.path.join(LOG_DIR, filename + "l") # .json -> .jsonl
+
             if len(optimized) < main_data_len or was_legacy:
                 try:
-                    save_log_jsonl(filepath, optimized)
+                    save_log_jsonl(target_path, optimized)
                     if was_legacy: print(f"✓ Migrated {filename} to JSONL")
                 except Exception as e:
                     print(f"Warning: Failed to save optimized log {filename}: {e}")
