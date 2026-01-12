@@ -1216,46 +1216,49 @@ CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
   PROFILE_FUNCTION(board->logger);
   LOG_DEBUG("  Checking uniqueness using Logical Estimator...");
 
-  // 1. Back up current solution
-  std::unordered_map<Cell *, int> original_sol;
-  std::unordered_map<std::pair<int, int>, int, PairHash> original_sol_coords;
-  {
-    PROFILE_SCOPE("Uniqueness_Backup", board->logger);
-    for (Cell *c : board->white_cells) {
-      if (c->value) {
-        original_sol[c] = *c->value;
-        original_sol_coords[{c->r, c->c}] = *c->value;
-      }
-      c->value = std::nullopt; // Clear for solving
-    }
-  }
+  HybridUniquenessChecker checker(board);
+  return checker.check_uniqueness_hybrid(max_nodes, seed_offset);
 
-  std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found;
-  int node_count = 0;
-  bool timed_out = false;
+  // // 1. Back up current solution
+  // std::unordered_map<Cell *, int> original_sol;
+  // std::unordered_map<std::pair<int, int>, int, PairHash> original_sol_coords;
+  // {
+  //   PROFILE_SCOPE("Uniqueness_Backup", board->logger);
+  //   for (Cell *c : board->white_cells) {
+  //     if (c->value) {
+  //       original_sol[c] = *c->value;
+  //       original_sol_coords[{c->r, c->c}] = *c->value;
+  //     }
+  //     c->value = std::nullopt; // Clear for solving
+  //   }
+  // }
 
-  {
-    PROFILE_SCOPE("Uniqueness_Main_Solve", board->logger);
-    solve_for_uniqueness(found, original_sol_coords, node_count, max_nodes,
-                         seed_offset, timed_out);
-  }
+  // std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found;
+  // int node_count = 0;
+  // bool timed_out = false;
 
-  {
-    PROFILE_SCOPE("Uniqueness_Restore", board->logger);
-    for (Cell *c : board->white_cells) {
-      if (original_sol.count(c))
-        c->value = original_sol[c];
-      else
-        c->value = std::nullopt;
-    }
-  }
+  // {
+  //   PROFILE_SCOPE("Uniqueness_Main_Solve", board->logger);
+  //   solve_for_uniqueness(found, original_sol_coords, node_count, max_nodes,
+  //                        seed_offset, timed_out);
+  // }
 
-  if (!found.empty()) {
-    return {UniquenessResult::MULTIPLE, found[0]};
-  }
-  if (timed_out)
-    return {UniquenessResult::INCONCLUSIVE, std::nullopt};
-  return {UniquenessResult::UNIQUE, std::nullopt};
+  // {
+  //   PROFILE_SCOPE("Uniqueness_Restore", board->logger);
+  //   for (Cell *c : board->white_cells) {
+  //     if (original_sol.count(c))
+  //       c->value = original_sol[c];
+  //     else
+  //       c->value = std::nullopt;
+  //   }
+  // }
+
+  // if (!found.empty()) {
+  //   return {UniquenessResult::MULTIPLE, found[0]};
+  // }
+  // if (timed_out)
+  //   return {UniquenessResult::INCONCLUSIVE, std::nullopt};
+  // return {UniquenessResult::UNIQUE, std::nullopt};
 }
 
 void CSPSolver::solve_for_uniqueness(

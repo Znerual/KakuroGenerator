@@ -23,6 +23,7 @@ add_library(kakuro_core STATIC
     kakuro_board.cpp
     kakuro_solver.cpp
     kakuro_difficulty.cpp
+    kakuro_hybrid_uniqueness.cpp
 )
 
 target_include_directories(kakuro_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -62,6 +63,7 @@ if(ANDROID)
         kakuro_board.cpp
         kakuro_solver.cpp
         kakuro_difficulty.cpp
+        kakuro_hybrid_uniqueness.cpp
         kakuro_jni.cpp
     )
     

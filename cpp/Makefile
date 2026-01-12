@@ -5,7 +5,7 @@ CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
 LDFLAGS = 
 
 # Source files
-SOURCES = kakuro_board.cpp kakuro_solver.cpp kakuro_difficulty.cpp
+SOURCES = kakuro_board.cpp kakuro_solver.cpp kakuro_difficulty.cpp kakuro_hybrid_uniqueness.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 TEST_SRC = test_kakuro.cpp
 TEST_BIN = test_kakuro
