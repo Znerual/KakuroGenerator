@@ -634,7 +634,14 @@ private:
   double estimate_intersection_entropy(
       Cell *cell, int value, const std::unordered_map<Cell *, int> &assignment);
   bool has_high_global_ambiguity();
-  void solve_for_uniqueness(
+  void find_alt_solutions_recursive(
+      std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>
+          &found_solutions,
+      const std::unordered_map<std::pair<int, int>, int, PairHash> &avoid_sol,
+      int &node_count, int max_nodes, int seed, bool &timed_out,
+      const std::unordered_map<Cell *, unsigned short> &candidates);
+
+  void solve_for_uniqueness_hybrid(
       std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>
           &found_solutions,
       const std::unordered_map<std::pair<int, int>, int, PairHash> &avoid_sol,
@@ -681,11 +688,18 @@ private:
   std::vector<ScoreInfo> last_candidate_scores;
 };
 
+class Cell; // Forward declaration
+
 class KakuroDifficultyEstimator {
 public:
+  // Using bitmasks (1 << value) for performance. 0x3FE = digits 1-9.
+  typedef std::unordered_map<Cell *, uint16_t> CandidateMap;
+  static constexpr uint16_t ALL_CANDIDATES = 0x3FE;
+
   explicit KakuroDifficultyEstimator(std::shared_ptr<KakuroBoard> b);
   DifficultyResult estimate_difficulty_detailed();
   float estimate_difficulty();
+  CandidateMap reduce_candidates_logically();
 
 private:
   struct SectorInfo {
@@ -708,13 +722,10 @@ private:
   std::vector<SectorInfo> all_sectors;
   std::unordered_set<Cell *> logged_singles;
 
-  // Using bitmasks (1 << value) for performance. 0x3FE = digits 1-9.
-  typedef std::unordered_map<Cell *, uint16_t> CandidateMap;
-  static constexpr uint16_t ALL_CANDIDATES = 0x3FE;
-
   int mask_to_digit(uint16_t mask) const;
 
   // Internal Logic Engine
+  CandidateMap initialize_candidates_from_board();
   void run_solve_loop(CandidateMap &candidates, bool silent);
   bool apply_logic_pass(CandidateMap &candidates, bool silent, int iteration);
 

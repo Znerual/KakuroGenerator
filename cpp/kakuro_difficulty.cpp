@@ -151,6 +151,19 @@ DifficultyResult KakuroDifficultyEstimator::estimate_difficulty_detailed() {
   return res;
 }
 
+KakuroDifficultyEstimator::CandidateMap
+KakuroDifficultyEstimator::initialize_candidates_from_board() {
+  CandidateMap candidates;
+  for (Cell *c : board->white_cells) {
+    if (c->value) {
+      candidates[c] = (1 << *c->value);
+    } else {
+      candidates[c] = ALL_CANDIDATES;
+    }
+  }
+  return candidates;
+}
+
 void KakuroDifficultyEstimator::run_solve_loop(CandidateMap &candidates,
                                                bool silent) {
   bool changed = true;
@@ -369,6 +382,13 @@ bool KakuroDifficultyEstimator::apply_sector_constraints(
   }
 
   return changed;
+}
+
+KakuroDifficultyEstimator::CandidateMap
+KakuroDifficultyEstimator::reduce_candidates_logically() {
+  CandidateMap candidates = initialize_candidates_from_board();
+  run_solve_loop(candidates, true); // silent mode
+  return candidates;
 }
 
 int KakuroDifficultyEstimator::mask_to_digit(uint16_t mask) const {

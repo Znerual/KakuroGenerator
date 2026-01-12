@@ -1236,8 +1236,8 @@ CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
 
   {
     PROFILE_SCOPE("Uniqueness_Main_Solve", board->logger);
-    solve_for_uniqueness(found, original_sol_coords, node_count, max_nodes,
-                         seed_offset, timed_out);
+    solve_for_uniqueness_hybrid(found, original_sol_coords, node_count,
+                                max_nodes, seed_offset, timed_out);
   }
 
   {
@@ -1257,12 +1257,28 @@ CSPSolver::check_uniqueness(int max_nodes, int seed_offset) {
     return {UniquenessResult::INCONCLUSIVE, std::nullopt};
   return {UniquenessResult::UNIQUE, std::nullopt};
 }
-
-void CSPSolver::solve_for_uniqueness(
+void CSPSolver::solve_for_uniqueness_hybrid(
     std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>
         &found_solutions,
     const std::unordered_map<std::pair<int, int>, int, PairHash> &avoid_sol,
     int &node_count, int max_nodes, int seed, bool &timed_out) {
+  PROFILE_SCOPE("Uniqueness_HybridStep", board->logger);
+
+  // Use the logical solver from the difficulty estimator
+  KakuroDifficultyEstimator estimator(board);
+  auto candidates = estimator.reduce_candidates_logically();
+
+  // If logic doesn't solve it, fall back to recursive search
+  find_alt_solutions_recursive(found_solutions, avoid_sol, node_count,
+                               max_nodes, seed, timed_out, candidates);
+}
+
+void CSPSolver::find_alt_solutions_recursive(
+    std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>>
+        &found_solutions,
+    const std::unordered_map<std::pair<int, int>, int, PairHash> &avoid_sol,
+    int &node_count, int max_nodes, int seed, bool &timed_out,
+    const std::unordered_map<Cell *, unsigned short> &candidates) {
   PROFILE_SCOPE("Uniqueness_RecursiveStep", board->logger);
 
   if (!found_solutions.empty())
@@ -1352,7 +1368,17 @@ void CSPSolver::solve_for_uniqueness(
   if (found_solutions.size() >= 3)
     return;
 
-  std::vector<int> vals = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::vector<int> vals;
+  if (candidates.count(var)) {
+    uint16_t mask = candidates.at(var);
+    for (int i = 1; i <= 9; ++i) {
+      if (mask & (1 << i)) {
+        vals.push_back(i);
+      }
+    }
+  } else {
+    vals = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+  }
   int target_val = avoid_sol.at({var->r, var->c});
 
   {
@@ -1368,8 +1394,8 @@ void CSPSolver::solve_for_uniqueness(
   for (int v : vals) {
     if (is_valid_move(var, v, nullptr, false)) {
       var->value = v;
-      solve_for_uniqueness(found_solutions, avoid_sol, node_count, max_nodes,
-                           seed, timed_out);
+      find_alt_solutions_recursive(found_solutions, avoid_sol, node_count,
+                                   max_nodes, seed, timed_out, candidates);
       var->value = std::nullopt;
       if (!found_solutions.empty() || timed_out)
         return;
