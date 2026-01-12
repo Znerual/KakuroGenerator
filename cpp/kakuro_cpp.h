@@ -529,7 +529,7 @@ public:
   bool break_large_patches(int size = 3);
   bool fix_invalid_runs();
   bool fix_invalid_runs_gentle();
-  void apply_slice(int fixed_idx, int start, int length, bool is_horz);
+  bool apply_slice(int fixed_idx, int start, int length, bool is_horz);
   void block_sym(Cell *cell);
   bool ensure_connectivity();
 
@@ -609,7 +609,7 @@ public:
 private:
   // --- Time Limit Members ---
   std::chrono::steady_clock::time_point start_time_;
-  double time_limit_sec_ = 30.0; // Default 30 seconds
+  double time_limit_sec_ = 60.0; // Default 60 seconds
   bool check_timeout(); // Returns true if timed out and handles logging/closing
 
   bool

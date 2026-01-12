@@ -679,16 +679,18 @@ bool KakuroBoard::slice_long_runs(int max_len) {
         length++;
       } else {
         if (length > max_len) {
-          apply_slice(r, run_start, length, true);
-          changed = true;
+          if (apply_slice(r, run_start, length, true)) {
+            changed = true;
+          }
         }
         length = 0;
         run_start = -1;
       }
     }
     if (length > max_len) {
-      apply_slice(r, run_start, length, true);
-      changed = true;
+      if (apply_slice(r, run_start, length, true)) {
+        changed = true;
+      }
     }
   }
 
@@ -703,16 +705,18 @@ bool KakuroBoard::slice_long_runs(int max_len) {
         length++;
       } else {
         if (length > max_len) {
-          apply_slice(c, run_start, length, false);
-          changed = true;
+          if (apply_slice(c, run_start, length, false)) {
+            changed = true;
+          }
         }
         length = 0;
         run_start = -1;
       }
     }
     if (length > max_len) {
-      apply_slice(c, run_start, length, false);
-      changed = true;
+      if (apply_slice(c, run_start, length, false)) {
+        changed = true;
+      }
     }
   }
 #if KAKURO_ENABLE_LOGGING
@@ -740,16 +744,18 @@ bool KakuroBoard::slice_soft_runs(int soft_len, double prob) {
         length++;
       } else {
         if (length > soft_len && dist(rng) < prob) {
-          apply_slice(r, run_start, length, true);
-          changed = true;
+          if (apply_slice(r, run_start, length, true)) {
+            changed = true;
+          }
         }
         length = 0;
         run_start = -1;
       }
     }
     if (length > soft_len && dist(rng) < prob) {
-      apply_slice(r, run_start, length, true);
-      changed = true;
+      if (apply_slice(r, run_start, length, true)) {
+        changed = true;
+      }
     }
   }
 
@@ -764,16 +770,18 @@ bool KakuroBoard::slice_soft_runs(int soft_len, double prob) {
         length++;
       } else {
         if (length > soft_len && dist(rng) < prob) {
-          apply_slice(c, run_start, length, false);
-          changed = true;
+          if (apply_slice(c, run_start, length, false)) {
+            changed = true;
+          }
         }
         length = 0;
         run_start = -1;
       }
     }
     if (length > soft_len && dist(rng) < prob) {
-      apply_slice(c, run_start, length, false);
-      changed = true;
+      if (apply_slice(c, run_start, length, false)) {
+        changed = true;
+      }
     }
   }
 
@@ -788,13 +796,12 @@ bool KakuroBoard::slice_soft_runs(int soft_len, double prob) {
   return changed;
 }
 
-void KakuroBoard::apply_slice(int fixed_idx, int start, int length,
+bool KakuroBoard::apply_slice(int fixed_idx, int start, int length,
                               bool is_horz) {
   int mid_offset = length / 2;
   int r = is_horz ? fixed_idx : start + mid_offset;
   int c = is_horz ? start + mid_offset : fixed_idx;
-  set_block(r, c);
-  set_block(height - 1 - r, width - 1 - c);
+  return try_remove_and_reconnect(r, c);
 }
 
 std::vector<std::vector<std::pair<int, int>>> KakuroBoard::find_components() {
