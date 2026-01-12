@@ -7,7 +7,7 @@ import os
 import json
 import glob
 import sys
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 try:
     from python.kakuro_wrapper import KakuroBoard, CSPSolver, KakuroDifficultyEstimator
@@ -197,6 +197,179 @@ def optimize_log_data(data: list):
             
     return optimized
 
+def optimize_logic_steps(data: list):
+    """
+    Groups consecutive uniqueness_conflict steps. 
+    Does NOT handle profiling aggregation (handled separately).
+    """
+    if not data:
+        return data
+    
+    optimized = []
+    i = 0
+    while i < len(data):
+        step = data[i]
+        substage = step.get("ss")
+        
+        # Cluster uniqueness conflicts
+        if substage in ["uniqueness_conflict", "af"]:
+            cluster_steps = []
+            while i < len(data) and data[i].get("ss") in ["uniqueness_conflict", "af"]:
+                cluster_steps.append(data[i])
+                i += 1
+            
+            first = cluster_steps[0]
+            solutions = []
+            for s in cluster_steps:
+                extra = s.get("d", {})
+                ag = extra.get("ag", [])
+                
+                # Simple diff logic for display
+                solutions.append({
+                    "ag": ag,
+                    "hc": extra.get("hc", [])
+                })
+            
+            total_dur = sum(s.get("dur", 0) for s in cluster_steps)
+            optimized.append({
+                "id": first.get("id", 0),
+                "s": first.get("s"),
+                "ss": "uniqueness_cluster",
+                "m": f"Uniqueness Cluster: {len(cluster_steps)} attempts",
+                "dur": round(total_dur, 2),
+                "wh": first.get("wh"),
+                "g": first.get("g"),
+                "d": {"attempts": len(cluster_steps), "solutions": solutions}
+            })
+        else:
+            optimized.append(step)
+            i += 1
+            
+    return optimized
+
+def stream_and_aggregate_profiling(filepath: str) -> List[Dict]:
+    """
+    Reads a profiling file line-by-line (to handle large files) and aggregates stats.
+    Returns a list containing a single summary step (or actual logic steps if found mixed in).
+    """
+    stats = {} # Key: message -> {count, total_dur, min, max}
+    non_profiling_steps = []
+
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                
+                # Robust parsing for line-delimited JSON
+                try:
+                    # Handle legacy format where lines might end with comma
+                    if line.endswith(","): line = line[:-1]
+                    # Handle legacy format start/end brackets
+                    if line == "[" or line == "]": continue
+                    
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                # Check if this is a profiling step
+                is_profiling = (entry.get("s") == "p" or entry.get("ss") == "tm")
+                
+                if is_profiling:
+                    msg = entry.get("m", "Unknown Operation")
+                    dur = float(entry.get("dur", 0.0))
+                    
+                    if msg not in stats:
+                        stats[msg] = {
+                            "count": 0,
+                            "total": 0.0,
+                            "min": float('inf'),
+                            "max": float('-inf')
+                        }
+                    
+                    s = stats[msg]
+                    s["count"] += 1
+                    s["total"] += dur
+                    if dur < s["min"]: s["min"] = dur
+                    if dur > s["max"]: s["max"] = dur
+                else:
+                    # If a real logic step ended up in the profiling file, keep it
+                    non_profiling_steps.append(entry)
+    except Exception as e:
+        print(f"Error streaming profiling file {filepath}: {e}")
+        return []
+
+    # Create the summary report
+    if stats:
+        report_data = []
+        for msg, s in stats.items():
+            avg = s["total"] / s["count"] if s["count"] > 0 else 0
+            report_data.append({
+                "operation": msg,
+                "calls": s["count"],
+                "total_ms": round(s["total"], 2),
+                "avg_ms": round(avg, 4),
+                "min_ms": round(s["min"], 4) if s["min"] != float('inf') else 0,
+                "max_ms": round(s["max"], 4) if s["max"] != float('-inf') else 0
+            })
+        
+        # Sort by total duration descending
+        report_data.sort(key=lambda x: x["total_ms"], reverse=True)
+
+        summary_step = {
+            "id": 999998, # High ID to appear at end
+            "s": "info",
+            "ss": "profiling_report",
+            "m": "Profiling Aggregation Report",
+            "d": {"stats": report_data}
+        }
+        non_profiling_steps.append(summary_step)
+
+    return non_profiling_steps
+
+def load_log_robust(filepath: str) -> List[Dict]:
+    """
+    Reads a main log file, handling both JSON Array and JSONL formats.
+    """
+    if not os.path.exists(filepath):
+        return []
+        
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            
+        if not content: return []
+
+        # Case 1: Standard JSON Array
+        if content.startswith("["):
+            # Try to fix truncated JSON arrays
+            if not content.endswith("]"):
+                # Find last valid object closer
+                last_brace = content.rfind("}")
+                if last_brace != -1:
+                    content = content[:last_brace+1] + "\n]"
+                else:
+                    return [] # Unrecoverable
+            try:
+                return json.loads(content)
+            except:
+                pass # Fallback to line processing if array parse fails
+
+        # Case 2: JSONL (Line delimited) or mixed
+        data = []
+        lines = content.splitlines() if "\n" in content else [content]
+        for line in lines:
+            line = line.strip()
+            if not line or line in ["[", "]", "],"]: continue
+            try:
+                if line.endswith(","): line = line[:-1]
+                data.append(json.loads(line))
+            except: continue
+        return data
+    except Exception as e:
+        print(f"Error loading log {filepath}: {e}")
+        return []
+
 def save_log_jsonl(filepath: str, data: list):
     """
     Saves a list of dicts as a JSONL file.
@@ -223,74 +396,41 @@ async def get_log(filename: str, prof: int = 0):
         raise HTTPException(status_code=404, detail="Log file not found")
     
     try:
-        def parse_robust_content(content):
-            data = []
-            if not content: return data
-            if content.startswith("["):
-                # Legacy recovery
-                content_clean = content.strip()
-                if content_clean.endswith("]"):
-                    try: return json.loads(content_clean)
-                    except: pass
-                last_bracket = content_clean.rfind("}")
-                while last_bracket != -1:
-                    try:
-                        probe = content_clean[:last_bracket+1].strip()
-                        if not probe.endswith("]"): probe += "\n]"
-                        return json.loads(probe)
-                    except: last_bracket = content_clean.rfind("}", 0, last_bracket)
-                return []
-            else:
-                for line in content.splitlines():
-                    line = line.strip()
-                    if not line or line in ["[", "]", "],"]: continue
-                    try:
-                        if line.endswith(","): line = line[:-1]
-                        data.append(json.loads(line))
-                    except: continue
-                return data
-
-        # 1. Read main file
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-        data = parse_robust_content(content)
-        main_data_len = len(data)
+        # 1. Read main file (logic steps)
+        data = load_log_robust(filepath)
+        
+        # 2. Optimize logic steps (uniqueness clustering)
+        optimized = optimize_logic_steps(data)
         
         # 2. Optionally read profiling file
         if prof:
             # Profiling file is prefixed with underscore. 
             # It might have .json or .jsonl extension depending on transition state.
             basename, ext = os.path.splitext(filename)
-            prof_path = os.path.join(LOG_DIR, "_" + filename)
-            if os.path.exists(prof_path):
-                with open(prof_path, "r", encoding="utf-8") as f:
-                    prof_content = f.read().strip()
-                prof_data = parse_robust_content(prof_content)
-                data.extend(prof_data)
-                # Sort by id to restore original sequence
-                data.sort(key=lambda x: x.get("id", 0))
+            prof_candidates = [
+                os.path.join(LOG_DIR, f"_{filename}"),
+                os.path.join(LOG_DIR, f"_{basename}.json"),
+                os.path.join(LOG_DIR, f"_{basename}.jsonl")
+            ]
 
-        if not data:
-            return {"steps": []}
-            
-        # 3. Optimize
-        optimized = optimize_log_data(data)
-        
-        # 4. Save back main file if migrated or optimized (ONLY if NOT loading extra profiling data)
-        if not prof:
-            was_legacy = content.startswith("[") or filename.endswith(".json")
-            target_path = filepath
-            # If migrating from .json to .jsonl
-            if filename.endswith(".json"):
-                 target_path = os.path.join(LOG_DIR, filename + "l") # .json -> .jsonl
 
-            if len(optimized) < main_data_len or was_legacy:
-                try:
-                    save_log_jsonl(target_path, optimized)
-                    if was_legacy: print(f"✓ Migrated {filename} to JSONL")
-                except Exception as e:
-                    print(f"Warning: Failed to save optimized log {filename}: {e}")
+            prof_data = []
+            for p_path in prof_candidates:
+                if os.path.exists(p_path):
+                    # Use the streaming aggregator
+                    prof_data = stream_and_aggregate_profiling(p_path)
+                    break
             
+            optimized.extend(prof_data)
+
+            # Sort mainly by ID, but ensure Summary/Profile reports stay at end
+            def sort_key(x):
+                # Ensure items with ID go by ID, items without (if any) go to end
+                return x.get("id", 999999)
+            
+            optimized.sort(key=sort_key)
+
+
         return {"steps": optimized}
     except Exception as e:
         print(f"Error loading log {filename}: {e}")
