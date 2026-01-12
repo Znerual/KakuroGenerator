@@ -232,6 +232,59 @@
             filter: drop-shadow(0 0 2px var(--color-diff));
         }
 
+        /* Profiling Table Styles */
+        .profiling-container {
+            display: none; /* Hidden by default */
+            margin-top: 1rem;
+            border-top: 1px solid var(--grid-line);
+            padding-top: 0.5rem;
+            max-height: 500px;
+            overflow-y: auto;
+            width: 300px; /* Slightly wider for columns */
+        }
+        
+        .profiling-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+
+        .profiling-table th {
+            text-align: left;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--grid-line);
+            padding: 4px 2px;
+            position: sticky;
+            top: 0;
+            background: var(--panel-bg);
+        }
+
+        .profiling-table td {
+            padding: 3px 2px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-primary);
+        }
+
+        .profiling-table tr:hover {
+            background-color: rgba(255,255,255,0.05);
+        }
+        
+        .perf-bar-bg {
+            background: rgba(255,255,255,0.1);
+            height: 4px;
+            width: 50px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        .perf-bar-fill {
+            height: 100%;
+            background: var(--color-difficulty);
+            border-radius: 2px;
+        }
+
         .step-dur {
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--grid-line);
@@ -712,6 +765,11 @@
             </div>
         </details>
 
+        <div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+            <input type="checkbox" id="showProfiling" onchange="loadLog(document.getElementById('fileSelect').value)">
+            <label for="showProfiling" style="cursor: pointer;">Include Profiling Info</label>
+        </div>
+
         <select id="fileSelect" class="file-select" onchange="loadLog(this.value)">
             <option value="" disabled selected>Select Log File...</option>
         </select>
@@ -760,6 +818,7 @@
                 style="display:none; margin-top:0.5rem; color: var(--color-unique); font-size: 0.8rem; font-weight: bold;">
                 ⚠ Alternative Solution Found
             </div>
+
             <div id="clusterControls" style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
                 <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-unique);">
                     ALTERNATIVE SOLUTIONS (<span id="solutionCount">0</span>)</div>
@@ -772,6 +831,7 @@
                     <button class="btn" style="width:30px; height:30px; font-size: 1rem;" onclick="changeSolution(1)">→</button>
                 </div>
             </div>
+
             <div id="scoreData"
                 style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
                 <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-secondary);">
@@ -790,6 +850,22 @@
                     <tbody id="scoreTableBody"></tbody>
                 </table>
             </div>
+        </div>
+
+        <div id="profilingData" class="profiling-container">
+            <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-diff);">
+                PERFORMANCE AGGREGATION</div>
+            <table class="profiling-table">
+                <thead>
+                    <tr>
+                        <th>Operation</th>
+                        <th>Calls</th>
+                        <th>Total</th>
+                        <th>Avg</th>
+                    </tr>
+                </thead>
+                <tbody id="profilingTableBody"></tbody>
+            </table>
         </div>
 
         <div id="grid-container"></div>
@@ -818,7 +894,8 @@
             'de': 'difficulty_estimation',
             'params': 'configuration',
             'p': 'performance_profile',
-            'summary': 'Summary Report'
+            'summary': 'Summary Report',
+            'info': 'Information'
         };
 
         const SUBSTAGE_MAP = {
@@ -844,7 +921,8 @@
             'ra': 'repair_attempt',
             'ls': 'logic_step',
             'tm': 'timing',
-            'uniqueness_cluster': 'uniqueness_cluster'
+            'uniqueness_cluster': 'uniqueness_cluster',
+            'profiling_report': 'profiling_report'
         };
 
         const STAGE_COLORS = {
@@ -862,7 +940,8 @@
             'validation_failed': '❌',
             'start': '🏁',
             'complete': '✅',
-            'uniqueness_cluster': '📑'
+            'uniqueness_cluster': '📑',
+            'profiling_report': '⏱️'
         };
 
         function decodeStep(step) {
@@ -990,7 +1069,10 @@
             overlay.style.display = 'flex';
             msg.innerText = 'Fetching & Optimizing Log...';
 
-            fetch(`/api/logs/${filename}`)
+            const includeProf = document.getElementById('showProfiling').checked;
+            const url = `/api/logs/${filename}${includeProf ? '?prof=1' : ''}`;
+
+            fetch(url)
                 .then(r => r.json())
                 .then(data => {
                     currentLogData = data.steps.map(decodeStep);
@@ -1080,7 +1162,7 @@
                         || step.substage === 'alternative_found'
                         || step.substage.includes('fail');
 
-                    if (isInterest || step.stage === 'configuration' || step.stage === 'Summary Report') {
+                    if (isInterest || step.stage === 'configuration' || step.stage === 'Summary Report' || step.stage === 'Information') {
                         const el = document.createElement('div');
                         el.className = 'step-item';
                         el.id = `step-nav-${index}`;
@@ -1140,7 +1222,8 @@
             else if (step.stage.includes('filling')) badge.style.background = 'var(--color-filling)';
             else if (step.stage.includes('unique')) badge.style.background = 'var(--color-unique)';
             else if (step.stage.includes('diff')) badge.style.background = 'var(--color-diff)';
-            else if (step.stage === 'Summary Report') badge.style.background = 'var(--color-filling)'; // Summary color
+            else if (step.stage === 'Summary Report') badge.style.background = 'var(--color-filling)';
+            else if (step.stage === 'Information') badge.style.background = '#475569';
             else badge.style.background = '#334155';
             badge.style.color = '#000';
 
@@ -1166,9 +1249,9 @@
 
             // Cluster Controls
             const clusterControls = document.getElementById('clusterControls');
-            if (step.substage === 'uniqueness_cluster') {
+            if (step.substage === 'uniqueness_cluster' || step.substage === 'af') { // af is the C++ constant for alternative found
                 clusterControls.style.display = 'block';
-                const sols = step.data.solutions;
+                const sols = step.data.solutions || [];
                 document.getElementById('solutionCount').innerText = sols.length;
                 document.getElementById('totalSolutions').innerText = sols.length;
                 
@@ -1177,10 +1260,10 @@
                 }
                 
                 document.getElementById('currentSolutionIdx').innerText = window.selectedSolutionIndex + 1;
-                document.getElementById('solutionDiff').innerText = `Diff: ${sols[window.selectedSolutionIndex].diff_count} cells`;
+                const currentSol = sols[window.selectedSolutionIndex] || {};
+                document.getElementById('solutionDiff').innerText = `Diff: ${currentSol.diff_count || 0} cells`;
                 
                 // Temporary override for renderGrid
-                const currentSol = sols[window.selectedSolutionIndex];
                 step.data.alternative_grid = currentSol.alternative_grid;
                 step.data.highlighted_cells = currentSol.highlighted_cells;
             } else {
@@ -1188,6 +1271,7 @@
                 window.selectedSolutionIndex = 0;
             }
 
+            // Difficulty Dashboard
             const dash = document.getElementById('difficultyDashboard');
             if (step.stage === 'Summary Report' && step.difficulty) {
                 dash.style.display = 'block';
@@ -1214,15 +1298,53 @@
                 dash.style.display = 'none';
             }
 
+            // Profiling Data
+            
+
             // Grid
             renderGrid(step);
 
             // Scores and Ambiguity
             const scoreData = document.getElementById('scoreData');
+            const profDiv = document.getElementById('profilingData');
             const scoreTableBody = document.getElementById('scoreTableBody');
 
-            if (step.data && step.data.candidate_scores) {
+            scoreData.style.display = 'none';
+            profDiv.style.display = 'none';
+
+            if (step.substage === 'profiling_report' && step.data && step.data.stats) {
+                // --- RENDER PROFILING ---
+                profDiv.style.display = 'block';
+                const tbody = document.getElementById('profilingTableBody');
+                tbody.innerHTML = '';
+                
+                const maxTotal = Math.max(...step.data.stats.map(s => s.total_ms));
+                
+                step.data.stats.forEach(s => {
+                    const tr = document.createElement('tr');
+                    const widthPct = (s.total_ms / maxTotal) * 100;
+                    const barColor = widthPct > 50 ? 'var(--color-error)' : 'var(--color-filling)';
+                    
+                    tr.innerHTML = `
+                        <td style="font-weight:bold;">${s.operation}</td>
+                        <td style="text-align:right">${s.calls}</td>
+                        <td style="text-align:right">
+                            ${s.total_ms.toFixed(1)}ms
+                            <div style="height:2px; background:#334155; width:100%; margin-top:2px; position:relative;">
+                                <div style="height:100%; width:${widthPct}%; background:${barColor};"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:right">${s.avg_ms.toFixed(3)}ms</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } else if (step.data && step.data.candidate_scores) {
+                // --- RENDER SCORES ---
                 scoreData.style.display = 'block';
+                const header = document.querySelector('#scoreData div');
+                header.innerText = 'CANDIDATE SCORES (Lower is Better)';
+                header.style.color = 'var(--text-secondary)';
                 scoreTableBody.innerHTML = '';
 
                 step.data.candidate_scores.forEach(s => {
