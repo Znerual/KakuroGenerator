@@ -474,6 +474,7 @@ bool CSPSolver::backtrack_fill(
     const std::vector<int> &weights, bool ignore_clues,
     const std::string &partition_preference,
     const std::vector<ValueConstraint> &forbidden_constraints) {
+  PROFILE_SCOPE("Filling_BacktrackFillStep", board->logger);
   if (node_count > max_nodes) {
     LOG_DEBUG("        Max nodes exceeded (" << node_count << " > " << max_nodes
                                              << ")");
@@ -705,6 +706,7 @@ int CSPSolver::estimate_future_domain_size(
 }
 
 bool CSPSolver::has_high_global_ambiguity() {
+  PROFILE_SCOPE("Uniqueness_GlobalAmbiguity", board->logger);
   int bad_cells = 0;
 
   for (Cell *c : board->white_cells) {
@@ -841,7 +843,7 @@ std::vector<int> CSPSolver::get_partition_aware_domain(
 double CSPSolver::calculate_partition_score(
     Cell *cell, int value, const std::unordered_map<Cell *, int> &assignment,
     char direction, const std::string &preference) {
-
+  PROFILE_SCOPE("Uniqueness_PartitionScore", board->logger);
   auto sector = (direction == 'h') ? cell->sector_h : cell->sector_v;
 
   // Safety check
@@ -966,6 +968,7 @@ double CSPSolver::calculate_partition_score(
 }
 
 int CSPSolver::count_partitions(int target_sum, int length) {
+  PROFILE_SCOPE("Uniqueness_PartitionCount", board->logger);
   // Add bounds check
   if (length <= 0 || length > 9 || target_sum <= 0 || target_sum > 45) {
     return 0;
@@ -1044,7 +1047,7 @@ bool CSPSolver::validate_partition_difficulty(
     const std::string &preference) {
 
   LOG_DEBUG("          Validating partition difficulty...");
-
+  PROFILE_SCOPE("Uniqueness_PartitionDifficulty", board->logger);
   int easy_clue_count = 0;
   int total_clue_count = 0;
 
@@ -1377,7 +1380,7 @@ void CSPSolver::solve_for_uniqueness(
 int CSPSolver::get_domain_size(
     Cell *cell, const std::unordered_map<Cell *, int> *assignment,
     bool ignore_clues) {
-  PROFILE_SCOPE("Uniqueness_DomainSize", board->logger);
+  // PROFILE_SCOPE("Uniqueness_DomainSize", board->logger);
   int count = 0;
   for (int v = 1; v <= 9; v++) {
     if (is_valid_move(cell, v, assignment, ignore_clues)) {
@@ -1390,7 +1393,7 @@ int CSPSolver::get_domain_size(
 bool CSPSolver::is_valid_move(Cell *cell, int val,
                               const std::unordered_map<Cell *, int> *assignment,
                               bool ignore_clues) {
-  PROFILE_SCOPE("Uniqueness_MoveValidation", board->logger);
+  // PROFILE_SCOPE("Uniqueness_MoveValidation", board->logger);
   auto check_sector = [&](std::shared_ptr<std::vector<Cell *>> sector,
                           bool is_horz) {
     if (!sector || sector->empty())
@@ -1472,7 +1475,7 @@ bool CSPSolver::is_valid_move(Cell *cell, int val,
 
 bool CSPSolver::repair_topology_robust(
     const std::unordered_map<std::pair<int, int>, int, PairHash> &alt_sol) {
-
+  PROFILE_SCOPE("Uniqueness_TopologyRepair", board->logger);
   LOG_DEBUG("  Attempting topology repair");
 
   // Find cells where solutions differ
