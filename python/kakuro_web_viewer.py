@@ -113,139 +113,13 @@ async def generate_puzzle_endpoint(req: GenerateRequest):
             }
             data.append(summary_entry)
             
-            # Optimize the log before saving
-            optimized_data = optimize_log_data(data)
-            
-            save_log_jsonl(log_path, optimized_data)
+            save_log_jsonl(log_path, data)
 
         return {"success": True, "kakuro_id": kakuro_id, "filename": f"{kakuro_id}.json"}
     except Exception as e:
         print(f"Error generating puzzle: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-def optimize_log_data(data: list):
-    """
-    Groups consecutive uniqueness_conflict steps and profile steps.
-    """
-    if not data:
-        return data
-    
-    optimized = []
-    i = 0
-    while i < len(data):
-        step = data[i]
-        stage = step.get("s")
-        substage = step.get("ss")
-        
-        # 1. Cluster uniqueness conflicts
-        # Check both "uniqueness_conflict" (manual string) and "af" (C++ constant)
-        if substage in ["uniqueness_conflict", "af"]:
-            cluster_steps = []
-            while i < len(data) and data[i].get("ss") in ["uniqueness_conflict", "af"]:
-                cluster_steps.append(data[i])
-                i += 1
-            
-            first = cluster_steps[0]
-            solutions = []
-            for s in cluster_steps:
-                extra = s.get("d", {})
-                ag = extra.get("ag", [])
-                main_grid = s.get("g", [])
-                main_lookup = {(r, c): v for r, c, v in main_grid}
-                diff_count = 0
-                for r, c, v in ag:
-                    if main_lookup.get((r, c)) != v:
-                        diff_count += 1
-                solutions.append({
-                    "ag": ag,
-                    "diff_count": diff_count,
-                    "hc": extra.get("hc", [])
-                })
-            
-            total_dur = sum(s.get("dur", 0) for s in cluster_steps)
-            optimized.append({
-                "id": first["id"],
-                "s": first["s"],
-                "ss": "uniqueness_cluster",
-                "m": f"Uniqueness Cluster: {len(cluster_steps)} attempts",
-                "dur": round(total_dur, 2),
-                "wh": first.get("wh"),
-                "g": first.get("g"),
-                "d": {"attempts": len(cluster_steps), "solutions": solutions}
-            })
-            
-        # 2. Cluster performance profiles (can be MILLIONS of entries)
-        elif stage == "p" or substage == "tm":
-            profile_group = []
-            msg = step.get("m", "")
-            while i < len(data) and (data[i].get("s") == "p" or data[i].get("ss") == "tm") and data[i].get("m") == msg:
-                profile_group.append(data[i])
-                i += 1
-                
-            total_dur = sum(p.get("dur", 0) for p in profile_group)
-            optimized.append({
-                "id": profile_group[0]["id"],
-                "s": "p",
-                "ss": "tm",
-                "m": f"{msg} (x{len(profile_group)})",
-                "dur": round(total_dur, 4)
-            })
-            
-        else:
-            optimized.append(step)
-            i += 1
-            
-    return optimized
-
-def optimize_logic_steps(data: list):
-    """
-    Groups consecutive uniqueness_conflict steps. 
-    Does NOT handle profiling aggregation (handled separately).
-    """
-    if not data:
-        return data
-    
-    optimized = []
-    i = 0
-    while i < len(data):
-        step = data[i]
-        substage = step.get("ss")
-        
-        # Cluster uniqueness conflicts
-        if substage in ["uniqueness_conflict", "af"]:
-            cluster_steps = []
-            while i < len(data) and data[i].get("ss") in ["uniqueness_conflict", "af"]:
-                cluster_steps.append(data[i])
-                i += 1
-            
-            first = cluster_steps[0]
-            solutions = []
-            for s in cluster_steps:
-                extra = s.get("d", {})
-                ag = extra.get("ag", [])
-                
-                # Simple diff logic for display
-                solutions.append({
-                    "ag": ag,
-                    "hc": extra.get("hc", [])
-                })
-            
-            total_dur = sum(s.get("dur", 0) for s in cluster_steps)
-            optimized.append({
-                "id": first.get("id", 0),
-                "s": first.get("s"),
-                "ss": "uniqueness_cluster",
-                "m": f"Uniqueness Cluster: {len(cluster_steps)} attempts",
-                "dur": round(total_dur, 2),
-                "wh": first.get("wh"),
-                "g": first.get("g"),
-                "d": {"attempts": len(cluster_steps), "solutions": solutions}
-            })
-        else:
-            optimized.append(step)
-            i += 1
-            
-    return optimized
 
 def stream_and_aggregate_profiling(filepath: str) -> List[Dict]:
     """
@@ -399,9 +273,6 @@ async def get_log(filename: str, prof: int = 0):
         # 1. Read main file (logic steps)
         data = load_log_robust(filepath)
         
-        # 2. Optimize logic steps (uniqueness clustering)
-        optimized = optimize_logic_steps(data)
-        
         # 2. Optionally read profiling file
         if prof:
             # Profiling file is prefixed with underscore. 
@@ -421,17 +292,17 @@ async def get_log(filename: str, prof: int = 0):
                     prof_data = stream_and_aggregate_profiling(p_path)
                     break
             
-            optimized.extend(prof_data)
+            data.extend(prof_data)
 
             # Sort mainly by ID, but ensure Summary/Profile reports stay at end
             def sort_key(x):
                 # Ensure items with ID go by ID, items without (if any) go to end
                 return x.get("id", 999999)
             
-            optimized.sort(key=sort_key)
+            data.sort(key=sort_key)
 
 
-        return {"steps": optimized}
+        return {"steps": data}
     except Exception as e:
         print(f"Error loading log {filename}: {e}")
         # Try to return a partial list if possible

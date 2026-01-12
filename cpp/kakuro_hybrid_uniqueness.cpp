@@ -1,5 +1,6 @@
 #include "kakuro_cpp.h"
 
+
 namespace kakuro {
 
 // Implementation of HybridUniquenessChecker
@@ -31,7 +32,107 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
         candidates[c] = ALL_CANDIDATES;
     }
     
-    // 3. Apply logical deduction to reduce search space
+    // 3. Initialize candidates properly by removing impossible values
+    {
+        PROFILE_SCOPE("Uniqueness_CandidateInit", board_->logger);
+        
+        // Remove values that are already used in each sector
+        for (Cell* cell : board_->white_cells) {
+            uint16_t valid_mask = ALL_CANDIDATES;
+            
+            // Check horizontal sector for used values
+            if (cell->sector_h) {
+                for (Cell* neighbor : *(cell->sector_h)) {
+                    if (neighbor != cell && neighbor->value.has_value()) {
+                        valid_mask &= ~(1 << *neighbor->value);
+                    }
+                }
+            }
+            
+            // Check vertical sector for used values
+            if (cell->sector_v) {
+                for (Cell* neighbor : *(cell->sector_v)) {
+                    if (neighbor != cell && neighbor->value.has_value()) {
+                        valid_mask &= ~(1 << *neighbor->value);
+                    }
+                }
+            }
+            
+            candidates[cell] = valid_mask;
+        }
+        
+        // Basic sum constraint filtering
+        auto init_sector_constraints = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz) {
+            for (const auto& sector : sectors) {
+                if (sector->empty()) continue;
+                
+                // Get the clue
+                Cell* first = (*sector)[0];
+                std::optional<int> clue_opt;
+                
+                if (is_horz && first->c > 0) {
+                    clue_opt = board_->grid[first->r][first->c - 1].clue_h;
+                } else if (!is_horz && first->r > 0) {
+                    clue_opt = board_->grid[first->r - 1][first->c].clue_v;
+                }
+                
+                if (!clue_opt.has_value()) continue;
+                int target = *clue_opt;
+                int length = sector->size();
+                
+                // Calculate min and max possible sums for this sector
+                int min_sum = 0, max_sum = 0;
+                for (int i = 1; i <= 9 && i <= length; i++) {
+                    min_sum += i;
+                }
+                for (int i = 9; i > 0 && (9 - i) < length; i--) {
+                    max_sum += i;
+                }
+                
+                // If the target is impossible for this sector length, something is wrong
+                if (target < min_sum || target > max_sum) continue;
+                
+                // Remove values that are clearly too large or too small
+                for (Cell* cell : *sector) {
+                    uint16_t new_mask = 0;
+                    
+                    for (int d = 1; d <= 9; d++) {
+                        if (!(candidates[cell] & (1 << d))) continue;
+                        
+                        // Very basic check: would this value leave room for others?
+                        int remaining = target - d;
+                        int slots = length - 1;
+                        
+                        if (slots == 0) {
+                            // This cell must complete the sum
+                            if (remaining == 0) {
+                                new_mask |= (1 << d);
+                            }
+                        } else {
+                            // Check if remaining sum is achievable
+                            // Min: 1+2+...+slots
+                            // Max: 9+8+...+(9-slots+1)
+                            int min_others = (slots * (slots + 1)) / 2;
+                            int max_others = (slots * (18 - slots + 1)) / 2;
+                            
+                            if (remaining >= min_others && remaining <= max_others) {
+                                new_mask |= (1 << d);
+                            }
+                        }
+                    }
+                    
+                    if (new_mask != 0) {
+                        candidates[cell] &= new_mask;
+                    }
+                }
+            }
+        };
+        
+        init_sector_constraints(board_->sectors_h, true);
+        init_sector_constraints(board_->sectors_v, false);
+    }
+    
+    // 4. Apply logical deduction to reduce search space
     bool reduced = false;
     {
         PROFILE_SCOPE("Uniqueness_LogicalReduction", board_->logger);
@@ -41,7 +142,7 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
     LOG_DEBUG("    Logical reduction: " << (reduced ? "SUCCESS" : "NONE") 
               << " (reduced search space)");
     
-    // 4. Count how many cells are logically determined
+    // 5. Count how many cells are logically determined
     int determined_cells = 0;
     for (auto& [cell, mask] : candidates) {
         if (count_set_bits(mask) == 1) {
@@ -50,8 +151,26 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
     }
     LOG_DEBUG("    Cells logically determined: " << determined_cells 
               << "/" << board_->white_cells.size());
+
+
+#if KAKURO_ENABLE_LOGGING
+    if (board_->logger && board_->logger->is_enabled()) {
+        std::unordered_map<Cell *, int> viz_map;
+        for (auto &[c, m] : candidates) {
+            if (count_set_bits(m) == 1) {
+                auto vals = mask_to_values(m);
+                if (!vals.empty()) viz_map[c] = vals[0];
+            }
+        }
+        board_->logger->log_step(
+            GenerationLogger::STAGE_UNIQUENESS,
+            GenerationLogger::SUBSTAGE_LOGIC_STEP,
+            "Logical reduction complete: " + std::to_string(determined_cells) + " cells determined",
+            board_->get_grid_state(&viz_map));
+    }
+#endif
     
-    // 5. Hybrid search
+    // 6. Hybrid search
     std::vector<std::unordered_map<std::pair<int, int>, int, PairHash>> found;
     int node_count = 0;
     bool timed_out = false;
@@ -62,7 +181,7 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
                      node_count, max_nodes, seed_offset, timed_out);
     }
     
-    // 6. Restore original solution
+    // 7. Restore original solution
     {
         PROFILE_SCOPE("Uniqueness_Restore", board_->logger);
         for (Cell* c : board_->white_cells) {
@@ -190,32 +309,39 @@ void HybridUniquenessChecker::hybrid_search(
     }
     node_count++;
     
-    // Find first unassigned cell using MRV (minimum remaining values)
+    // Find first cell with candidates remaining
+    // We use the candidate map, NOT cell->value, to determine what needs assignment
     Cell* var = nullptr;
     int min_candidates = 10;
     
     for (Cell* c : board_->white_cells) {
-        if (!c->value.has_value()) {
-            int candidate_count = count_set_bits(candidates[c]);
-            
-            if (candidate_count == 0) return; // Dead end
-            
-            if (candidate_count < min_candidates) {
-                min_candidates = candidate_count;
-                var = c;
-            }
-            
-            if (min_candidates == 1) break; // Can't do better
+        int candidate_count = count_set_bits(candidates[c]);
+        
+        if (candidate_count == 0) {
+            // This cell has been assigned (candidates pruned to 0)
+            continue;
         }
+        
+        if (candidate_count < min_candidates) {
+            min_candidates = candidate_count;
+            var = c;
+        }
+        
+        if (min_candidates == 1) break; // Can't do better
     }
     
-    // All cells assigned - check if solution is different
+    // All cells have 0 candidates remaining - we have a complete assignment
     if (!var) {
+        // Build the solution from cell values
         std::unordered_map<std::pair<int, int>, int, PairHash> sol;
         bool is_different = false;
         
         for (Cell* c : board_->white_cells) {
-            int val = c->value.value_or(0);
+            if (!c->value.has_value()) {
+                // This shouldn't happen - all cells should be assigned
+                return;
+            }
+            int val = *c->value;
             sol[{c->r, c->c}] = val;
             if (val != avoid_sol.at({c->r, c->c})) {
                 is_different = true;
@@ -237,18 +363,18 @@ void HybridUniquenessChecker::hybrid_search(
                    [avoid_val](int v) { return v != avoid_val; });
     
     for (int val : values) {
-        // Make assignment
+        // Make assignment to the actual cell
         var->value = val;
         
         // Save the original candidate mask for var
         uint16_t var_orig_mask = candidates[var];
         
-        // OPTIMIZED: Use stack-based saved state instead of full map copy
+        // OPTIMIZED: Use stack-based saved state
         std::vector<std::pair<Cell*, uint16_t>> saved_candidates;
-        saved_candidates.reserve(20); // Typical sector size
+        saved_candidates.reserve(20);
         
         uint16_t val_mask = (1 << val);
-        candidates[var] = val_mask;
+        candidates[var] = 0; // Mark as fully assigned (no candidates left)
         
         // Forward checking: Update neighbors and check for conflicts
         bool conflict = false;
@@ -256,18 +382,28 @@ void HybridUniquenessChecker::hybrid_search(
         // Update horizontal neighbors
         if (!conflict && var->sector_h) {
             for (Cell* n : *(var->sector_h)) {
-                if (n != var && !n->value.has_value()) {
-                    uint16_t old_mask = candidates[n];
-                    uint16_t new_mask = old_mask & ~val_mask;
+                if (n == var) continue;
+                
+                uint16_t old_mask = candidates[n];
+                if (old_mask == 0) {
+                // Already assigned - check for conflict
+                    if (n->value.has_value() && *n->value == val) {
+                        conflict = true;
+                        break;
+                    }
+                    continue;
+                }
+                
+                uint16_t new_mask = old_mask & ~val_mask;
+                
+                if (new_mask != old_mask) {
+                    saved_candidates.push_back({n, old_mask});
+                    candidates[n] = new_mask;
                     
-                    if (new_mask != old_mask) {
-                        saved_candidates.push_back({n, old_mask});
-                        candidates[n] = new_mask;
-                        
-                        if (new_mask == 0) {
-                            conflict = true;
-                            break;
-                        }
+                    // Conflict only if no candidates left and not yet assigned
+                    if (new_mask == 0) {
+                        conflict = true;
+                        break;
                     }
                 }
             }
@@ -276,18 +412,27 @@ void HybridUniquenessChecker::hybrid_search(
         // Update vertical neighbors
         if (!conflict && var->sector_v) {
             for (Cell* n : *(var->sector_v)) {
-                if (n != var && !n->value.has_value()) {
-                    uint16_t old_mask = candidates[n];
-                    uint16_t new_mask = old_mask & ~val_mask;
+                if (n == var) continue;
+                
+                uint16_t old_mask = candidates[n];
+                if (old_mask == 0) {
+                    // Already assigned - check for conflict
+                    if (n->value.has_value() && *n->value == val) {
+                        conflict = true;
+                        break;
+                    }
+                    continue;
+                }
+                
+                uint16_t new_mask = old_mask & ~val_mask;
+                
+                if (new_mask != old_mask) {
+                    saved_candidates.push_back({n, old_mask});
+                    candidates[n] = new_mask;
                     
-                    if (new_mask != old_mask) {
-                        saved_candidates.push_back({n, old_mask});
-                        candidates[n] = new_mask;
-                        
-                        if (new_mask == 0) {
-                            conflict = true;
-                            break;
-                        }
+                    if (new_mask == 0) {
+                        conflict = true;
+                        break;
                     }
                 }
             }

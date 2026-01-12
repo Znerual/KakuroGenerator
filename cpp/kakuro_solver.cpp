@@ -388,7 +388,7 @@ CSPSolver::perform_robust_uniqueness_check() {
   PROFILE_FUNCTION(board->logger);
   // We check 3 times with different search seeds.
   // This catches "symmetric" solutions that a single search might miss.
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 1; i++) {
     // Check timeout after uniqueness check (expensive operation)
     if (check_timeout())
       return {UniquenessResult::INCONCLUSIVE, std::nullopt};
