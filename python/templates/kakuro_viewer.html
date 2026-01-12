@@ -551,10 +551,52 @@
             display: inline-block;
             margin-bottom: 10px;
         }
+
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(5px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid var(--color-topology);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loadingMsg {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
     </style>
 </head>
 
 <body>
+
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingMsg">Loading...</div>
+    </div>
 
     <aside>
         <h1>Kakuro Genius</h1>
@@ -718,6 +760,18 @@
                 style="display:none; margin-top:0.5rem; color: var(--color-unique); font-size: 0.8rem; font-weight: bold;">
                 ⚠ Alternative Solution Found
             </div>
+            <div id="clusterControls" style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
+                <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-unique);">
+                    ALTERNATIVE SOLUTIONS (<span id="solutionCount">0</span>)</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn" style="width:30px; height:30px; font-size: 1rem;" onclick="changeSolution(-1)">←</button>
+                    <div style="flex: 1; text-align: center;">
+                        <span id="currentSolutionIdx" style="font-weight: bold;">1</span> / <span id="totalSolutions">1</span>
+                        <div id="solutionDiff" style="font-size: 0.7rem; color: var(--text-secondary);">Diff: 0 cells</div>
+                    </div>
+                    <button class="btn" style="width:30px; height:30px; font-size: 1rem;" onclick="changeSolution(1)">→</button>
+                </div>
+            </div>
             <div id="scoreData"
                 style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
                 <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-secondary);">
@@ -789,7 +843,8 @@
             'af': 'alternative_found',
             'ra': 'repair_attempt',
             'ls': 'logic_step',
-            'tm': 'timing'
+            'tm': 'timing',
+            'uniqueness_cluster': 'uniqueness_cluster'
         };
 
         const STAGE_COLORS = {
@@ -806,7 +861,8 @@
             'alternative_found': '⚡',
             'validation_failed': '❌',
             'start': '🏁',
-            'complete': '✅'
+            'complete': '✅',
+            'uniqueness_cluster': '📑'
         };
 
         function decodeStep(step) {
@@ -890,6 +946,25 @@
                 delete decoded.data.cs;
             }
 
+            if (decoded.substage === 'uniqueness_cluster') {
+                decoded.data.attempts = step.d.attempts;
+                decoded.data.solutions = step.d.solutions.map(s => {
+                    const altGrid = Array.from({ length: height }, () =>
+                        Array.from({ length: width }, () => ({ type: 'BLOCK', value: 0 }))
+                    );
+                    s.ag.forEach(([r, c, v]) => {
+                        if (altGrid[r] && altGrid[r][c]) {
+                            altGrid[r][c] = { type: 'WHITE', value: v };
+                        }
+                    });
+                    return {
+                        alternative_grid: altGrid,
+                        highlighted_cells: s.hc,
+                        diff_count: s.diff_count
+                    };
+                });
+            }
+
             return decoded;
         }
 
@@ -910,6 +985,11 @@
 
         function loadLog(filename) {
             if (!filename) return;
+            const overlay = document.getElementById('loadingOverlay');
+            const msg = document.getElementById('loadingMsg');
+            overlay.style.display = 'flex';
+            msg.innerText = 'Fetching & Optimizing Log...';
+
             fetch(`/api/logs/${filename}`)
                 .then(r => r.json())
                 .then(data => {
@@ -926,7 +1006,10 @@
                     buildTimelineUI();
                     updateUI();
                 })
-                .catch(err => alert("Error loading log: " + err));
+                .catch(err => alert("Error loading log: " + err))
+                .finally(() => {
+                    overlay.style.display = 'none';
+                });
         }
 
         // Transform flat steps into hierarchical groups
@@ -1080,6 +1163,30 @@
             // Slider
             document.getElementById('timeline').max = currentLogData.length - 1;
             document.getElementById('timeline').value = currentStepIndex;
+
+            // Cluster Controls
+            const clusterControls = document.getElementById('clusterControls');
+            if (step.substage === 'uniqueness_cluster') {
+                clusterControls.style.display = 'block';
+                const sols = step.data.solutions;
+                document.getElementById('solutionCount').innerText = sols.length;
+                document.getElementById('totalSolutions').innerText = sols.length;
+                
+                if (window.selectedSolutionIndex === undefined || window.selectedSolutionIndex >= sols.length) {
+                    window.selectedSolutionIndex = 0;
+                }
+                
+                document.getElementById('currentSolutionIdx').innerText = window.selectedSolutionIndex + 1;
+                document.getElementById('solutionDiff').innerText = `Diff: ${sols[window.selectedSolutionIndex].diff_count} cells`;
+                
+                // Temporary override for renderGrid
+                const currentSol = sols[window.selectedSolutionIndex];
+                step.data.alternative_grid = currentSol.alternative_grid;
+                step.data.highlighted_cells = currentSol.highlighted_cells;
+            } else {
+                clusterControls.style.display = 'none';
+                window.selectedSolutionIndex = 0;
+            }
 
             const dash = document.getElementById('difficultyDashboard');
             if (step.stage === 'Summary Report' && step.difficulty) {
@@ -1341,6 +1448,16 @@
             else startPlay();
         }
 
+        window.selectedSolutionIndex = 0;
+        function changeSolution(delta) {
+            const step = currentLogData[currentStepIndex];
+            if (step.substage !== 'uniqueness_cluster') return;
+            
+            const sols = step.data.solutions;
+            window.selectedSolutionIndex = (window.selectedSolutionIndex + delta + sols.length) % sols.length;
+            updateUI();
+        }
+
         function startPlay() {
             if (!currentLogData) return;
             isPlaying = true;
@@ -1364,6 +1481,11 @@
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerText = 'Generating...';
+
+            const overlay = document.getElementById('loadingOverlay');
+            const msg = document.getElementById('loadingMsg');
+            overlay.style.display = 'flex';
+            msg.innerText = 'Generating Puzzle (this may take a while)...';
 
             const topoParams = {
                 difficulty: document.getElementById('genTopoDiff').value,
@@ -1440,6 +1562,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerText = 'Generate Puzzle';
+                overlay.style.display = 'none';
             }
         }
 
