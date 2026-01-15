@@ -1644,7 +1644,7 @@ function renderStars() {
         star.textContent = '★';
         star.dataset.rating = i;
         if (i <= state.rating) {
-            star.classList.add('filled');
+            star.classList.add('active');
         }
         star.addEventListener('click', () => setRating(i));
         star.addEventListener('mouseenter', () => highlightStars(i));
@@ -1662,9 +1662,9 @@ function highlightStars(count) {
     const stars = document.querySelectorAll('.star');
     stars.forEach((star, index) => {
         if (index < count) {
-            star.classList.add('filled');
+            star.classList.add('active');
         } else {
-            star.classList.remove('filled');
+            star.classList.remove('active');
         }
     });
 }

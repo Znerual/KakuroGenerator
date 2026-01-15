@@ -1290,12 +1290,15 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     filter: grayscale(1);
+    color: var(--text-dim);
 }
 
 .star:hover,
 .star.active {
     filter: grayscale(0);
     transform: scale(1.1);
+    color: #ffca28; /* Golden Yellow */
+    text-shadow: 0 0 10px rgba(255, 202, 40, 0.3);
 }
 
 .rating-comment-box {
