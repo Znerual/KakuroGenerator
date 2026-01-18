@@ -164,7 +164,7 @@ void KakuroDifficultyEstimator::run_solve_loop(CandidateMap &candidates,
   // Only if logic is stuck, try one level of bifurcation
   bool solved = true;
   for (auto *c : board->white_cells)
-    if (count_set_bits(candidates[c]) > 1)
+    if (popcount9(candidates[c]) > 1)
       solved = false;
 
   if (!solved && !silent && !is_limit_exceeded()) {
@@ -213,7 +213,7 @@ bool KakuroDifficultyEstimator::find_hidden_singles(CandidateMap &candidates,
           target = c;
         }
       }
-      if (count == 1 && count_set_bits(candidates.at(target)) > 1) {
+      if (count == 1 && popcount9(candidates.at(target)) > 1) {
         candidates[target] = (1 << v);
         affected++;
       }
@@ -226,7 +226,7 @@ bool KakuroDifficultyEstimator::find_hidden_singles(CandidateMap &candidates,
       if (board->logger->is_enabled()) {
         std::unordered_map<Cell *, int> viz_map;
         for (auto &[c, m] : candidates) {
-          if (count_set_bits(m) == 1)
+          if (popcount9(m) == 1)
             viz_map[c] = mask_to_digit(m);
         }
         board->logger->log_step(
@@ -250,7 +250,7 @@ bool KakuroDifficultyEstimator::find_naked_singles(CandidateMap &candidates,
 
   int newly_solved = 0;
   for (auto *c : board->white_cells) {
-    if (count_set_bits(candidates.at(c)) == 1 &&
+    if (popcount9(candidates.at(c)) == 1 &&
         logged_singles.find(c) == logged_singles.end()) {
       if (!silent)
         logged_singles.insert(c);
@@ -263,7 +263,7 @@ bool KakuroDifficultyEstimator::find_naked_singles(CandidateMap &candidates,
     if (board->logger->is_enabled()) {
       std::unordered_map<Cell *, int> viz_map;
       for (auto &[c, m] : candidates) {
-        if (count_set_bits(m) == 1)
+        if (popcount9(m) == 1)
           viz_map[c] = mask_to_digit(m);
       }
       board->logger->log_step(
@@ -356,11 +356,11 @@ bool KakuroDifficultyEstimator::apply_sector_constraints(
   // have it.
   uint16_t solved_mask = 0;
   for (auto *c : sec.cells) {
-    if (count_set_bits(candidates[c]) == 1)
+    if (popcount9(candidates[c]) == 1)
       solved_mask |= candidates[c];
   }
   for (auto *c : sec.cells) {
-    if (count_set_bits(candidates[c]) > 1) {
+    if (popcount9(candidates[c]) > 1) {
       uint16_t old = candidates[c];
       candidates[c] &= ~solved_mask;
       if (candidates[c] != old)
@@ -397,7 +397,7 @@ void KakuroDifficultyEstimator::discover_solutions(CandidateMap candidates,
   Cell *mrv = nullptr;
   int min_b = 10;
   for (auto *c : board->white_cells) {
-    int b = count_set_bits(candidates.at(c));
+    int b = popcount9(candidates.at(c));
     if (b > 1 && b < min_b) {
       min_b = b;
       mrv = c;
@@ -408,7 +408,7 @@ void KakuroDifficultyEstimator::discover_solutions(CandidateMap candidates,
     for (auto *c : board->white_cells) {
       int digit = mask_to_digit(candidates.at(c));
       if (digit == 0)
-        return; // Should not happen if count_set_bits was 1
+        return; // Should not happen if popcount9 was 1
       sol[c] = digit;
     }
     if (verify_math(sol)) {
@@ -451,7 +451,7 @@ bool KakuroDifficultyEstimator::find_unique_intersections(
   int affected = 0;
 
   for (auto *cell : board->white_cells) {
-    if (count_set_bits(candidates[cell]) <= 1)
+    if (popcount9(candidates[cell]) <= 1)
       continue;
 
     // O(1) Lookup: No more looping through all_sectors!
@@ -467,7 +467,7 @@ bool KakuroDifficultyEstimator::find_unique_intersections(
     if (new_candidates != candidates[cell]) {
       candidates[cell] = new_candidates;
       changed = true;
-      if (count_set_bits(new_candidates) == 1)
+      if (popcount9(new_candidates) == 1)
         affected++;
     }
   }
@@ -477,7 +477,7 @@ bool KakuroDifficultyEstimator::find_unique_intersections(
     if (board->logger->is_enabled()) {
       std::unordered_map<Cell *, int> viz_map;
       for (auto &[c, m] : candidates) {
-        if (count_set_bits(m) == 1)
+        if (popcount9(m) == 1)
           viz_map[c] = mask_to_digit(m);
       }
       board->logger->log_step(GenerationLogger::STAGE_DIFFICULTY,
@@ -517,7 +517,7 @@ bool KakuroDifficultyEstimator::apply_simple_partitions(
     if (board->logger->is_enabled()) {
       std::unordered_map<Cell *, int> viz_map;
       for (auto &[c, m] : candidates) {
-        if (count_set_bits(m) == 1)
+        if (popcount9(m) == 1)
           viz_map[c] = mask_to_digit(m);
       }
       board->logger->log_step(GenerationLogger::STAGE_DIFFICULTY,
@@ -548,7 +548,7 @@ bool KakuroDifficultyEstimator::apply_constraint_propagation(
     if (board->logger->is_enabled()) {
       std::unordered_map<Cell *, int> viz_map;
       for (auto &[c, m] : candidates) {
-        if (count_set_bits(m) == 1)
+        if (popcount9(m) == 1)
           viz_map[c] = mask_to_digit(m);
       }
       board->logger->log_step(
@@ -567,7 +567,7 @@ bool KakuroDifficultyEstimator::analyze_complex_intersections(
     CandidateMap &candidates, bool silent) {
   bool ch = false;
   for (auto *cell : board->white_cells) {
-    if (count_set_bits(candidates.at(cell)) <= 1)
+    if (popcount9(candidates.at(cell)) <= 1)
       continue;
     uint16_t mask = candidates.at(cell), valid = 0;
     for (int v = 1; v <= 9; ++v) {
@@ -607,7 +607,7 @@ bool KakuroDifficultyEstimator::analyze_complex_intersections(
     if (board->logger->is_enabled()) {
       std::unordered_map<Cell *, int> viz_map;
       for (auto &[c, m] : candidates) {
-        if (count_set_bits(m) == 1)
+        if (popcount9(m) == 1)
           viz_map[c] = mask_to_digit(m);
       }
       board->logger->log_step(GenerationLogger::STAGE_DIFFICULTY,
@@ -627,7 +627,7 @@ bool KakuroDifficultyEstimator::try_bifurcation(CandidateMap &candidates) {
   Cell *target = nullptr;
   int min_b = 10;
   for (auto *c : board->white_cells) {
-    int b = count_set_bits(candidates.at(c));
+    int b = popcount9(candidates.at(c));
     if (b > 1 && b < min_b) {
       min_b = b;
       target = c;
@@ -645,7 +645,7 @@ bool KakuroDifficultyEstimator::try_bifurcation(CandidateMap &candidates) {
       run_solve_loop(test, true);
       bool ok = true;
       for (auto *c : board->white_cells)
-        if (count_set_bits(test.at(c)) != 1) {
+        if (popcount9(test.at(c)) != 1) {
           ok = false;
           break;
         }
@@ -732,9 +732,6 @@ KakuroDifficultyEstimator::render_solution(
   return res;
 }
 
-int KakuroDifficultyEstimator::count_set_bits(uint16_t n) const {
-  return (int)std::bitset<16>(n).count();
-}
 float KakuroDifficultyEstimator::estimate_difficulty() {
   return estimate_difficulty_detailed().score;
 }
