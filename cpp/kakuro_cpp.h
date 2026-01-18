@@ -808,8 +808,15 @@ private:
     using CandidateMap = std::unordered_map<Cell*, uint16_t>;
     static constexpr uint16_t ALL_CANDIDATES = 0x3FE; // bits 1-9
     
+    // Result enum for logical steps
+    enum class ReductionResult {
+        NO_CHANGE,
+        CHANGED,
+        CONTRADICTION
+    };
+
     // Apply logical deduction to reduce search space
-    bool apply_logical_reduction(CandidateMap& candidates, 
+    ReductionResult apply_logical_reduction(CandidateMap& candidates, 
                                   const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol);
     
     // Hybrid search: logic first, then backtrack

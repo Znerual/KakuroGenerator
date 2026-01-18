@@ -158,13 +158,19 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
     
     {
         PROFILE_SCOPE("Uniqueness_LogicalReduction", board_->logger);
-        reduced = apply_logical_reduction(candidates, original_sol_coords);
+        ReductionResult result = apply_logical_reduction(candidates, original_sol_coords);
+        
+        if (result == ReductionResult::CHANGED) reduced = true;
         
         // Validation: Check for empty candidates (Contradiction)
-        for (auto& [c, m] : candidates) {
-            if (m == 0) {
-                logic_consistent = false;
-                break;
+        if (result == ReductionResult::CONTRADICTION) {
+            logic_consistent = false;
+        } else {
+             for (auto& [c, m] : candidates) {
+                if (m == 0) {
+                    logic_consistent = false;
+                    break;
+                }
             }
         }
     }
@@ -376,7 +382,8 @@ bool HybridUniquenessChecker::can_match_values_to_cells_recursive(
     return false; // Couldn't assign all values
 }
 
-bool HybridUniquenessChecker::apply_logical_reduction(
+
+HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_reduction(
     CandidateMap& candidates,
     const std::unordered_map<std::pair<int, int>, int, PairHash>& avoid_sol) {
     
@@ -418,7 +425,8 @@ bool HybridUniquenessChecker::apply_logical_reduction(
     // (We need to jump to the loop to insert the call)
 
 
-    auto apply_partition_pruning = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz) {
+
+    auto apply_partition_pruning = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz) -> ReductionResult {
         bool local_change = false;
         for (const auto& sector : sectors) {
             if (sector->empty()) continue;
@@ -438,7 +446,7 @@ bool HybridUniquenessChecker::apply_logical_reduction(
             
             if (valid_partitions.empty()) {
                 for(Cell* c : *sector) candidates[c] = 0;
-                return false; 
+                return ReductionResult::CONTRADICTION; 
             }
             
             for (int cell_idx = 0; cell_idx < len; cell_idx++) {
@@ -479,11 +487,12 @@ bool HybridUniquenessChecker::apply_logical_reduction(
                 if (new_mask != old_mask) {
                     candidates[c] = new_mask;
                     local_change = true;
-                    if (new_mask == 0) return false; // Contradiction
+                    if (new_mask == 0) return ReductionResult::CONTRADICTION; // Contradiction
                 }
             }
         }
-        return local_change; 
+
+        return local_change ? ReductionResult::CHANGED : ReductionResult::NO_CHANGE; 
     };
 
 
@@ -588,13 +597,19 @@ bool HybridUniquenessChecker::apply_logical_reduction(
 
             // 3. Partition Pruning (Moved to end of loop as requested)
             // Check returned false if contradiction occurred inside
-            if (apply_partition_pruning(board_->sectors_h, true)) changed = true;
+            // 3. Partition Pruning (Moved to end of loop as requested)
+            // Check returned false if contradiction occurred inside
+            ReductionResult h_res = apply_partition_pruning(board_->sectors_h, true);
+            if (h_res == ReductionResult::CONTRADICTION) goto contradiction;
+            if (h_res == ReductionResult::CHANGED) changed = true;
             else {
                 // Check for actual contradiction (empty mask)
-                for(auto c : board_->white_cells) if(candidates[c] == 0) goto contradiction;
+                 for(auto c : board_->white_cells) if(candidates[c] == 0) goto contradiction;
             }
 
-            if (apply_partition_pruning(board_->sectors_v, false)) changed = true;
+            ReductionResult v_res = apply_partition_pruning(board_->sectors_v, false);
+            if (v_res == ReductionResult::CONTRADICTION) goto contradiction;
+            if (v_res == ReductionResult::CHANGED) changed = true;
             else {
                 for(auto c : board_->white_cells) if(candidates[c] == 0) goto contradiction;
             }
@@ -603,12 +618,12 @@ bool HybridUniquenessChecker::apply_logical_reduction(
             any_change = true;
         }
         
-        return any_change;
+        return any_change ? ReductionResult::CHANGED : ReductionResult::NO_CHANGE;
 
 contradiction:
     // Restore logic state values on contradiction
     for(auto& p : local_val_backup) p.first->value = p.second;
-    return false; // Actually implies failure/contradiction in this context
+    return ReductionResult::CONTRADICTION;
 }
 
 void HybridUniquenessChecker::hybrid_search(
