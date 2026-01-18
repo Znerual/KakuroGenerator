@@ -835,8 +835,7 @@ private:
     // Check if a value is valid given current partial solution
     bool is_valid_with_candidates(Cell* cell, int val, const CandidateMap& candidates);
     bool can_assign_partition_to_sector(const std::vector<int>& partition, const std::vector<Cell*>& sector, const CandidateMap& candidates, int fixed_cell_idx, int fixed_val);
-    bool can_match_values_to_cells(std::vector<int> values, const std::vector<Cell*>& sector, const CandidateMap& candidates, int skip_cell_idx);
-    bool can_match_values_to_cells_recursive(const std::vector<int>& values, const std::vector<Cell*>& sector, const CandidateMap& candidates, int skip_cell_idx, const std::unordered_set<int>& used_cell_indices);
+    bool can_match_values_to_cells(const std::vector<int>& values, const std::vector<Cell*>& sector, const CandidateMap& candidates, int used_mask);
 };
 
 } // namespace kakuro

@@ -303,38 +303,43 @@ bool HybridUniquenessChecker::can_assign_partition_to_sector(
     if (it == partition_copy.end()) return false; // fixed_val not in partition
     partition_copy.erase(it);
     
-    // Try to assign remaining partition values to remaining cells
-    // Use backtracking to check if a valid assignment exists
-    return can_match_values_to_cells(partition_copy, sector, candidates, fixed_cell_idx);
+    // Use bitmask for used cells (sector size <= 9)
+    // fixed_cell_idx is already 'used'
+    int used_mask = (1 << fixed_cell_idx);
+    
+    return can_match_values_to_cells(partition_copy, sector, candidates, used_mask);
 }
 
 bool HybridUniquenessChecker::can_match_values_to_cells(
-    std::vector<int> values,
+    const std::vector<int>& values,
     const std::vector<Cell*>& sector,
     const CandidateMap& candidates,
-    int skip_cell_idx) {
+    int used_mask) {
     
     if (values.empty()) return true; // All values assigned
     
-    // Try to assign first value to any compatible cell
     int val = values[0];
+    
+    // We pass slice of values by index/pointer to avoid copying vector every time? 
+    // Actually, vector copy for size < 9 is very fast (simd). Keeping it simple.
     std::vector<int> remaining_values(values.begin() + 1, values.end());
     
     for (int i = 0; i < sector.size(); i++) {
-        if (i == skip_cell_idx) continue; // Skip the fixed cell
+        if (used_mask & (1 << i)) continue; // Skip used cells
         
         Cell* cell = sector[i];
+        
+        // Strict check: if cell has a value, it MUST match 'val'. 
+        // If it matches 'val', we are good. If it has a DIFFERENT value, we can't use this cell for 'val'.
         if (cell->value.has_value() && *cell->value != val) {
             continue;
         }
+        
         uint16_t mask = candidates.at(cell);
         
-        // Can this cell take this value?
+        // standard candidate check
         if (mask & (1 << val)) {
-            // Try assigning it and recurse
-            // Need to prevent reusing this cell for other values
-            std::unordered_set<int> used = {i};
-            if (can_match_values_to_cells_recursive(remaining_values, sector, candidates, skip_cell_idx, used)) {
+            if (can_match_values_to_cells(remaining_values, sector, candidates, used_mask | (1 << i))) {
                 return true;
             }
         }
@@ -343,44 +348,6 @@ bool HybridUniquenessChecker::can_match_values_to_cells(
     return false;
 }
 
-bool HybridUniquenessChecker::can_match_values_to_cells_recursive(
-    const std::vector<int>& values,
-    const std::vector<Cell*>& sector,
-    const CandidateMap& candidates,
-    int skip_cell_idx,
-    const std::unordered_set<int>& used_cell_indices) {
-    
-    if (values.empty()) return true; // All values successfully assigned
-    
-    // Try to assign first value to any compatible unused cell
-    int val = values[0];
-    std::vector<int> remaining_values(values.begin() + 1, values.end());
-    
-    for (int i = 0; i < sector.size(); i++) {
-        // Skip the fixed cell and already-used cells
-        if (i == skip_cell_idx || used_cell_indices.count(i)) continue;
-        
-        Cell* cell = sector[i];
-        if (cell->value.has_value() && *cell->value != val) {
-            continue;
-        }
-
-        uint16_t mask = candidates.at(cell);
-        
-        // Can this cell take this value?
-        if (mask & (1 << val)) {
-            // Mark this cell as used and recurse
-            std::unordered_set<int> new_used = used_cell_indices;
-            new_used.insert(i);
-            
-            if (can_match_values_to_cells_recursive(remaining_values, sector, candidates, skip_cell_idx, new_used)) {
-                return true;
-            }
-        }
-    }
-    
-    return false; // Couldn't assign all values
-}
 
 
 HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_reduction(
