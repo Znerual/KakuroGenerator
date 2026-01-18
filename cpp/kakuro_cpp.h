@@ -21,15 +21,30 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <array>
+#include <queue>
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 namespace kakuro {
+
+inline int popcount9(uint16_t mask) {
+    mask &= 0b1111111110; // bits 1..9 only
+#ifdef _MSC_VER
+    return __popcnt16(mask);
+#else
+    return __builtin_popcount(mask);
+#endif
+}
 
 // ============================================================================
 // LOGGING CONFIGURATION
 // Set to 1 to enable detailed generation logging, 0 to disable
 // ============================================================================
 #define KAKURO_ENABLE_LOGGING 1
-
+#define KAKURO_ENABLE_PROFILE_LOGGING 0
 #define LOG_DEBUG(msg)                                                         \
   do {                                                                         \
   } while (0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[DEBUG] " << msg
@@ -38,9 +53,7 @@ namespace kakuro {
   do {                                                                         \
   } while (0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[INFO] " << msg <<
               // std::endl; } } while (0)
-#define LOG_ERROR(msg)                                                         \
-  do {                                                                         \
-  } while (0) // { std::cerr << "[ERROR] " << msg << std::endl; }
+#define LOG_ERROR(msg) do { std::cerr << "[ERROR] " << msg << std::endl; } while(0)
 
 // ============================================================================
 // GENERATION LOGGER - Structured JSON logging for visualization
@@ -407,7 +420,7 @@ public:
   }
 
   void log_profile(const std::string &name, double duration_ms) {
-#if KAKURO_ENABLE_LOGGING
+#if KAKURO_ENABLE_PROFILE_LOGGING
     if (!enabled_ || !prof_file_.is_open())
       return;
 
@@ -745,16 +758,15 @@ private:
   std::optional<int> get_clue(const std::vector<Cell *> &sector, bool is_horz);
   std::vector<std::vector<int>> get_partitions(int sum, int len);
   uint16_t get_partition_bits(int sum, int len);
-  int count_set_bits(uint16_t n) const;
   bool verify_math(const std::unordered_map<Cell *, int> &sol) const;
   std::vector<std::vector<std::optional<int>>>
   render_solution(const std::unordered_map<Cell *, int> &sol) const;
 
   // Avoid getting stuck
   long long nodes_explored = 0;
-  const long long MAX_NODES = 50000000; // Adjust based on desired effort
+  const long long MAX_NODES = 100000000; // Adjust based on desired effort
   std::chrono::steady_clock::time_point start_time;
-  const double TIME_LIMIT_SEC = 5.0;
+  const double TIME_LIMIT_SEC = 8.0;
   bool search_aborted = false;
 
   bool is_limit_exceeded() {
@@ -812,10 +824,12 @@ private:
     
     // Convert between bitmask and vector
     std::vector<int> mask_to_values(uint16_t mask) const;
-    int count_set_bits(uint16_t mask) const;
     
     // Check if a value is valid given current partial solution
     bool is_valid_with_candidates(Cell* cell, int val, const CandidateMap& candidates);
+    bool can_assign_partition_to_sector(const std::vector<int>& partition, const std::vector<Cell*>& sector, const CandidateMap& candidates, int fixed_cell_idx, int fixed_val);
+    bool can_match_values_to_cells(std::vector<int> values, const std::vector<Cell*>& sector, const CandidateMap& candidates, int skip_cell_idx);
+    bool can_match_values_to_cells_recursive(const std::vector<int>& values, const std::vector<Cell*>& sector, const CandidateMap& candidates, int skip_cell_idx, const std::unordered_set<int>& used_cell_indices);
 };
 
 } // namespace kakuro
