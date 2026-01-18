@@ -238,10 +238,12 @@
             margin-top: 1rem;
             border-top: 1px solid var(--grid-line);
             padding-top: 0.5rem;
-            max-height: 60vh; /* Dynamic height based on screen */
+            max-height: 60vh;
+            /* Dynamic height based on screen */
             overflow-y: auto;
-            min-width: 450px; /* Significantly wider */
-            background: rgba(15, 23, 42, 0.5); 
+            min-width: 450px;
+            /* Significantly wider */
+            background: rgba(15, 23, 42, 0.5);
             border-radius: 4px;
         }
 
@@ -250,14 +252,17 @@
             width: 8px;
             height: 8px;
         }
+
         .profiling-container::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.2);
             border-radius: 4px;
         }
+
         .profiling-container::-webkit-scrollbar-thumb {
             background: var(--grid-line);
             border-radius: 4px;
         }
+
         .profiling-container::-webkit-scrollbar-thumb:hover {
             background: var(--text-secondary);
         }
@@ -266,7 +271,8 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            font-size: 0.75rem; /* Slightly larger text */
+            font-size: 0.75rem;
+            /* Slightly larger text */
             font-family: 'JetBrains Mono', 'Consolas', monospace;
         }
 
@@ -277,7 +283,8 @@
             padding: 8px 6px;
             position: sticky;
             top: 0;
-            background: #1e293b; /* Match panel bg so it covers scrolling content */
+            background: #1e293b;
+            /* Match panel bg so it covers scrolling content */
             z-index: 2;
             font-weight: 600;
         }
@@ -294,10 +301,20 @@
         }
 
         /* Column Specifics */
-        .col-op { width: 40%; }
-        .col-num { text-align: right; width: 15%; }
-        .col-bar { text-align: right; width: 25%; }
-        
+        .col-op {
+            width: 40%;
+        }
+
+        .col-num {
+            text-align: right;
+            width: 15%;
+        }
+
+        .col-bar {
+            text-align: right;
+            width: 25%;
+        }
+
         /* Operation Name Truncation */
         .op-name {
             display: block;
@@ -306,16 +323,16 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        
+
         .perf-bar-bg {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             height: 4px;
             width: 50px;
             border-radius: 2px;
             display: inline-block;
             margin-left: 5px;
         }
-        
+
         .perf-bar-fill {
             height: 100%;
             background: var(--color-difficulty);
@@ -669,8 +686,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         #loadingMsg {
@@ -802,7 +824,8 @@
             </div>
         </details>
 
-        <div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+        <div
+            style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary);">
             <input type="checkbox" id="showProfiling" onchange="loadLog(document.getElementById('fileSelect').value)">
             <label for="showProfiling" style="cursor: pointer;">Include Profiling Info</label>
         </div>
@@ -856,16 +879,21 @@
                 ⚠ Alternative Solution Found
             </div>
 
-            <div id="clusterControls" style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
+            <div id="clusterControls"
+                style="display:none; margin-top: 1rem; border-top: 1px solid var(--grid-line); padding-top: 0.5rem;">
                 <div style="font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-unique);">
                     ALTERNATIVE SOLUTIONS (<span id="solutionCount">0</span>)</div>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <button class="btn" style="width:30px; height:30px; font-size: 1rem;" onclick="changeSolution(-1)">←</button>
+                    <button class="btn" style="width:30px; height:30px; font-size: 1rem;"
+                        onclick="changeSolution(-1)">←</button>
                     <div style="flex: 1; text-align: center;">
-                        <span id="currentSolutionIdx" style="font-weight: bold;">1</span> / <span id="totalSolutions">1</span>
-                        <div id="solutionDiff" style="font-size: 0.7rem; color: var(--text-secondary);">Diff: 0 cells</div>
+                        <span id="currentSolutionIdx" style="font-weight: bold;">1</span> / <span
+                            id="totalSolutions">1</span>
+                        <div id="solutionDiff" style="font-size: 0.7rem; color: var(--text-secondary);">Diff: 0 cells
+                        </div>
                     </div>
-                    <button class="btn" style="width:30px; height:30px; font-size: 1rem;" onclick="changeSolution(1)">→</button>
+                    <button class="btn" style="width:30px; height:30px; font-size: 1rem;"
+                        onclick="changeSolution(1)">→</button>
                 </div>
             </div>
 
@@ -1112,6 +1140,9 @@
             fetch(url)
                 .then(r => r.json())
                 .then(data => {
+                    if (!data.steps) {
+                        throw new Error(data.detail || "Invalid log format: 'steps' property is missing.");
+                    }
                     currentLogData = data.steps.map(decodeStep);
                     currentStepIndex = 0;
 
@@ -1138,6 +1169,7 @@
 
             if (!currentLogData.length) return;
 
+            const showProfiling = document.getElementById('showProfiling').checked;
             let currentStage = null;
             let groupDetails = null;
             let lastNormalStepEl = null;
@@ -1160,7 +1192,10 @@
                     lastNormalStepEl = null;
                 }
 
+                // Skip profiling sub-steps if profiling is disabled
                 if (step.stage === 'performance_profile') {
+                    if (!showProfiling) return; // Skip if profiling is disabled
+
                     if (lastNormalStepEl) {
                         let subContainer = lastNormalStepEl.querySelector('.sub-profiles');
                         if (!subContainer) {
@@ -1208,10 +1243,15 @@
                         const extraClass = step.substage === 'backtrack' ? 'tag-backtrack' :
                             step.substage === 'alternative_found' ? 'tag-alt' : '';
 
+                        // Only show duration if profiling is enabled
+                        const durationHtml = showProfiling && step.dur !== undefined
+                            ? `<div class="step-dur">${step.dur.toFixed(1)}ms</div>`
+                            : '';
+
                         el.innerHTML = `
                         <div class="step-header-row" style="display:flex; justify-content:space-between; align-items:center;">
                             <div class="step-substage ${extraClass}">${icon} ${formatLabel(step.substage)}</div>
-                            ${step.dur !== undefined ? `<div class="step-dur">${step.dur.toFixed(1)}ms</div>` : ''}
+                            ${durationHtml}
                         </div>
                         <div class="step-msg">${step.message}</div>
                     `;
@@ -1268,7 +1308,8 @@
             document.getElementById('currentStepNum').innerText = currentStepIndex;
             document.getElementById('totalSteps').innerText = currentLogData.length - 1;
 
-            if (step.dur !== undefined) {
+            const showProfiling = document.getElementById('showProfiling').checked;
+            if (showProfiling && step.dur !== undefined) {
                 document.getElementById('messageLabel').innerHTML = step.message +
                     ` <span style="color:var(--text-secondary); font-size:0.8rem; margin-left:8px;">(${step.dur.toFixed(2)}ms)</span>`;
             } else {
@@ -1291,15 +1332,15 @@
                 const sols = step.data.solutions || [];
                 document.getElementById('solutionCount').innerText = sols.length;
                 document.getElementById('totalSolutions').innerText = sols.length;
-                
+
                 if (window.selectedSolutionIndex === undefined || window.selectedSolutionIndex >= sols.length) {
                     window.selectedSolutionIndex = 0;
                 }
-                
+
                 document.getElementById('currentSolutionIdx').innerText = window.selectedSolutionIndex + 1;
                 const currentSol = sols[window.selectedSolutionIndex] || {};
                 document.getElementById('solutionDiff').innerText = `Diff: ${currentSol.diff_count || 0} cells`;
-                
+
                 // Temporary override for renderGrid
                 step.data.alternative_grid = currentSol.alternative_grid;
                 step.data.highlighted_cells = currentSol.highlighted_cells;
@@ -1336,7 +1377,7 @@
             }
 
             // Profiling Data
-            
+
 
             // Grid
             renderGrid(step);
@@ -1354,20 +1395,20 @@
                 profDiv.style.display = 'block';
                 const tbody = document.getElementById('profilingTableBody');
                 tbody.innerHTML = '';
-                
+
                 const maxTotal = Math.max(...step.data.stats.map(s => s.total_ms));
-                
+
                 step.data.stats.forEach(s => {
                     const tr = document.createElement('tr');
 
                     // Clean up the name: Remove "Profile: " and underscores
                     const cleanName = s.operation
                         .replace('Profile: ', '')
-                        .replace(/_/g, ' '); 
+                        .replace(/_/g, ' ');
 
                     const widthPct = (s.total_ms / maxTotal) * 100;
                     const barColor = widthPct > 20 ? 'var(--color-error)' : 'var(--color-filling)';
-                    
+
                     tr.innerHTML = `
                         <td title="${cleanName}">
                             <span class="op-name">${cleanName}</span>
@@ -1619,7 +1660,7 @@
         function changeSolution(delta) {
             const step = currentLogData[currentStepIndex];
             if (step.substage !== 'uniqueness_cluster') return;
-            
+
             const sols = step.data.solutions;
             window.selectedSolutionIndex = (window.selectedSolutionIndex + delta + sols.length) % sols.length;
             updateUI();

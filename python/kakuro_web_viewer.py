@@ -86,19 +86,18 @@ async def generate_puzzle_endpoint(req: GenerateRequest):
                 if cell["type"] == "WHITE":
                     final_grid_log.append([r, c, cell.get("value") or 0])
 
-        filename = f"{kakuro_id}.json"
+        # Try to find the actual log file (could be .json or .jsonl from C++)
+        filename = f"{kakuro_id}.jsonl"
         log_path = os.path.join(LOG_DIR, filename)
+        if not os.path.exists(log_path):
+            filename = f"{kakuro_id}.json"
+            log_path = os.path.join(LOG_DIR, filename)
 
         # 3. Explicitly close the C++ logger if your wrapper allows, 
         # or wait for board object destruction. 
         # Then, append the summary to the log file.
         if os.path.exists(log_path):
-            with open(log_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                # If the C++ logger crashed or didn't close ']', fix it
-                if not content.endswith("]"):
-                    content += "\n]"
-                data = json.loads(content)
+            data = load_log_robust(log_path)
             
             # Add a special "summary" entry
             summary_entry = {
@@ -115,7 +114,7 @@ async def generate_puzzle_endpoint(req: GenerateRequest):
             
             save_log_jsonl(log_path, data)
 
-        return {"success": True, "kakuro_id": kakuro_id, "filename": f"{kakuro_id}.json"}
+        return {"success": True, "kakuro_id": kakuro_id, "filename": filename}
     except Exception as e:
         print(f"Error generating puzzle: {e}")
         raise HTTPException(status_code=500, detail=str(e))
