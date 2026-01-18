@@ -274,6 +274,60 @@ bool CSPSolver::attempt_fill_and_validate(const FillParams &params) {
         LOG_DEBUG("=== SUCCESS! Unique " << diff.rating << " puzzle ===");
         return true;
       }
+      
+      LOG_DEBUG("Uniqueness mismatch: Hybrid solver found unique, but Estimator found " 
+                << diff.solution_count << " solutions.");
+#if KAKURO_ENABLE_LOGGING
+      if (board->logger->is_enabled()) {
+          if (diff.solution_count > 1 && !diff.solutions.empty()) {
+              std::vector<std::pair<int, int>> highlights;
+              std::unordered_map<Cell*, int> alt_map;
+              
+              // Find first differing solution
+              const std::vector<std::vector<std::optional<int>>>* target_alt = nullptr;
+              for (const auto& sol : diff.solutions) {
+                  bool match = true;
+                  for (Cell* c : board->white_cells) {
+                      if (sol[c->r][c->c] != c->value) {
+                          match = false;
+                          break;
+                      }
+                  }
+                  if (!match) {
+                      target_alt = &sol;
+                      break;
+                  }
+              }
+
+              if (target_alt) {
+                  for (Cell* c : board->white_cells) {
+                      auto val_opt = (*target_alt)[c->r][c->c];
+                      if (val_opt) {
+                          alt_map[c] = *val_opt;
+                          if (val_opt != c->value) {
+                              highlights.push_back({c->r, c->c});
+                          }
+                      }
+                  }
+                  auto alt_grid_state = board->get_grid_state(&alt_map);
+                  board->logger->log_step_with_highlights(
+                      GenerationLogger::STAGE_FILLING, "uniqueness_conflict",
+                      "Estimator rejected uniqueness (found " + std::to_string(diff.solution_count) + " solutions). Overlay available.",
+                      board->get_grid_state(), highlights, alt_grid_state);
+              } else {
+                  board->logger->log_step(
+                      GenerationLogger::STAGE_FILLING, "uniqueness_conflict",
+                      "Estimator rejected uniqueness (found " + std::to_string(diff.solution_count) + " solutions)",
+                      board->get_grid_state());
+              }
+          } else {
+              board->logger->log_step(
+                  GenerationLogger::STAGE_FILLING, "uniqueness_conflict",
+                  "Estimator rejected uniqueness (found " + std::to_string(diff.solution_count) + " solutions)",
+                  board->get_grid_state());
+          }
+      }
+#endif
       result = UniquenessResult::MULTIPLE;
     }
 
@@ -393,7 +447,7 @@ CSPSolver::perform_robust_uniqueness_check() {
     if (check_timeout())
       return {UniquenessResult::INCONCLUSIVE, std::nullopt};
 
-    auto [status, alt_sol] = check_uniqueness(150000, 42 + (i * 100));
+    auto [status, alt_sol] = check_uniqueness(300000, 42 + (i * 100));
 
     if (status == UniquenessResult::MULTIPLE)
       return {UniquenessResult::MULTIPLE, alt_sol};
