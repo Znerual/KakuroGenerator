@@ -130,14 +130,16 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         // New parameter-driven overload
         .def("generate_topology", 
              static_cast<bool (kakuro::KakuroBoard::*)(const kakuro::TopologyParams&)>(&kakuro::KakuroBoard::generate_topology),
-             py::arg("params") = kakuro::TopologyParams())
+             py::arg("params") = kakuro::TopologyParams(),
+             py::call_guard<py::gil_scoped_release>())
              
         // Legacy overload for backward compatibility
         .def("generate_topology", 
              static_cast<bool (kakuro::KakuroBoard::*)(double, int, std::string)>(&kakuro::KakuroBoard::generate_topology),
              py::arg("density") = 0.60,
              py::arg("max_sector_length") = 9,
-             py::arg("difficulty") = "medium")
+             py::arg("difficulty") = "medium",
+             py::call_guard<py::gil_scoped_release>())
              
         .def("collect_white_cells", &kakuro::KakuroBoard::collect_white_cells)
         .def("identify_sectors", &kakuro::KakuroBoard::identify_sectors)
@@ -195,20 +197,24 @@ PYBIND11_MODULE(kakuro_cpp, m) {
         .def("generate_puzzle", 
              static_cast<bool (kakuro::CSPSolver::*)(const kakuro::FillParams&, const kakuro::TopologyParams&)>(&kakuro::CSPSolver::generate_puzzle),
              py::arg("params") = kakuro::FillParams(),
-             py::arg("topo_params") = kakuro::TopologyParams())
+             py::arg("topo_params") = kakuro::TopologyParams(),
+             py::call_guard<py::gil_scoped_release>())
              
         .def("generate_puzzle", 
              static_cast<bool (kakuro::CSPSolver::*)(const std::string&)>(&kakuro::CSPSolver::generate_puzzle),
-             py::arg("difficulty") = "medium")
+             py::arg("difficulty") = "medium",
+             py::call_guard<py::gil_scoped_release>())
              
-        .def("generate_random_puzzle", &kakuro::CSPSolver::generate_random_puzzle)
+        .def("generate_random_puzzle", &kakuro::CSPSolver::generate_random_puzzle,
+             py::call_guard<py::gil_scoped_release>())
              
         .def("solve_fill", 
              static_cast<bool (kakuro::CSPSolver::*)(const kakuro::FillParams&, const std::unordered_map<kakuro::Cell*, int>&, const std::vector<kakuro::CSPSolver::ValueConstraint>&, bool)>(&kakuro::CSPSolver::solve_fill),
              py::arg("params"),
              py::arg("forced_assignments") = std::unordered_map<kakuro::Cell*, int>(),
              py::arg("forbidden_constraints") = std::vector<kakuro::CSPSolver::ValueConstraint>(),
-             py::arg("ignore_clues") = false)
+             py::arg("ignore_clues") = false,
+             py::call_guard<py::gil_scoped_release>())
 
         .def("solve_fill", 
              static_cast<bool (kakuro::CSPSolver::*)(const std::string&, int, const std::unordered_map<kakuro::Cell*, int>&, const std::vector<kakuro::CSPSolver::ValueConstraint>&, bool)>(&kakuro::CSPSolver::solve_fill),
@@ -216,13 +222,15 @@ PYBIND11_MODULE(kakuro_cpp, m) {
              py::arg("max_nodes") = 30000,
              py::arg("forced_assignments") = std::unordered_map<kakuro::Cell*, int>(),
              py::arg("forbidden_constraints") = std::vector<kakuro::CSPSolver::ValueConstraint>(),
-             py::arg("ignore_clues") = false)
+             py::arg("ignore_clues") = false,
+             py::call_guard<py::gil_scoped_release>())
              
         .def("calculate_clues", &kakuro::CSPSolver::calculate_clues)
         
         .def("check_uniqueness", &kakuro::CSPSolver::check_uniqueness,
              py::arg("max_nodes") = 10000,
-             py::arg("seed_offset") = 0);
+             py::arg("seed_offset") = 0,
+             py::call_guard<py::gil_scoped_release>());
 
     py::class_<kakuro::SolveStep>(m, "SolveStep")
         .def_readwrite("technique", &kakuro::SolveStep::technique)
@@ -268,7 +276,9 @@ PYBIND11_MODULE(kakuro_cpp, m) {
 
     py::class_<kakuro::KakuroDifficultyEstimator>(m, "KakuroDifficultyEstimator")
         .def(py::init<std::shared_ptr<kakuro::KakuroBoard>>())
-        .def("estimate_difficulty", &kakuro::KakuroDifficultyEstimator::estimate_difficulty)
-        .def("estimate_difficulty_detailed", &kakuro::KakuroDifficultyEstimator::estimate_difficulty_detailed);
+        .def("estimate_difficulty", &kakuro::KakuroDifficultyEstimator::estimate_difficulty,
+             py::call_guard<py::gil_scoped_release>())
+        .def("estimate_difficulty_detailed", &kakuro::KakuroDifficultyEstimator::estimate_difficulty_detailed,
+             py::call_guard<py::gil_scoped_release>());
    
 }
