@@ -94,56 +94,84 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
                 // If the target is impossible for this sector length, something is wrong
                 if (target < min_sum || target > max_sum) continue;
                 
-                // Remove values that are clearly too large or too small
-                for (Cell* cell : *sector) {
-                    uint16_t new_mask = 0;
-                    
-                    for (int d = 1; d <= 9; d++) {
-                        if (!(candidates[cell] & (1 << d))) continue;
-                        
-                        // Very basic check: would this value leave room for others?
-                        int remaining = target - d;
-                        int slots = length - 1;
-                        
+                // FIX: Use proper partition-based filtering instead of loose bounds
+                // Generate all valid partitions for this clue/length
+                std::vector<std::vector<int>> valid_partitions;
+                {
+                    std::vector<int> cur;
+                    std::function<void(int, int, int)> gen_partitions = [&](int remaining, int slots, int start) {
                         if (slots == 0) {
-                            // This cell must complete the sum
-                            if (remaining == 0) {
-                                new_mask |= (1 << d);
-                            }
-                        } else {
-                            // Check if remaining sum is achievable
-                            // Min: 1+2+...+slots
-                            // Max: 9+8+...+(9-slots+1)
-                            int min_others = (slots * (slots + 1)) / 2;
-                            int max_others = (slots * (18 - slots + 1)) / 2;
-                            
-                            if (remaining >= min_others && remaining <= max_others) {
-                                new_mask |= (1 << d);
-                            }
+                            if (remaining == 0) valid_partitions.push_back(cur);
+                            return;
                         }
+                        for (int d = start; d <= 9; d++) {
+                            if (d > remaining) break;
+                            cur.push_back(d);
+                            gen_partitions(remaining - d, slots - 1, d + 1);
+                            cur.pop_back();
+                        }
+                    };
+                    gen_partitions(target, length, 1);
+                }
+                
+                if (valid_partitions.empty()) continue; // No valid partitions exist
+                
+                // Build a mask of all digits that appear in ANY valid partition
+                uint16_t valid_digits_mask = 0;
+                for (const auto& partition : valid_partitions) {
+                    for (int d : partition) {
+                        valid_digits_mask |= (1 << d);
                     }
-                    
-                    if (new_mask != 0) {
-                        candidates[cell] &= new_mask;
-                    } else {
-                        // FIX: If new_mask is 0, it means NO value works. 
-                        // We must set candidates to 0 to signal contradiction.
-                        candidates[cell] = 0;
-                    }
+                }
+                
+                // Apply this mask to all cells in the sector
+                for (Cell* cell : *sector) {
+                    candidates[cell] &= valid_digits_mask;
                 }
             }
         };
         
         init_sector_constraints(board_->sectors_h, true);
         init_sector_constraints(board_->sectors_v, false);
+        
+        // DEBUG: Validate that original solution values are still in candidates
+        bool init_valid = true;
+        for (Cell* c : board_->white_cells) {
+            if (original_sol.count(c)) {
+                int sol_val = original_sol[c];
+                if (!(candidates[c] & (1 << sol_val))) {
+                    init_valid = false;
+                    LOG_ERROR("INIT VALIDATION FAILED: Cell (" << c->r << "," << c->c << ") original value " << sol_val << " is not in candidates after init! Candidates mask: " << candidates[c]);
+                    
+                    // Log sector info for debugging
+                    if (c->sector_h) {
+                        Cell* first_h = (*c->sector_h)[0];
+                        std::optional<int> clue_h;
+                        if (first_h->c > 0) clue_h = board_->grid[first_h->r][first_h->c - 1].clue_h;
+                        LOG_ERROR("  H-sector: length=" << c->sector_h->size() << ", clue=" << (clue_h ? std::to_string(*clue_h) : "NONE"));
+                    }
+                    if (c->sector_v) {
+                        Cell* first_v = (*c->sector_v)[0];
+                        std::optional<int> clue_v;
+                        if (first_v->r > 0) clue_v = board_->grid[first_v->r - 1][first_v->c].clue_v;
+                        LOG_ERROR("  V-sector: length=" << c->sector_v->size() << ", clue=" << (clue_v ? std::to_string(*clue_v) : "NONE"));
+                    }
+                }
+            }
+        }
+        if (!init_valid) {
+            LOG_ERROR("Initial constraint filtering eliminated valid solution values!");
+        }
     }
 
     // 5. Count how many cells are logically determined
     int determined_cells = 0;
+    int total_candidates_start = 0;
     for (auto& [cell, mask] : candidates) {
         if (popcount9(mask) == 1) {
             determined_cells++;
         }
+        total_candidates_start += popcount9(mask);
     }
     
     // 4. Apply logical deduction to reduce search space
@@ -175,6 +203,8 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
         }
     }
     
+    int total_candidates_end = 0;
+    
     if (!logic_consistent) {
         LOG_DEBUG("    Logical reduction caused contradiction! Reverting to full search.");
         candidates = candidates_backup; // Restore
@@ -184,6 +214,7 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
         }
 
         determined_cells = 0; 
+        total_candidates_end = total_candidates_start; // Reverted, so no change
 #if KAKURO_ENABLE_LOGGING
         if (board_->logger && board_->logger->is_enabled()) {
             board_->logger->log_step(
@@ -209,7 +240,14 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
             }
         }
     
-
+        // FIX: Count determined cells AFTER logical reduction succeeds
+        determined_cells = 0;
+        for (auto& [cell, mask] : candidates) {
+            if (popcount9(mask) == 1) {
+                determined_cells++;
+            }
+            total_candidates_end += popcount9(mask);
+        }
     }
     
     
@@ -226,10 +264,16 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
                 if (!vals.empty()) viz_map[c] = vals[0];
             }
         }
+        std::string log_msg = "Logical reduction complete: " + std::to_string(determined_cells) + " cells determined";
+        if (total_candidates_start > 0) {
+             int removed = total_candidates_start - total_candidates_end;
+             double pct = 100.0 * removed / total_candidates_start;
+             log_msg += ", reduced candidates: " + std::to_string(total_candidates_start) + " -> " + std::to_string(total_candidates_end) + " (-" + std::to_string((int)pct) + "%)";
+        }
         board_->logger->log_step(
             GenerationLogger::STAGE_UNIQUENESS,
             GenerationLogger::SUBSTAGE_LOGIC_STEP,
-            "Logical reduction complete: " + std::to_string(determined_cells) + " cells determined",
+            log_msg,
             board_->get_grid_state(&viz_map));
     }
 #endif
@@ -393,7 +437,7 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
 
 
 
-    auto apply_partition_pruning = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz) -> ReductionResult {
+    auto apply_partition_pruning = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz, const CandidateMap& reference_candidates) -> ReductionResult {
         bool local_change = false;
         for (const auto& sector : sectors) {
             if (sector->empty()) continue;
@@ -418,7 +462,9 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
             
             for (int cell_idx = 0; cell_idx < len; cell_idx++) {
                 Cell* c = (*sector)[cell_idx];
-                uint16_t old_mask = candidates[c];
+                // FIX: Read old_mask from REFERENCE (snapshot) candidates, not mutating candidates
+                // This ensures we use consistent state when checking partition assignments
+                uint16_t old_mask = reference_candidates.at(c);
                 uint16_t new_mask = 0;
                 
                 // For each candidate value of this cell
@@ -439,8 +485,9 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                         }
                         if (!has_val) continue;
                         
-                        // Can we assign the REST of the partition to the REST of the sector?
-                        if (can_assign_partition_to_sector(partition, *sector, candidates, cell_idx, val)) {
+                        // FIX: Use reference_candidates (snapshot) for checking, not mutating candidates
+                        // This prevents cascading incorrect eliminations
+                        if (can_assign_partition_to_sector(partition, *sector, reference_candidates, cell_idx, val)) {
                             found_valid_assignment = true;
                             break;
                         }
@@ -454,7 +501,37 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                 if (new_mask != old_mask) {
                     candidates[c] = new_mask;
                     local_change = true;
-                    if (new_mask == 0) return ReductionResult::CONTRADICTION; // Contradiction
+                    if (new_mask == 0) {
+                        // DEBUG: Log detailed contradiction info
+                        LOG_ERROR("CONTRADICTION in partition pruning: Cell (" << c->r << "," << c->c << ") has no valid candidates for any partition");
+                        LOG_ERROR("  Target sum: " << target << ", Sector length: " << len);
+                        LOG_ERROR("  Old mask (before pruning): " << old_mask);
+                        LOG_ERROR("  Valid partitions for this sector:");
+                        for (const auto& p : valid_partitions) {
+                            std::string pstr = "{";
+                            for (size_t pidx = 0; pidx < p.size(); pidx++) {
+                                if (pidx > 0) pstr += ",";
+                                pstr += std::to_string(p[pidx]);
+                            }
+                            pstr += "}";
+                            LOG_ERROR("    " << pstr);
+                        }
+                        LOG_ERROR("  Reference candidates for other cells in sector:");
+                        for (int idx = 0; idx < len; idx++) {
+                            Cell* sc = (*sector)[idx];
+                            LOG_ERROR("    Cell (" << sc->r << "," << sc->c << "): mask=" << reference_candidates.at(sc));
+                        }
+#if KAKURO_ENABLE_LOGGING
+                        if (board_->logger && board_->logger->is_enabled()) {
+                            board_->logger->log_step(
+                                GenerationLogger::STAGE_UNIQUENESS,
+                                "contradiction_debug",
+                                "Partition pruning contradiction: Cell (" + std::to_string(c->r) + "," + std::to_string(c->c) + ") has no valid values for target=" + std::to_string(target) + " len=" + std::to_string(len),
+                                board_->get_grid_state());
+                        }
+#endif
+                        return ReductionResult::CONTRADICTION; // Contradiction
+                    }
                 }
             }
         }
@@ -463,13 +540,16 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
     };
 
 
-
     bool any_change = false;
     int iterations = 0;
     const int MAX_QUICK_ITERATIONS = 10; // Increased slightly
     
     while (iterations++ < MAX_QUICK_ITERATIONS) {
         bool changed = false;
+        
+        // FIX: Take a snapshot of candidates at the start of each iteration
+        // This prevents cascading incorrect eliminations in partition pruning
+        CandidateMap candidates_snapshot = candidates;
 
         // 1. Naked singles propagation - FIXED VERSION
         // Use a queue to process newly-determined cells
@@ -499,7 +579,7 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                 if(mask & (1<<d)) { cell->value = d; break; }
             }
             
-            auto propagate_to_neighbors = [&](const std::shared_ptr<std::vector<Cell*>>& sec) {
+            auto propagate_to_neighbors = [&](const std::shared_ptr<std::vector<Cell*>>& sec, const char* sec_name) {
                 if (!sec) return true;
                 for (Cell* neighbor : *sec) {
                     if (neighbor != cell && (candidates[neighbor] & mask)) {
@@ -507,7 +587,20 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                         candidates[neighbor] &= ~mask;
                         changed = true;
                         
-                        if (candidates[neighbor] == 0) return false; // Contradiction
+                        if (candidates[neighbor] == 0) {
+                            // DEBUG: Log contradiction source
+                            LOG_ERROR("CONTRADICTION in naked singles propagation: Cell (" << neighbor->r << "," << neighbor->c << ") became empty after removing value from cell (" << cell->r << "," << cell->c << ") via " << sec_name << " sector");
+#if KAKURO_ENABLE_LOGGING
+                            if (board_->logger && board_->logger->is_enabled()) {
+                                board_->logger->log_step(
+                                    GenerationLogger::STAGE_UNIQUENESS,
+                                    "contradiction_debug",
+                                    "Naked singles contradiction: Cell (" + std::to_string(neighbor->r) + "," + std::to_string(neighbor->c) + ") candidates=0 after removing value from (" + std::to_string(cell->r) + "," + std::to_string(cell->c) + ")",
+                                    board_->get_grid_state());
+                            }
+#endif
+                            return false; // Contradiction
+                        }
                         
                         if (popcount9(old_mask) > 1 && popcount9(candidates[neighbor]) == 1) {
                             to_process.push(neighbor);
@@ -517,8 +610,8 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                 return true;
             };
 
-            if (!propagate_to_neighbors(cell->sector_h)) goto contradiction;
-            if (!propagate_to_neighbors(cell->sector_v)) goto contradiction;
+            if (!propagate_to_neighbors(cell->sector_h, "horizontal")) goto contradiction;
+            if (!propagate_to_neighbors(cell->sector_v, "vertical")) goto contradiction;
         
         }
         
@@ -558,15 +651,20 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                 return found;
             };
             
+            /* 
+            // HIDDEN SINGLES - DISABLED
+            // This heuristic is incorrect for Kakuro because a sector doesn't contain all digits.
+            // Just because a digit D fits in only one cell doesn't mean D must be used!
             if (check_hidden_singles_once()) {
                 changed = true;
             }
+            */
 
             // 3. Partition Pruning (Moved to end of loop as requested)
             // Check returned false if contradiction occurred inside
             // 3. Partition Pruning (Moved to end of loop as requested)
             // Check returned false if contradiction occurred inside
-            ReductionResult h_res = apply_partition_pruning(board_->sectors_h, true);
+            ReductionResult h_res = apply_partition_pruning(board_->sectors_h, true, candidates_snapshot);
             if (h_res == ReductionResult::CONTRADICTION) goto contradiction;
             if (h_res == ReductionResult::CHANGED) changed = true;
             else {
@@ -574,7 +672,7 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                  for(auto c : board_->white_cells) if(candidates[c] == 0) goto contradiction;
             }
 
-            ReductionResult v_res = apply_partition_pruning(board_->sectors_v, false);
+            ReductionResult v_res = apply_partition_pruning(board_->sectors_v, false, candidates_snapshot);
             if (v_res == ReductionResult::CONTRADICTION) goto contradiction;
             if (v_res == ReductionResult::CHANGED) changed = true;
             else {
@@ -662,15 +760,54 @@ void HybridUniquenessChecker::hybrid_search(
         std::unordered_map<std::pair<int, int>, int, PairHash> sol;
         bool is_different = false;
         
+        // Populate solution map
         for (Cell* c : board_->white_cells) {
-            if (!c->value.has_value()) {
-                // This shouldn't happen if all_determined is true
-                return;
+             if (!c->value.has_value()) {
+                 // Fallback to extraction from mask if value not set (shouldn't happen with FIX 1 logic, but safer)
+                uint16_t mask = candidates[c];
+                int val = 0;
+                for(int d=1; d<=9; d++) if(mask & (1<<d)) { val=d; break; }
+                if (val == 0) return; // Should not happen
+                sol[{c->r, c->c}] = val;
+             } else {
+                 sol[{c->r, c->c}] = *c->value;
+             }
+        }
+
+        // FIX: Verify that the solution satisfies ALL sum constraints
+        // The propagation only checked "all different", not sums!
+        for (const auto& sector : board_->sectors_h) {
+            if (sector->empty()) continue;
+            Cell* first = (*sector)[0];
+            if (first->c == 0) continue; // Should have header
+            auto clue = board_->grid[first->r][first->c - 1].clue_h;
+            if (!clue) continue;
+            
+            int sum = 0;
+            for (Cell* c : *sector) {
+                sum += sol[{c->r, c->c}];
             }
-            int val = *c->value;
-            sol[{c->r, c->c}] = val;
-            if (avoid_sol.count({c->r, c->c}) && val != avoid_sol.at({c->r, c->c})) {
+            if (sum != *clue) return; // Invalid sum
+        }
+        for (const auto& sector : board_->sectors_v) {
+            if (sector->empty()) continue;
+            Cell* first = (*sector)[0];
+            if (first->r == 0) continue; // Should have header
+            auto clue = board_->grid[first->r - 1][first->c].clue_v;
+            if (!clue) continue;
+            
+            int sum = 0;
+            for (Cell* c : *sector) {
+                sum += sol[{c->r, c->c}];
+            }
+            if (sum != *clue) return; // Invalid sum
+        }
+
+        // Check difference from original solution
+        for (const auto& [coords, val] : sol) {
+            if (avoid_sol.count(coords) && val != avoid_sol.at(coords)) {
                 is_different = true;
+                break;
             }
         }
         
@@ -740,35 +877,83 @@ void HybridUniquenessChecker::hybrid_search(
         
         bool conflict = false;
 
-        // Propagate assignment (simple forward checking)
-        auto propagate = [&](const std::shared_ptr<std::vector<Cell*>>& sec) {
+        // Propagate assignment (simple forward checking + sum reasoning)
+        auto propagate = [&](const std::shared_ptr<std::vector<Cell*>>& sec, bool is_horizontal) {
             if (!sec) return true;
+            
+            Cell* first = (*sec)[0];
+            int target = 0;
+            if (is_horizontal) {
+                // Horizontal sector: clue is to the left
+                 if (first->c > 0 && board_->grid[first->r][first->c-1].clue_h)
+                    target = *board_->grid[first->r][first->c-1].clue_h;
+            } else {
+                // Vertical sector: clue is above
+                 if (first->r > 0 && board_->grid[first->r-1][first->c].clue_v)
+                    target = *board_->grid[first->r-1][first->c].clue_v;
+            }
+            if (target == 0) return true; // Should not happen for valid sectors
+
+            int current_sum = 0;
+            int unknown_count = 0;
+            int min_remaining = 0;
+            int max_remaining = 0;
+
             for (Cell* n : *sec) {
-                if (n == var) continue;
-                if (n->value.has_value() && *n->value == val) return false;
-                
-                uint16_t old_mask = candidates[n];
-                if (old_mask & (1 << val)) {
-                    uint16_t new_mask = old_mask & ~(1 << val);
-                    if (new_mask == 0) return false;
+                if (n->value.has_value()) {
+                    // Check duplicate
+                    if (n != var && *n->value == val) return false;
+                    current_sum += *n->value;
+                } else {
+                    unknown_count++;
+                    // Estimate bounds for remaining cells
+                    uint16_t mask = candidates[n];
+                    // If n == var, we shouldn't be here since var has value, but just in case
+                    if (n == var) { current_sum += val; continue; }
                     
-                    saved_candidates.push_back({n, old_mask});
-                    candidates[n] = new_mask;
+                    // Simple update: remove 'val' from candidates of neighbors
+                    if (mask & (1 << val)) {
+                         uint16_t old_mask = mask;
+                         uint16_t new_mask = old_mask & ~(1 << val);
+                         if (new_mask == 0) return false; // Contradiction: empty domain
+                         
+                         // Temporarily update mask for bound calculation (commit to map)
+                         if (candidates[n] != new_mask) {
+                             saved_candidates.push_back({n, old_mask});
+                             candidates[n] = new_mask;
+                             mask = new_mask;
+                         }
+                    }
                     
-                    if (popcount9(new_mask) == 1 && !n->value.has_value()) {
-                        for(int d=1; d<=9; d++) if(new_mask & (1<<d)) {
-                            saved_values.push_back({n, n->value});
-                            n->value = d;
-                            break;
+                    // Add min/max candidates to bounds
+                    int local_min = 10, local_max = 0;
+                    for(int d=1; d<=9; d++) {
+                        if (mask & (1<<d)) {
+                            if (d < local_min) local_min = d;
+                            if (d > local_max) local_max = d;
                         }
                     }
+                    min_remaining += local_min;
+                    max_remaining += local_max;
                 }
             }
+            
+            // Check sum feasibility
+            if (current_sum > target) return false;
+            // If filled, check exact match
+            if (unknown_count == 0) {
+                if (current_sum != target) return false;
+            } else {
+                // Check if target is reachable
+                if (current_sum + min_remaining > target) return false;
+                if (current_sum + max_remaining < target) return false;
+            }
+
             return true;
         };
 
-        if (!propagate(var->sector_h)) conflict = true;
-        if (!conflict && !propagate(var->sector_v)) conflict = true;
+        if (!propagate(var->sector_h, true)) conflict = true;
+        if (!conflict && !propagate(var->sector_v, false)) conflict = true;
         
         if (!conflict) {
              hybrid_search(found_solutions, avoid_sol, candidates,
