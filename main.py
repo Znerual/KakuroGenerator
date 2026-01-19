@@ -15,15 +15,19 @@ from kakuro import KakuroBoard, CSPSolver
 import uvicorn
 import uuid
 import datetime
-import logging
 import traceback
+import logging
 from pydantic import BaseModel
 from typing import List, Optional, Dict
+
+class BookSettings(BaseModel):
+    difficulty: str = "medium"
+    num_puzzles: int = 4
 
 # Import auth and database modules
 import kakuro.storage as storage
 from kakuro.database import init_db, get_db
-from kakuro.models import User, Puzzle, PuzzleTemplate
+from kakuro.models import User, Puzzle, PuzzleTemplate, generate_short_id
 from kakuro.auth import get_current_user, get_required_user, get_current_user_and_session
 from kakuro.analytics import log_interaction
 from kakuro.routes.auth_routes import router as auth_router
@@ -82,7 +86,7 @@ async def performance_middleware(request: Request, call_next):
     """
     import time
     from kakuro.database import SessionLocal
-    from kakuro.auth import decode_access_token # Assuming you have this helper
+    from kakuro.auth import decode_token # Assuming you have this helper
     from kakuro.models import User
 
     # 1. Skip tracking for static files (prevents DB bloat and saves performance)
@@ -109,8 +113,9 @@ async def performance_middleware(request: Request, call_next):
                 try:
                     token = auth_header.split(" ")[1]
                     # We only need the user ID to differentiate, no need for full auth logic
-                    payload = decode_access_token(token) 
-                    user_id = payload.get("sub")
+                    
+                    payload = decode_token(token) 
+                    user_id = payload.get("sub") if payload else None
                     if user_id:
                         current_user = db.query(User).filter(User.id == user_id).first()
                 except Exception:
@@ -170,6 +175,9 @@ def startup_event():
             if "difficulty_vote" not in columns:
                 logger.info("Migrating database: Adding difficulty_vote to puzzles table")
                 conn.execute(text("ALTER TABLE puzzles ADD COLUMN difficulty_vote INTEGER"))
+            if "short_id" not in columns:
+                logger.info("Migrating database: Adding short_id to puzzles table")
+                conn.execute(text("ALTER TABLE puzzles ADD COLUMN short_id TEXT"))
         
         if "users" in table_names:
             columns = [c["name"] for c in inspector.get_columns("users")]
@@ -522,13 +530,15 @@ def load_puzzle_endpoint(
     current_user: Optional[User] = Depends(get_current_user)
 ):
     """Load a puzzle by ID."""
-    if current_user:
-        puzzle = db.query(Puzzle).filter(
-            Puzzle.id == puzzle_id,
-            Puzzle.user_id == current_user.id
-        ).first()
-        if puzzle:
-            return puzzle.to_dict()
+    # 1. Try loading by full UUID from DB
+    puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).first()
+    
+    # 2. Try loading by short ID (case-insensitive)
+    if not puzzle:
+        puzzle = db.query(Puzzle).filter(func.upper(Puzzle.short_id) == puzzle_id.upper()).first()
+    
+    if puzzle:
+        return puzzle.to_dict()
     
     # Fall back to file storage
     data = storage.load_puzzle(puzzle_id)
@@ -732,14 +742,15 @@ def solution_redirect(puzzle_id: str):
 
 @app.post("/api/generate-book")
 def generate_book_endpoint(
-    difficulty: str = "medium",
-    num_puzzles: int = 4,
+    settings: BookSettings,
     current_user: User = Depends(get_required_user),
     db: Session = Depends(get_db)
 ):
     """
     Generates a PDF book for the user with puzzles from the pool.
     """
+    difficulty = settings.difficulty
+    num_puzzles = settings.num_puzzles
     # 1. Fetch puzzles from the pool (filtered for this user)
     # This ensures no duplicates seen before.
     puzzle_dicts = fetch_new_puzzles_from_pool(db, current_user, difficulty, limit=num_puzzles)
@@ -749,9 +760,11 @@ def generate_book_endpoint(
     
     for p_data in puzzle_dicts:
         # Create user puzzle entry
-        # p_data already has a new 'id' from the fetch function
+        short_id = generate_short_id()
+        
         new_puzzle = Puzzle(
             id=p_data['id'],
+            short_id=short_id,
             template_id=p_data['template_id'],
             user_id=current_user.id,
             width=p_data['width'],
@@ -762,6 +775,7 @@ def generate_book_endpoint(
             rating=0
         )
         db.add(new_puzzle)
+        p_data['short_id'] = short_id # Pass it to the PDF generator
         saved_puzzles_data.append(p_data)
         
     db.commit()
