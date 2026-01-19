@@ -363,20 +363,63 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
 #if KAKURO_ENABLE_LOGGING
     if (board_->logger && board_->logger->is_enabled()) {
         std::string search_status = "Hybrid search finished: " + std::to_string(node_count) + " nodes.";
+        
+        // Prepare visualization map for alternative solution
+        std::unordered_map<Cell*, int> viz_map;
+        bool show_alt = false;
+
         if (timed_out) {
             search_status += " Timed out.";
+
+            board_->logger->log_step(
+                GenerationLogger::STAGE_UNIQUENESS,
+                "hybrid_result",
+                search_status,
+                board_->get_grid_state()
+            );
+
         } else if (!found.empty()) {
             search_status += " Found alternative solution.";
+            show_alt = true;
+            
+            // Map the found solution (coords -> value) back to Cell* -> value
+            const auto& alt_sol = found[0];
+            
+            std::vector<std::pair<int, int>> highlights;
+            for (Cell* c : board_->white_cells) {
+                if (alt_sol.count({c->r, c->c})) {
+                    viz_map[c] = alt_sol.at({c->r, c->c});
+                }
+                
+                // Compare alternative with original (original_sol_coords)
+                if (viz_map.count(c) && original_sol_coords.count({c->r, c->c})) {
+                    if (viz_map[c] != original_sol_coords.at({c->r, c->c})) {
+                        highlights.push_back({c->r, c->c});
+                    }
+                }
+            }
+
+
+            board_->logger->log_step_with_highlights(
+                GenerationLogger::STAGE_UNIQUENESS,
+                "hybrid_result",
+                search_status,
+                board_->get_grid_state(),
+                highlights,
+                board_->get_grid_state(&viz_map)
+            );
         } else {
             search_status += " No alternative found.";
+
+            board_->logger->log_step(
+                GenerationLogger::STAGE_UNIQUENESS,
+                "hybrid_result",
+                search_status,
+                board_->get_grid_state()
+            );
         }
         
-        board_->logger->log_step(
-            GenerationLogger::STAGE_UNIQUENESS,
-            "hybrid_result",
-            search_status,
-            board_->get_grid_state() // Original solution is restored above
-        );
+        
     }
 #endif
     
@@ -809,6 +852,16 @@ void HybridUniquenessChecker::hybrid_search(
     }
 #endif
     
+    // RAII helper to restore values of determined cells upon return
+    // This prevents "leakage" of temporary values to sibling search branches (Soundness fix)
+    struct DeterminedValueRestorer {
+        std::vector<Cell*> cells;
+        ~DeterminedValueRestorer() {
+             for (Cell* c : cells) c->value = std::nullopt;
+        }
+    };
+    DeterminedValueRestorer determined_updates;
+
     // **FIX 1: First, assign all logically determined values to cell->value**
     // This ensures constraint checking sees them
     for (Cell* c : board_->white_cells) {
@@ -818,6 +871,7 @@ void HybridUniquenessChecker::hybrid_search(
             for (int d = 1; d <= 9; d++) {
                 if (mask & (1 << d)) {
                     c->value = d;
+                    determined_updates.cells.push_back(c);
                     break;
                 }
             }
