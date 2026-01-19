@@ -1851,11 +1851,18 @@ function initAuth() {
     const urlParams = new URLSearchParams(window.location.search);
     const accessToken = urlParams.get('access_token');
     const refreshToken = urlParams.get('refresh_token');
+    const resetToken = urlParams.get('reset_token');
 
     if (accessToken && refreshToken) {
         setTokens(accessToken, refreshToken);
         // Clear URL params
         window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (resetToken) {
+        // Clear URL params
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // Store token in global state if needed or just open modal
+        state.resetToken = resetToken;
+        openAuthModal('reset');
     }
 
     // Setup event listeners
@@ -1887,6 +1894,13 @@ function setupAuthEventListeners() {
     const btnUser = document.getElementById('btn-user');
     const btnLogout = document.getElementById('btn-logout');
     const userMenu = document.getElementById('user-menu');
+
+    // New elements for forgot password
+    const linkForgotPassword = document.getElementById('link-forgot-password');
+    const btnForgotSubmit = document.getElementById('btn-forgot-submit');
+    const btnResetSubmit = document.getElementById('btn-reset-submit');
+    const backToLoginFromForgot = document.getElementById('back-to-login-from-forgot');
+    const switchToLoginFromReset = document.getElementById('switch-to-login'); // Reusing or could be new
 
     if (btnLogin) {
         btnLogin.addEventListener('click', () => openAuthModal('login'));
@@ -2011,6 +2025,28 @@ function setupAuthEventListeners() {
         }
     });
 
+    if (linkForgotPassword) {
+        linkForgotPassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('forgot');
+        });
+    }
+
+    if (btnForgotSubmit) {
+        btnForgotSubmit.addEventListener('click', handleForgotPassword);
+    }
+
+    if (btnResetSubmit) {
+        btnResetSubmit.addEventListener('click', handleResetPassword);
+    }
+
+    if (backToLoginFromForgot) {
+        backToLoginFromForgot.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthForm('login');
+        });
+    }
+
     checkResendTimerOnLoad();
 }
 
@@ -2107,9 +2143,7 @@ function showAuthForm(form) {
     const verificationForm = document.getElementById('verification-form');
 
     // Reset all
-    if (loginForm) loginForm.style.display = 'none';
-    if (registerForm) registerForm.style.display = 'none';
-    if (verificationForm) verificationForm.style.display = 'none';
+    document.querySelectorAll('.auth-form').forEach(f => f.style.display = 'none');
 
     if (form === 'login') {
         if (loginForm) loginForm.style.display = 'block';
@@ -2124,6 +2158,12 @@ function showAuthForm(form) {
                 if (code1) code1.focus();
             }, 100);
         }
+    } else if (form === 'forgot') {
+        const forgotForm = document.getElementById('forgot-password-form');
+        if (forgotForm) forgotForm.style.display = 'block';
+    } else if (form === 'reset') {
+        const resetForm = document.getElementById('reset-password-form');
+        if (resetForm) resetForm.style.display = 'block';
     }
     clearAuthErrors();
 }
@@ -2144,6 +2184,23 @@ function clearAuthErrors() {
     if (verificationError) {
         verificationError.textContent = '';
         verificationError.classList.remove('show');
+    }
+
+    const forgotError = document.getElementById('forgot-error');
+    const forgotSuccess = document.getElementById('forgot-success');
+    const resetError = document.getElementById('reset-error');
+
+    if (forgotError) {
+        forgotError.textContent = '';
+        forgotError.classList.remove('show');
+    }
+    if (forgotSuccess) {
+        forgotSuccess.textContent = '';
+        forgotSuccess.style.display = 'none';
+    }
+    if (resetError) {
+        resetError.textContent = '';
+        resetError.classList.remove('show');
     }
 
     // Clear code inputs
@@ -2468,6 +2525,105 @@ async function handleRegister() {
         if (btnRegister) {
             btnRegister.disabled = false;
             btnRegister.textContent = 'Register';
+        }
+    }
+}
+
+async function handleForgotPassword() {
+    const email = document.getElementById('forgot-email').value.trim();
+    if (!email) {
+        showAuthError('forgot', 'Please enter your email');
+        return;
+    }
+
+    const btnSubmit = document.getElementById('btn-forgot-submit');
+    const successEl = document.getElementById('forgot-success');
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Sending...';
+    }
+
+    try {
+        const res = await fetch('/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            if (successEl) {
+                successEl.textContent = data.message;
+                successEl.style.display = 'block';
+            }
+            // Optional: Hide button or form
+        } else {
+            showAuthError('forgot', data.detail || 'Failed to send reset link');
+        }
+    } catch (e) {
+        showAuthError('forgot', 'Network error. Please try again.');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = 'Send Reset Link';
+        }
+    }
+}
+
+async function handleResetPassword() {
+    const newPassword = document.getElementById('reset-password-new').value;
+    const confirmPassword = document.getElementById('reset-password-confirm').value;
+
+    if (!newPassword || !confirmPassword) {
+        showAuthError('reset', 'Please fill in all fields');
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        showAuthError('reset', 'Passwords do not match');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        showAuthError('reset', 'Password must be at least 6 characters');
+        return;
+    }
+
+    const btnSubmit = document.getElementById('btn-reset-submit');
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Resetting...';
+    }
+
+    try {
+        const res = await fetch('/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: state.resetToken,
+                new_password: newPassword
+            })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Password reset successful! You can now log in.');
+            // Clear form
+            const newPasswordInput = document.getElementById('reset-password-new');
+            const confirmPasswordInput = document.getElementById('reset-password-confirm');
+            if (newPasswordInput) newPasswordInput.value = '';
+            if (confirmPasswordInput) confirmPasswordInput.value = '';
+
+            closeAuthModal();
+            openAuthModal('login');
+        } else {
+            showAuthError('reset', data.detail || 'Failed to reset password');
+        }
+    } catch (e) {
+        showAuthError('reset', 'Network error. Please try again.');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = 'Reset Password';
         }
     }
 }

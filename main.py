@@ -740,6 +740,14 @@ def solution_redirect(puzzle_id: str):
     return RedirectResponse(url=f"/?solution_id={puzzle_id}")
 
 
+@app.get("/reset-password")
+def reset_password_redirect(token: str):
+    """
+    Redirects to the main app with the reset_token parameter.
+    """
+    return RedirectResponse(url=f"/?reset_token={token}")
+
+
 @app.post("/api/generate-book")
 def generate_book_endpoint(
     settings: BookSettings,

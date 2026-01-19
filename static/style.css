@@ -1297,7 +1297,8 @@ body {
 .star.active {
     filter: grayscale(0);
     transform: scale(1.1);
-    color: #ffca28; /* Golden Yellow */
+    color: #ffca28;
+    /* Golden Yellow */
     text-shadow: 0 0 10px rgba(255, 202, 40, 0.3);
 }
 
@@ -1576,6 +1577,34 @@ body {
 
 .auth-switch a:hover {
     text-decoration: underline;
+}
+
+.auth-helper {
+    margin-top: 1rem;
+    text-align: right;
+    font-size: 0.875rem;
+}
+
+.auth-helper a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.auth-helper a:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.auth-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--success-color);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--success-color);
+    margin-bottom: 1.5rem;
+    text-align: center;
 }
 
 /* Verification Code */
