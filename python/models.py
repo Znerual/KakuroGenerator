@@ -11,6 +11,13 @@ import uuid
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+def generate_short_id(length=8):
+    """Generates a short, readable unique ID."""
+    import secrets
+    import string
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
     
 class User(Base):
     """User model for authentication and profile management."""
@@ -141,6 +148,7 @@ class Puzzle(Base):
     __tablename__ = "puzzles"
     
     id = Column(String, primary_key=True)
+    short_id = Column(String, unique=True, nullable=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     template_id = Column(String, ForeignKey("puzzle_templates.id"), nullable=True, index=True)
     
@@ -194,7 +202,8 @@ class Puzzle(Base):
             "userComment": self.user_comment,
             "status": self.status,
             "timestamp": self.created_at.isoformat() if self.created_at else None,
-            "template_id": self.template_id
+            "template_id": self.template_id,
+            "short_id": self.short_id
         }
 
 class PuzzleInteraction(Base):

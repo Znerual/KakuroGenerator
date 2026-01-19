@@ -74,14 +74,27 @@ function init() {
         });
     }
 
-    // Bind Mobile Download
+    // Bind PDF Modal
+    const btnPdfConfirm = document.getElementById('btn-pdf-confirm');
     const btnMobileDownload = document.getElementById('btn-mobile-download-book');
+    const pdfModal = document.getElementById('pdf-settings-modal');
+
     if (btnMobileDownload) {
-        btnMobileDownload.addEventListener('click', downloadBook);
+        btnMobileDownload.addEventListener('click', () => {
+            document.getElementById('mobile-settings-modal').style.display = 'none';
+            openPdfSettings();
+        });
     }
 
     if (btnDownloadBook) {
-        btnDownloadBook.addEventListener('click', downloadBook);
+        btnDownloadBook.addEventListener('click', openPdfSettings);
+    }
+
+    if (btnPdfConfirm) {
+        btnPdfConfirm.addEventListener('click', () => {
+            if (pdfModal) pdfModal.style.display = 'none';
+            downloadBook();
+        });
     }
 
     if (btnNoteMode) {
@@ -645,6 +658,78 @@ async function saveCurrentState(silent = false) {
     }
 }
 
+function openPdfSettings() {
+    if (!state.user) {
+        showToast("Please log in to download a PDF book.");
+        openAuthModal('login');
+        return;
+    }
+
+    const modal = document.getElementById('pdf-settings-modal');
+    if (modal) {
+        // Pre-fill with current game difficulty
+        const desktopDiff = document.getElementById('difficulty-select');
+        const pdfDiff = document.getElementById('pdf-difficulty-select');
+        if (desktopDiff && pdfDiff) {
+            pdfDiff.value = desktopDiff.value;
+        }
+        modal.style.display = 'block';
+    }
+}
+
+async function downloadBook() {
+    if (!state.user) {
+        showToast("Please log in to download a PDF book.");
+        openAuthModal('login');
+        return;
+    }
+
+    const diffSelect = document.getElementById('pdf-difficulty-select');
+    const countInput = document.getElementById('pdf-count-input');
+
+    const difficulty = diffSelect ? diffSelect.value : 'medium';
+    let numPuzzles = countInput ? parseInt(countInput.value) : 4;
+
+    // Clamp to 1-5
+    numPuzzles = Math.max(1, Math.min(5, numPuzzles));
+
+    showToast("Generating your PDF book...");
+
+    try {
+        const res = await fetch('/api/generate-book', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({
+                difficulty: difficulty,
+                num_puzzles: numPuzzles
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Failed to generate book");
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `kakuro_book_${difficulty}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        showToast("Download started!");
+    } catch (e) {
+        console.error("Download error:", e);
+        showToast("Error generating PDF: " + e.message);
+    }
+}
+
 async function openLibrary() {
     if (!state.user) {
         showToast("Please log in to view your library.");
@@ -914,10 +999,31 @@ async function loadSavedPuzzle(id) {
         if (!res.ok) throw new Error("Failed to load");
         const data = await res.json();
         loadPuzzleIntoState(data);
-        libraryModal.style.display = 'none';
+        if (libraryModal) libraryModal.style.display = 'none';
         showToast("Puzzle Loaded!");
     } catch (e) {
         alert("Error loading puzzle: " + e.message);
+    }
+}
+
+async function loadSolutionMode(id) {
+    try {
+        showToast("Targeting solution...");
+        const res = await fetch(`/load/${id}`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error("Puzzle not found");
+        const data = await res.json();
+        loadPuzzleIntoState(data);
+
+        // Auto-show errors to reveal the solution
+        state.showErrors = true;
+        renderBoard();
+
+        showToast("Solution Loaded!");
+    } catch (e) {
+        console.error("Load solution error:", e);
+        showToast("Error: " + e.message);
     }
 }
 

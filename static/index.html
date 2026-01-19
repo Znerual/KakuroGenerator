@@ -300,21 +300,7 @@
                 <div id="login-error" class="auth-error"></div>
                 <button id="btn-login-submit" class="btn-large btn-primary">Login</button>
 
-                <div class="auth-divider">
-                    <span>or continue with</span>
-                </div>
 
-                <div class="oauth-buttons">
-                    <button id="btn-oauth-google" class="btn-oauth" data-provider="google">
-                        <span>🔵</span> Google
-                    </button>
-                    <button id="btn-oauth-facebook" class="btn-oauth" data-provider="facebook">
-                        <span>🔷</span> Facebook
-                    </button>
-                    <button id="btn-oauth-apple" class="btn-oauth" data-provider="apple">
-                        <span>🍎</span> Apple
-                    </button>
-                </div>
 
                 <p class="auth-switch">
                     Don't have an account? <a href="#" id="switch-to-register">Register</a>
@@ -341,21 +327,7 @@
                 <div id="register-error" class="auth-error"></div>
                 <button id="btn-register-submit" class="btn-large btn-primary">Create Account</button>
 
-                <div class="auth-divider">
-                    <span>or continue with</span>
-                </div>
 
-                <div class="oauth-buttons">
-                    <button class="btn-oauth" data-provider="google">
-                        <span>🔵</span> Google
-                    </button>
-                    <button class="btn-oauth" data-provider="facebook">
-                        <span>🔷</span> Facebook
-                    </button>
-                    <button class="btn-oauth" data-provider="apple">
-                        <span>🍎</span> Apple
-                    </button>
-                </div>
 
                 <p class="auth-switch">
                     Already have an account? <a href="#" id="switch-to-login">Login</a>
@@ -477,6 +449,37 @@
             </div>
         </div>
     </div>
+
+    <!-- PDF Settings Modal -->
+    <div id="pdf-settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close"
+                onclick="document.getElementById('pdf-settings-modal').style.display='none'">&times;</span>
+            <h2>📖 PDF Book Settings</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Choose your preferences for the generated PDF
+                book.</p>
+
+            <div class="control-group">
+                <label for="pdf-difficulty-select">Difficulty Level</label>
+                <select id="pdf-difficulty-select" class="styled-select">
+                    <option value="very_easy">🌱 Very Easy</option>
+                    <option value="easy">🟢 Easy</option>
+                    <option value="medium" selected>🟡 Medium</option>
+                    <option value="hard">🔴 Hard</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="pdf-count-input">Number of Puzzles (Max 5)</label>
+                <input type="number" id="pdf-count-input" class="styled-select" value="4" min="1" max="5">
+            </div>
+
+            <button id="btn-pdf-confirm" class="btn-large btn-primary" style="margin-top: 20px;">
+                Generate & Download PDF
+            </button>
+        </div>
+    </div>
+
     <script src="/static/script.js"></script>
 </body>
 
