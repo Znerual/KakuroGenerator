@@ -1016,7 +1016,16 @@ async function loadSolutionMode(id) {
         const data = await res.json();
         loadPuzzleIntoState(data);
 
-        // Auto-show errors to reveal the solution
+        // Populate the grid with the solution
+        state.userGrid.forEach(row => {
+            row.forEach(cell => {
+                if (cell.type === 'WHITE') {
+                    cell.userValue = cell.value;
+                }
+            });
+        });
+
+        // Auto-show errors to reveal the solution (will show as green)
         state.showErrors = true;
         renderBoard();
 
