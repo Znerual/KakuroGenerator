@@ -44,15 +44,10 @@ inline int popcount9(uint16_t mask) {
 // Set to 1 to enable detailed generation logging, 0 to disable
 // ============================================================================
 #define KAKURO_ENABLE_LOGGING 1
+#define KAKURO_ENABLE_DEBUG_LOGGING 0
 #define KAKURO_ENABLE_PROFILE_LOGGING 0
-#define LOG_DEBUG(msg)                                                         \
-  do {                                                                         \
-  } while (0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[DEBUG] " << msg
-              // << std::endl; } } while (0)
-#define LOG_INFO(msg)                                                          \
-  do {                                                                         \
-  } while (0) // { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[INFO] " << msg <<
-              // std::endl; } } while (0)
+#define LOG_DEBUG(msg) do { if (KAKURO_ENABLE_DEBUG_LOGGING) { std::cerr << "[DEBUG] " << msg << std::endl; } } while (0)
+#define LOG_INFO(msg) do { if (KAKURO_ENABLE_LOGGING) { std::cerr << "[INFO] " << msg << std::endl; } } while (0)
 #define LOG_ERROR(msg) do { std::cerr << "[ERROR] " << msg << std::endl; } while(0)
 
 // ============================================================================
@@ -827,7 +822,8 @@ private:
         int& node_count, 
         int max_nodes, 
         int seed, 
-        bool& timed_out);
+        bool& timed_out,
+        bool is_on_avoid_path = true);
     
     // Convert between bitmask and vector
     std::vector<int> mask_to_values(uint16_t mask) const;

@@ -31,6 +31,64 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
     for (Cell* c : board_->white_cells) {
         candidates[c] = ALL_CANDIDATES;
     }
+
+    // DEBUG: Verify that original_sol is actually valid for this topology
+    {
+        PROFILE_SCOPE("Uniqueness_IntegrityCheck", board_->logger);
+        bool integrity_fail = false;
+        
+        auto check_integrity = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz) {
+            for (const auto& sec : sectors) {
+                if (sec->empty()) continue;
+                Cell* first = (*sec)[0];
+                std::optional<int> clue_opt;
+                if (is_horz && first->c > 0) clue_opt = board_->grid[first->r][first->c - 1].clue_h;
+                else if (!is_horz && first->r > 0) clue_opt = board_->grid[first->r - 1][first->c].clue_v;
+                
+                if (!clue_opt) {
+                    LOG_ERROR("[INTEGRITY ERROR] Sector at (" << first->r << "," << first->c << ") has no clue!");
+                    integrity_fail = true;
+                    continue;
+                }
+                
+                int target = *clue_opt;
+                int sum = 0;
+                uint16_t used_mask = 0;
+                std::vector<int> vals;
+                
+                for (Cell* c : *sec) {
+                    if (original_sol.count(c)) {
+                        int v = original_sol.at(c);
+                        if (used_mask & (1 << v)) {
+                            LOG_ERROR("[INTEGRITY ERROR] Duplicate value " << v << " in sector at (" << first->r << "," << first->c << ")");
+                            integrity_fail = true;
+                        }
+                        used_mask |= (1 << v);
+                        sum += v;
+                        vals.push_back(v);
+                    } else {
+                        LOG_ERROR("[INTEGRITY ERROR] White cell (" << c->r << "," << c->c << ") missing from original_sol!");
+                        integrity_fail = true;
+                    }
+                }
+                
+                if (sum != target) {
+                    std::string val_str;
+                    for(int v : vals) val_str += std::to_string(v) + " ";
+                    LOG_ERROR("[INTEGRITY ERROR] Sector sum mismatch! Clue: " << target << " Actual: " << sum << " Values: " << val_str << " (is_horz=" << is_horz << ")");
+                    integrity_fail = true;
+                }
+            }
+        };
+        
+        check_integrity(board_->sectors_h, true);
+        check_integrity(board_->sectors_v, false);
+        
+        if (integrity_fail) {
+            LOG_ERROR("ABORTING UNIQUENESS CHECK: Topology/Solution integrity failed!");
+            // return {UniquenessResult::INCONCLUSIVE, std::nullopt}; // Don't abort yet, let's see how search fails
+        }
+    }
     
     // 3. Initialize candidates properly by removing impossible values
     {
@@ -499,6 +557,15 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
                 }
                 
                 if (new_mask != old_mask) {
+                    // Soundness check: Did we just eliminate the correct value?
+                    if (avoid_sol.count({c->r, c->c})) {
+                        int correct_val = avoid_sol.at({c->r, c->c});
+                        if ((old_mask & (1 << correct_val)) && !(new_mask & (1 << correct_val))) {
+                            LOG_ERROR("[SOUNDNESS BUG] Partition pruning eliminated correct value " << correct_val << " for cell (" << c->r << "," << c->c << ")!");
+                            LOG_ERROR("  Sector: " << (is_horz ? "H" : "V") << " Target: " << target << " Len: " << len);
+                        }
+                    }
+
                     candidates[c] = new_mask;
                     local_change = true;
                     if (new_mask == 0) {
@@ -664,6 +731,7 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
             // Check returned false if contradiction occurred inside
             // 3. Partition Pruning (Moved to end of loop as requested)
             // Check returned false if contradiction occurred inside
+            // 3. Partition Pruning (Restored)
             ReductionResult h_res = apply_partition_pruning(board_->sectors_h, true, candidates_snapshot);
             if (h_res == ReductionResult::CONTRADICTION) goto contradiction;
             if (h_res == ReductionResult::CHANGED) changed = true;
@@ -680,6 +748,19 @@ HybridUniquenessChecker::ReductionResult HybridUniquenessChecker::apply_logical_
             }
 
             if (!changed) break; 
+
+            // Soundness check after each iteration
+            for (Cell* c : board_->white_cells) {
+                if (avoid_sol.count({c->r, c->c})) {
+                    int correct_val = avoid_sol.at({c->r, c->c});
+                    if (!(candidates[c] & (1 << correct_val))) {
+                        LOG_ERROR("[SOUNDNESS BUG] Logical reduction incorrectly eliminated correct value " << correct_val << " for cell (" << c->r << "," << c->c << ")!");
+                    }
+                    if (c->value.has_value() && *c->value != correct_val) {
+                        LOG_ERROR("[SOUNDNESS BUG] Logical reduction incorrectly assigned value " << *c->value << " to cell (" << c->r << "," << c->c << "). Should be " << correct_val << "!");
+                    }
+                }
+            }
             any_change = true;
         }
         
@@ -698,7 +779,8 @@ void HybridUniquenessChecker::hybrid_search(
     int& node_count,
     int max_nodes,
     int seed,
-    bool& timed_out) {
+    bool& timed_out,
+    bool is_on_avoid_path) {
     
     if (!found_solutions.empty()) return;
     if (node_count > max_nodes) {
@@ -862,6 +944,9 @@ void HybridUniquenessChecker::hybrid_search(
                    [avoid_val](int v) { return v != avoid_val; });
     
     for (int val : values) {
+        bool is_correct_val = (val == avoid_val);
+        bool next_on_avoid_path = (is_on_avoid_path && is_correct_val);
+
         // Save the original candidate mask for var
         uint16_t var_orig_mask = candidates[var];
         std::optional<int> var_orig_value = var->value;
@@ -902,7 +987,15 @@ void HybridUniquenessChecker::hybrid_search(
             for (Cell* n : *sec) {
                 if (n->value.has_value()) {
                     // Check duplicate
-                    if (n != var && *n->value == val) return false;
+                    if (n != var && *n->value == val) {
+                        // Soundness check: Only if we are on the correct path and val is the correct one for var
+                        if (next_on_avoid_path) {
+                            if (avoid_sol.count({n->r, n->c}) && avoid_sol.at({n->r, n->c}) == *n->value) {
+                                LOG_ERROR("[SOUNDNESS BUG] Pruning duplicate value " << val << " in sector that should contain it according to avoid_sol!");
+                            }
+                        }
+                        return false;
+                    }
                     current_sum += *n->value;
                 } else {
                     unknown_count++;
@@ -915,13 +1008,26 @@ void HybridUniquenessChecker::hybrid_search(
                     if (mask & (1 << val)) {
                          uint16_t old_mask = mask;
                          uint16_t new_mask = old_mask & ~(1 << val);
-                         if (new_mask == 0) return false; // Contradiction: empty domain
+                         if (new_mask == 0) {
+                             if (next_on_avoid_path && avoid_sol.count({n->r, n->c}) && avoid_sol.at({n->r, n->c}) == val) {
+                                 LOG_ERROR("[SOUNDNESS BUG] Domain empty for cell (" << n->r << "," << n->c << ") because " << val << " was removed, but it's the correct value!");
+                             }
+                             return false; 
+                         }
                          
                          // Temporarily update mask for bound calculation (commit to map)
                          if (candidates[n] != new_mask) {
                              saved_candidates.push_back({n, old_mask});
                              candidates[n] = new_mask;
                              mask = new_mask;
+                             
+                             // Soundness check
+                             if (next_on_avoid_path && avoid_sol.count({n->r, n->c})) {
+                                 int correct_val = avoid_sol.at({n->r, n->c});
+                                 if (!(new_mask & (1 << correct_val))) {
+                                     LOG_ERROR("[SOUNDNESS BUG] Removed correct value " << correct_val << " from cell (" << n->r << "," << n->c << ") candidates!");
+                                 }
+                             }
                          }
                     }
                     
@@ -939,14 +1045,48 @@ void HybridUniquenessChecker::hybrid_search(
             }
             
             // Check sum feasibility
-            if (current_sum > target) return false;
+            auto check_soundness_on_failure = [&](const std::string& reason) {
+                if (!next_on_avoid_path) return;
+                // Check if the original solution satisfies this sector
+                int sol_sum = 0;
+                bool sol_possible = true;
+                std::string debug_vals = "";
+                for (Cell* n : *sec) {
+                    if (!avoid_sol.count({n->r, n->c})) { sol_possible = false; break; }
+                    int val_in_sol = avoid_sol.at({n->r, n->c});
+                    sol_sum += val_in_sol;
+                    
+                    debug_vals += "(" + std::to_string(n->r) + "," + std::to_string(n->c) + "):";
+                    if (n->value.has_value()) debug_vals += "v=" + std::to_string(*n->value);
+                    else debug_vals += "cmask=" + std::to_string(candidates[n]);
+                    debug_vals += "[sol=" + std::to_string(val_in_sol) + "] ";
+                }
+                if (sol_possible && sol_sum == target) {
+                    LOG_ERROR("[SOUNDNESS BUG] Pruning valid path. Reason: " << reason << " Target: " << target << " Sum: " << current_sum << " Var: (" << var->r << "," << var->c << ")=" << val);
+                    LOG_ERROR("  Sector details: " << debug_vals);
+                }
+            };
+
+            if (current_sum > target) {
+                 check_soundness_on_failure("Sum exceeded target " + std::to_string(target) + " current=" + std::to_string(current_sum));
+                 return false;
+            }
             // If filled, check exact match
             if (unknown_count == 0) {
-                if (current_sum != target) return false;
+                if (current_sum != target) {
+                    check_soundness_on_failure("Sector full but sum " + std::to_string(current_sum) + " != target " + std::to_string(target));
+                    return false;
+                }
             } else {
                 // Check if target is reachable
-                if (current_sum + min_remaining > target) return false;
-                if (current_sum + max_remaining < target) return false;
+                if (current_sum + min_remaining > target) {
+                    check_soundness_on_failure("Target " + std::to_string(target) + " unreachable (min possible " + std::to_string(current_sum + min_remaining) + ")");
+                    return false;
+                }
+                if (current_sum + max_remaining < target) {
+                    check_soundness_on_failure("Target " + std::to_string(target) + " unreachable (max possible " + std::to_string(current_sum + max_remaining) + ")");
+                    return false;
+                }
             }
 
             return true;
@@ -957,19 +1097,20 @@ void HybridUniquenessChecker::hybrid_search(
         
         if (!conflict) {
              hybrid_search(found_solutions, avoid_sol, candidates,
-                         node_count, max_nodes, seed, timed_out);
+                         node_count, max_nodes, seed, timed_out, next_on_avoid_path);
         }
         
         // **FIX 6: Restore BOTH candidates and cell values**
         candidates[var] = var_orig_mask;
         var->value = var_orig_value;
         
-        for (auto& [cell, old_mask] : saved_candidates) {
-            candidates[cell] = old_mask;
+        // **IMPORTANT: Restore candidates in REVERSE order to handle multiple updates to same cell**
+        for (int i = (int)saved_candidates.size() - 1; i >= 0; i--) {
+            candidates[saved_candidates[i].first] = saved_candidates[i].second;
         }
         
-        for (auto& [cell, old_value] : saved_values) {
-            cell->value = old_value;
+        for (int i = (int)saved_values.size() - 1; i >= 0; i--) {
+            saved_values[i].first->value = saved_values[i].second;
         }
         
         if (!found_solutions.empty() || timed_out) return;
