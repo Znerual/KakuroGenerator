@@ -924,7 +924,10 @@ void HybridUniquenessChecker::hybrid_search(
             for (Cell* c : *sector) {
                 sum += sol[{c->r, c->c}];
             }
-            if (sum != *clue) return; // Invalid sum
+            if (sum != *clue) {
+                LOG_ERROR("Invalid sum for sector " << first->r << ", " << first->c << ": " << sum << " != " << *clue);
+                return; // Invalid sum
+            }
         }
         for (const auto& sector : board_->sectors_v) {
             if (sector->empty()) continue;
@@ -937,7 +940,10 @@ void HybridUniquenessChecker::hybrid_search(
             for (Cell* c : *sector) {
                 sum += sol[{c->r, c->c}];
             }
-            if (sum != *clue) return; // Invalid sum
+            if (sum != *clue) {
+                LOG_ERROR("Invalid sum for sector " << first->r << ", " << first->c << ": " << sum << " != " << *clue);
+                return; // Invalid sum
+            }
         }
 
         // Check difference from original solution
