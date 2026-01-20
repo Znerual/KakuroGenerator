@@ -360,10 +360,12 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
         # Don't reveal if email exists (security best practice)
+        log_auth_attempt(db, request.email, "RESEND_VERIFICATION", "FAILURE", request, reason="User not found")
         return {"message": "If an account exists with this email, a verification code has been sent."}
     
     # Check if already verified
     if user.email_verified:
+        log_auth_attempt(db, request.email, "RESEND_VERIFICATION", "FAILURE", request, reason="Email already verified")
         return {"message": "This email is already verified. You can log in now."}
     
     # Generate new verification code
@@ -380,6 +382,7 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
     
     # If the code was created less than 60 seconds ago, block the request
     if (now - created_at).total_seconds() < 60:
+        log_auth_attempt(db, request.email, "RESEND_VERIFICATION", "FAILURE", request, reason="Too many requests")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Please wait 60 seconds before requesting a new code."
@@ -394,8 +397,10 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
     
     # Send verification email
     if config.is_resend_configured():
+        log_auth_attempt(db, request.email, "RESEND_VERIFICATION", "SUCCESS", request, reason="Verification code resent")
         background_tasks.add_task(send_verification_email, user.email, verification_code, user.full_name or user.username)
     else:
+        log_auth_attempt(db, request.email, "RESEND_VERIFICATION", "FAILURE", request, reason="Email service not configured")
         if config.DEBUG:
             print(f"DEV MODE: Resent verification code for {user.email}: {verification_code}")
     
@@ -403,33 +408,40 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
 
 # Password Reset Endpoints
 @router.post("/forgot-password", response_model=MessageResponse)
-async def forgot_password(request: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def forgot_password(request_data: ForgotPasswordRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Request a password reset link.
     """
     # Find user
-    user = db.query(User).filter(User.email == request.email).first()
+    user = db.query(User).filter(User.email == request_data.email).first()
     
     # Always return success message (don't reveal if email exists)
     if not user or not user.password_hash:  # OAuth users can't reset password this way
+        log_auth_attempt(db, request_data.email, "FORGOT_PASSWORD", "FAILURE", request, reason="User not found or no password")
         return {"message": "If an account exists with this email, a password reset link has been sent."}
     
     # Send password reset email
+    reset_token = create_password_reset_token(user.id, user.email)
     if config.is_resend_configured():
-        reset_token = create_password_reset_token(user.id, user.email)
         background_tasks.add_task(send_password_reset_email, user.email, reset_token, user.full_name or user.username)
+        log_auth_attempt(db, request_data.email, "FORGOT_PASSWORD", "SUCCESS", request, reason="Password reset email sent")
+    else:
+        log_auth_attempt(db, request_data.email, "FORGOT_PASSWORD", "FAILURE", request, reason="Email service not configured")
+        print(f"DEV MODE: Password reset email with link: {config.APP_HOST}/reset-password?token={reset_token}")
+
     
     return {"message": "If an account exists with this email, a password reset link has been sent."}
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+async def reset_password(request_data: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """
     Reset password using the token from the reset email.
     """
     # Verify token
-    token_data = verify_password_reset_token(request.token)
+    token_data = verify_password_reset_token(request_data.token)
     if not token_data:
+        log_auth_attempt(db, request_data.email, "RESET_PASSWORD", "FAILURE", request, reason="Invalid or expired reset token")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token"
@@ -438,15 +450,17 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
     # Find user
     user = db.query(User).filter(User.id == token_data["user_id"]).first()
     if not user or not user.password_hash:
+        log_auth_attempt(db, request_data.email, "RESET_PASSWORD", "FAILURE", request, reason="User not found or cannot reset password")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found or cannot reset password"
         )
     
     # Update password
-    user.password_hash = hash_password(request.new_password)
+    user.password_hash = hash_password(request_data.new_password)
     db.commit()
     
+    log_auth_attempt(db, user.email, "RESET_PASSWORD", "SUCCESS", request, reason="Password reset successful")
     return {"message": "Password reset successful! You can now log in with your new password."}
 
 

@@ -18,7 +18,7 @@ MARGIN_Y = 10 * mm
 
 # Layout Constants
 DIVIDER_Y = 55 * mm  # Height of the solution footer area
-SOLUTION_OFFSET = 2
+SOLUTION_OFFSET = 0
 DIFFICULTY = "medium"
 
 # Fonts - "Classic Book" style
@@ -66,36 +66,63 @@ def draw_difficulty_badge(c, right_x, top_y, difficulty_name, difficulty_score):
     Draws a styled difficulty indicator at the top right.
     Layout:
        Difficulty      (Small, Italic)
-        MEDIUM         (Bold, Uppercase)
+       [●] MEDIUM      (Bold, Uppercase with colored circle)
        ♦ ♦ ♢           (Visual Meter)
     """
-    # 1. Map difficulty to a 1-4 scale
-    levels = {"very_easy": 1, "easy": 2, "medium": 3, "hard": 4}
-    level_num = levels.get(difficulty_name.lower(), 2) # Default to 2
+    # 1. Map difficulty to data
+    levels = {
+        "very_easy": {"num": 1, "label": "VERY EASY", "color": colors.Color(0.2, 0.8, 0.2)}, # Light Green
+        "easy": {"num": 2, "label": "EASY", "color": colors.Color(0.1, 0.6, 0.1)},       # Green
+        "medium": {"num": 3, "label": "MEDIUM", "color": colors.Color(0.9, 0.7, 0.1)},     # Yellow/Orange
+        "hard": {"num": 4, "label": "HARD", "color": colors.Color(0.8, 0.1, 0.1)}          # Red
+    }
     
-    # 2. Draw "Difficulty" Label
+    config = levels.get(difficulty_name.lower(), levels["medium"])
+    level_num = config["num"]
+    display_name = config["label"]
+    badge_color = config["color"]
+    
+    # 2. Draw "Difficulty Level" Label
     c.setFillColor(colors.black)
-    c.setFont(FONT_ITALIC, 9)
-    # y coordinates: top_y is the baseline for the top text
-    c.drawRightString(right_x, top_y, f"Difficulty Level: {difficulty_score}")
+    c.setFont(FONT_ITALIC, 8)
+    try:
+        score_val = float(difficulty_score)
+        score_text = f"Rating: {score_val:.1f}"
+    except:
+        score_text = ""
+        
+    c.drawRightString(right_x, top_y, score_text)
     
-    # 3. Draw Level Name (MEDIUM)
+    # 3. Draw Level Name (MEDIUM) and Colored Badge
     c.setFont(FONT_TITLE, 14)
     # Move down by 14pts
-    c.drawRightString(right_x, top_y - 14, difficulty_name.upper())
+    
+    name_w = c.stringWidth(display_name, FONT_TITLE, 14)
+    
+    # Draw Badge Circle
+    circle_radius = 2.5 * mm
+    circle_x = right_x - name_w - 4 * mm - circle_radius
+    circle_y = top_y - 14 + 4 # Center with text height roughly
+    
+    c.setFillColor(badge_color)
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(0.5)
+    c.circle(circle_x, circle_y, circle_radius, fill=1, stroke=1)
+    
+    # Draw the Text
+    c.setFillColor(colors.black)
+    c.drawRightString(right_x, top_y - 14, display_name)
     
     # 4. Draw Visual Diamonds
-    # Start drawing form right to left or left to right? 
-    # Let's align them to the right to match text
     diamond_size = 4 * mm
     spacing = 1 * mm
-    total_width = (3 * diamond_size) + (2 * spacing) # Assuming max 3 or 4 stars
+    total_width = (4 * diamond_size) + (3 * spacing) 
     
     start_x = right_x - total_width + (diamond_size/2)
-    diamond_y = top_y - 22 # Below the text
+    diamond_y = top_y - 24 # Below the text
     
-    # Draw 3 indicators (Standard scale)
-    for i in range(1, 4):
+    # Draw 4 indicators
+    for i in range(1, 5):
         cx = start_x + ((i-1) * (diamond_size + spacing))
         is_filled = i <= level_num
         draw_diamond(c, cx, diamond_y, diamond_size, filled=is_filled)
@@ -158,8 +185,8 @@ def get_active_board_bounds(board_json, cell_size):
     
     for r, row in enumerate(grid):
         for c, cell in enumerate(row):
-            clue_h = cell.get('clue_h', 0)
-            clue_v = cell.get('clue_v', 0)
+            clue_h = int(cell.get('clue_h', 0))
+            clue_v = int(cell.get('clue_v', 0))
             ctype = str(cell.get('type', 'white')).upper()
             
             # If it's a visible cell
@@ -185,8 +212,8 @@ def draw_board(c, board_json, start_x, top_y, cell_size, show_solution=False):
             pos_x = start_x + (col * cell_size)
             pos_y = top_y - ((r + 1) * cell_size)
             
-            clue_h = cell.get('clue_h', 0)
-            clue_v = cell.get('clue_v', 0)
+            clue_h = int(cell.get('clue_h', 0))
+            clue_v = int(cell.get('clue_v', 0))
             val = cell.get('value', None)
             cell_type = str(cell.get('type', 'white')).upper()
 
@@ -245,17 +272,14 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000"):
 
         processed_puzzles.append((p, score))
 
-    total_pages = num_puzzles + SOLUTION_OFFSET
+    total_pages = num_puzzles + 1
     
     for page_idx in range(total_pages):
         puzzle_idx = page_idx
-        solution_idx = page_idx - SOLUTION_OFFSET
+        solution_idx = page_idx
         
         has_puzzle = 0 <= puzzle_idx < len(processed_puzzles)
         has_solution = 0 <= solution_idx < len(processed_puzzles)
-
-        if not has_puzzle and not has_solution:
-            break
 
         # ==========================================
         # 1. HEADER DESIGN
@@ -263,16 +287,17 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000"):
         if has_puzzle:
             current_puzzle, difficulty_score = processed_puzzles[puzzle_idx]
             # Draw the new Fancy Difficulty Badge
-            draw_difficulty_badge(c, PAGE_WIDTH - 2 * MARGIN_X, PAGE_HEIGHT - MARGIN_Y, DIFFICULTY, f"{difficulty_score}" )
+            diff_name = current_puzzle.get('difficulty', 'medium')
+            draw_difficulty_badge(c, PAGE_WIDTH - 2 * MARGIN_X, PAGE_HEIGHT - MARGIN_Y, diff_name, f"{difficulty_score}" )
             
-            # Main Title (Black Pill Box)
+            # Main Title (Black Pill Box) - Moved to the left
             title_text = f"PUZZLE  {puzzle_idx + 1}"
             c.setFont(FONT_TITLE, 22)
             title_w = c.stringWidth(title_text, FONT_TITLE, 22)
             
-            box_w = title_w + 20 * mm
+            box_w = title_w + 10 * mm
             box_h = 14 * mm
-            box_x = (PAGE_WIDTH - box_w) / 2
+            box_x = MARGIN_X # Move to left margin
             
             # Align top of box with the Difficulty text baseline roughly
             box_y = PAGE_HEIGHT - MARGIN_Y - box_h - 2 * mm 
@@ -281,7 +306,7 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000"):
             c.rect(box_x, box_y, box_w, box_h, fill=1, stroke=0)
             
             c.setFillColor(colors.white)
-            c.drawCentredString(PAGE_WIDTH / 2, box_y + 4 * mm, title_text)
+            c.drawCentredString(box_x + box_w / 2, box_y + 4 * mm, title_text)
 
             # ==========================================
             # 2. MAIN PUZZLE
@@ -333,25 +358,26 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000"):
             # Vertically center text in footer
             text_y_center = DIVIDER_Y / 2
             
-            c.drawString(MARGIN_X + 5*mm, text_y_center + 10, "SOLUTION & RATING")
+            c.drawString(MARGIN_X + 5*mm, text_y_center + 10, "SOLUTION")
             c.setFont(FONT_SERIF, 11)
             c.drawString(MARGIN_X + 5*mm, text_y_center - 5, f"Puzzle #{solution_idx + 1}")
             
-            # Draw ID textual representation for manual entry
-            c.setFont("Courier", 8)
-            # Ensure ID is a string
+            # Draw short readable ID textual representation for manual entry
+            c.setFont("Courier-Bold", 10)
+            # Use short_id if available, fallback to first 8 of ID
             pid = str(sol_puzzle.get('id', 'N/A'))
-            c.drawString(MARGIN_X + 5*mm, text_y_center - 28, f"ID: {pid}")
+            short_id = sol_puzzle.get('short_id', pid[:8] if len(pid) > 8 else pid)
+            c.drawString(MARGIN_X + 5*mm, text_y_center - 28, f"CODE: {short_id}")
 
 
-            # Right Side: QR Code
+            # Center: QR Code
             # Available space for QR
             qr_size = 35 * mm
-            qr_x = PAGE_WIDTH - MARGIN_X - qr_size
-            qr_y = (DIVIDER_Y - qr_size) / 2
+            qr_x = (PAGE_WIDTH - qr_size) / 2
+            qr_y = (DIVIDER_Y - qr_size) / 2 + 5 * mm # Slightly higher to fit 2 lines of text
             
             # URL to the solution page
-            solution_url = f"{base_url}/solution/{pid}"
+            solution_url = f"{base_url}/?solution_id={short_id}"
             
             # We need to transform the cairo/reportlab coordinate system for the drawing
             # But draw_qr_code wrapper handles it
@@ -359,7 +385,9 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000"):
             
             c.setFillColor(colors.black)
             c.setFont(FONT_SANS, 8)
-            c.drawCentredString(qr_x + qr_size/2, qr_y - 3*mm, "Scan to verify & rate")
+            c.drawCentredString(PAGE_WIDTH / 2, qr_y - 4*mm, "Scan to verify & rate")
+            c.setFont(FONT_SANS, 6)
+            c.drawCentredString(PAGE_WIDTH / 2, qr_y - 7*mm, f"Or visit: {base_url}/?solution_id={short_id}")
 
         elif not has_puzzle:
             # End of book Page

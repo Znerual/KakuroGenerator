@@ -308,6 +308,6 @@ async def get_log(filename: str, prof: int = 0):
         return {"steps": [{"id": 0, "s": "error", "ss": "error", "m": f"Failed to parse log: {str(e)}"}]}
 
 if __name__ == "__main__":
-    print(f"Starting Kakuro Web Viewer on http://localhost:8000")
+    print(f"Starting Kakuro Web Viewer on http://localhost:8001")
     print(f"Reading logs from: {LOG_DIR}")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

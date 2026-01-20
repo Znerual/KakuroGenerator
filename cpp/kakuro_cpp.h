@@ -617,7 +617,7 @@ public:
 private:
   // --- Time Limit Members ---
   std::chrono::steady_clock::time_point start_time_;
-  double time_limit_sec_ = 60.0; // Default 60 seconds
+  double time_limit_sec_ = 180.0; // Default 180 seconds
   bool check_timeout(); // Returns true if timed out and handles logging/closing
 
   bool
@@ -761,7 +761,7 @@ private:
   long long nodes_explored = 0;
   const long long MAX_NODES = 100000000; // Adjust based on desired effort
   std::chrono::steady_clock::time_point start_time;
-  const double TIME_LIMIT_SEC = 8.0;
+  const double TIME_LIMIT_SEC = 30.0;
   bool search_aborted = false;
 
   bool is_limit_exceeded() {
