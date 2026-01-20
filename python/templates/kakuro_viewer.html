@@ -1030,6 +1030,17 @@
                         }
                     });
                 }
+                
+                // Fill in BLOCK cells with clues (EXPLICIT)
+                if (step.b) {
+                     step.b.forEach(([r, c, h, v]) => {
+                        if (fullGrid[r] && fullGrid[r][c]) {
+                            fullGrid[r][c].type = 'BLOCK';
+                            if (h > 0) fullGrid[r][c].clue_h = h;
+                            if (v > 0) fullGrid[r][c].clue_v = v;
+                        }
+                     });
+                }
             } else if (currentStepIndex > 0 && currentLogData[currentStepIndex - 1]) {
                 // Fallback: If current step has no grid info (wh), 
                 // carry over the grid from the previous step
@@ -1556,8 +1567,8 @@
             container.style.gridTemplateColumns = `repeat(${cols}, 50px)`;
             container.style.gridTemplateRows = `repeat(${rows}, 50px)`;
 
-            // Pre-calculate clues based on current numbers
-            const clues = calculateClues(gridData);
+            // Pre-calculate clues based on current numbers (Fallback)
+            const calculatedClues = calculateClues(gridData);
 
             // Parse Highlights
             let highlights = new Set();
@@ -1586,19 +1597,27 @@
                     // Basic Type
                     if (cell.type === 'BLOCK') {
                         el.classList.add('block');
-                        const cellClues = clues[`${r},${c}`];
-                        if (cellClues) {
+                        
+                        // Determine clues: prefer explicit logged clues, fallback to calculated
+                        let ch = cell.clue_h;
+                        let cv = cell.clue_v;
+                        
+                        const calc = calculatedClues[`${r},${c}`];
+                        if (ch === undefined && calc && calc.h !== undefined) ch = calc.h;
+                        if (cv === undefined && calc && calc.v !== undefined) cv = calc.v;
+                        
+                        if (ch !== undefined || cv !== undefined) {
                             el.classList.add('has-clue');
-                            if (cellClues.h !== undefined) {
+                            if (ch !== undefined && ch > 0) {
                                 const hEl = document.createElement('span');
                                 hEl.className = 'clue-val clue-h';
-                                hEl.innerText = cellClues.h;
+                                hEl.innerText = ch;
                                 el.appendChild(hEl);
                             }
-                            if (cellClues.v !== undefined) {
+                            if (cv !== undefined && cv > 0) {
                                 const vEl = document.createElement('span');
                                 vEl.className = 'clue-val clue-v';
-                                vEl.innerText = cellClues.v;
+                                vEl.innerText = cv;
                                 el.appendChild(vEl);
                             }
                         }

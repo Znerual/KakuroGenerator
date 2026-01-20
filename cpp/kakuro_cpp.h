@@ -103,6 +103,13 @@ struct DifficultyResult {
   std::vector<std::vector<std::vector<std::optional<int>>>> solutions;
 };
 
+struct LogCell {
+  std::string type;
+  int value;
+  int clue_h;
+  int clue_v;
+};
+
 class GenerationLogger {
 public:
   // Stages (Aliases for efficiency)
@@ -235,7 +242,7 @@ public:
   void log_step(
       const std::string &stage, const std::string &substage,
       const std::string &message,
-      const std::vector<std::vector<std::pair<std::string, int>>> &grid_state,
+      const std::vector<std::vector<LogCell>> &grid_state,
       const std::string &extra_data = "") {
 #if KAKURO_ENABLE_LOGGING
     if (!enabled_ || !log_file_.is_open())
@@ -253,22 +260,40 @@ public:
               << ",\"m\":\"" << escape_json(message) << "\"";
 
     if (!grid_state.empty()) {
-      log_file_ << ",\"wh\":[" << grid_state[0].size() << "," << grid_state.size() << "]"
-                << ",\"g\":[";
+      log_file_ << ",\"wh\":[" << grid_state[0].size() << "," << grid_state.size() << "]";
+      
+      // Log White Cells
+      log_file_ << ",\"g\":[";
       bool first_cell = true;
       for (size_t r = 0; r < grid_state.size(); r++) {
         for (size_t c = 0; c < grid_state[r].size(); c++) {
-          const auto &[type, value] = grid_state[r][c];
-          if (type == "WHITE") {
+          const auto &cell = grid_state[r][c];
+          if (cell.type == "WHITE") {
             if (!first_cell) log_file_ << ",";
-            log_file_ << "[" << r << "," << c << "," << value << "]";
+            log_file_ << "[" << r << "," << c << "," << cell.value << "]";
             first_cell = false;
           }
         }
       }
       log_file_ << "]";
+
+      // Log Block Clues
+      log_file_ << ",\"b\":[";
+      first_cell = true;
+      for (size_t r = 0; r < grid_state.size(); r++) {
+        for (size_t c = 0; c < grid_state[r].size(); c++) {
+          const auto &cell = grid_state[r][c];
+          if (cell.type == "BLOCK" && (cell.clue_h > 0 || cell.clue_v > 0)) {
+            if (!first_cell) log_file_ << ",";
+            log_file_ << "[" << r << "," << c << "," << cell.clue_h << "," << cell.clue_v << "]";
+            first_cell = false;
+          }
+        }
+      }
+      log_file_ << "]";
+
     } else {
-      log_file_ << ",\"g\":[]";
+      log_file_ << ",\"g\":[],\"b\":[]";
     }
 
     if (!extra_data.empty()) {
@@ -282,9 +307,9 @@ public:
   void log_step_with_highlights(
       const std::string &stage, const std::string &substage,
       const std::string &message,
-      const std::vector<std::vector<std::pair<std::string, int>>> &grid_state,
+      const std::vector<std::vector<LogCell>> &grid_state,
       const std::vector<std::pair<int, int>> &highlighted_cells,
-      const std::vector<std::vector<std::pair<std::string, int>>> &alt_grid =
+      const std::vector<std::vector<LogCell>> &alt_grid =
           {}) {
 #if KAKURO_ENABLE_LOGGING
     if (!enabled_ || !log_file_.is_open())
@@ -306,13 +331,13 @@ public:
       bool first_val = true;
       for (size_t r = 0; r < alt_grid.size(); r++) {
         for (size_t c = 0; c < alt_grid[r].size(); c++) {
-          const auto &[type, value] = alt_grid[r][c];
+          const auto &cell = alt_grid[r][c];
           // We only log WHITE cells to save space, matching the main grid
           // format
-          if (type == "WHITE") {
+          if (cell.type == "WHITE") {
             if (!first_val)
               data << ",";
-            data << "[" << r << "," << c << "," << value << "]";
+            data << "[" << r << "," << c << "," << cell.value << "]";
             first_val = false;
           }
         }
@@ -375,7 +400,7 @@ public:
 
   void log_difficulty(
       const DifficultyResult &diff,
-      const std::vector<std::vector<std::pair<std::string, int>>> &grid_state) {
+      const std::vector<std::vector<LogCell>> &grid_state) {
 #if KAKURO_ENABLE_LOGGING
     if (!enabled_ || !log_file_.is_open())
       return;
@@ -397,10 +422,25 @@ public:
       bool first_cell = true;
       for (size_t r = 0; r < grid_state.size(); r++) {
         for (size_t c = 0; c < grid_state[r].size(); c++) {
-          const auto &[type, value] = grid_state[r][c];
-          if (type == "WHITE") {
+          const auto &cell = grid_state[r][c];
+          if (cell.type == "WHITE") {
             if (!first_cell) log_file_ << ",";
-            log_file_ << "[" << r << "," << c << "," << value << "]";
+            log_file_ << "[" << r << "," << c << "," << cell.value << "]";
+            first_cell = false;
+          }
+        }
+      }
+      log_file_ << "]"; // Close 'g'
+      
+      // Log Block Clues
+      log_file_ << ",\"b\":[";
+      first_cell = true;
+      for (size_t r = 0; r < grid_state.size(); r++) {
+        for (size_t c = 0; c < grid_state[r].size(); c++) {
+          const auto &cell = grid_state[r][c];
+          if (cell.type == "BLOCK" && (cell.clue_h > 0 || cell.clue_v > 0)) {
+            if (!first_cell) log_file_ << ",";
+            log_file_ << "[" << r << "," << c << "," << cell.clue_h << "," << cell.clue_v << "]";
             first_cell = false;
           }
         }
@@ -545,7 +585,7 @@ public:
   std::vector<std::vector<std::unordered_map<std::string, std::string>>>
   to_dict() const;
 
-  std::vector<std::vector<std::pair<std::string, int>>> get_grid_state(
+  std::vector<std::vector<LogCell>> get_grid_state(
       const std::unordered_map<Cell *, int> *assignment = nullptr) const;
 
 private:

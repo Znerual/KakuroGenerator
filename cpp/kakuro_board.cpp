@@ -27,16 +27,18 @@ Cell *KakuroBoard::get_cell(int r, int c) {
 }
 
 // Helper for logging
-std::vector<std::vector<std::pair<std::string, int>>>
+std::vector<std::vector<LogCell>>
 KakuroBoard::get_grid_state(
     const std::unordered_map<Cell *, int> *assignment) const {
-  std::vector<std::vector<std::pair<std::string, int>>> state;
+  std::vector<std::vector<LogCell>> state;
   for (int r = 0; r < height; ++r) {
-    std::vector<std::pair<std::string, int>> row_state;
+    std::vector<LogCell> row_state;
     for (int c = 0; c < width; ++c) {
       std::string type =
           (grid[r][c].type == CellType::BLOCK) ? "BLOCK" : "WHITE";
       int val = grid[r][c].value.value_or(0);
+      int clue_h = grid[r][c].clue_h.value_or(0);
+      int clue_v = grid[r][c].clue_v.value_or(0);
 
       if (assignment) {
         // Look up in assignment map
@@ -47,7 +49,7 @@ KakuroBoard::get_grid_state(
           val = it->second;
         }
       }
-      row_state.push_back({type, val});
+      row_state.push_back({type, val, clue_h, clue_v});
     }
     state.push_back(row_state);
   }
