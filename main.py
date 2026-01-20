@@ -399,14 +399,16 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 class SkipRequest(BaseModel):
     template_id: str
+    puzzle_id: Optional[str] = None
 
 @app.post("/skip")
 def skip_puzzle(
     request: SkipRequest,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user)
+    auth_data: tuple[Optional[User], Optional[str]] = Depends(get_current_user_and_session)
 ):
     """Track when a user skips a puzzle without completing it."""
+    current_user, session_id = auth_data
     if not request.template_id:
         return {"status": "ignored", "reason": "no_template_id"}
     
@@ -414,6 +416,21 @@ def skip_puzzle(
     if template:
         template.times_skipped = (template.times_skipped or 0) + 1
         db.commit()
+
+        # Log interaction if user is logged in and puzzle_id is available
+        if current_user and request.puzzle_id:
+             log_interaction(
+                db=db,
+                user_id=current_user.id,
+                puzzle_id=request.puzzle_id,
+                session_id=session_id,
+                action_data={
+                    "action_type": "SKIP",
+                    "client_timestamp": datetime.datetime.now().isoformat(),
+                    # device_type could be inferred but for now maybe skip or default
+                }
+            )
+
         return {"status": "tracked"}
 
     return {"status": "ignored", "reason": "template_not_found"}
@@ -782,12 +799,25 @@ def reset_password_redirect(token: str):
 @app.post("/api/generate-book")
 def generate_book_endpoint(
     settings: BookSettings,
+    request: Request,
     current_user: User = Depends(get_required_user),
     db: Session = Depends(get_db)
 ):
     """
     Generates a PDF book for the user with puzzles from the pool.
     """
+    # Log the book generation request
+    from kakuro.performance import log_auth_attempt
+    log_auth_attempt(
+        db, 
+        current_user.email, 
+        "BOOK_DOWNLOAD", 
+        "SUCCESS", 
+        request, 
+        user_id=current_user.id,
+        reason=f"Generated book with {settings.num_puzzles} puzzles ({settings.difficulty})"
+    )
+
     difficulty = settings.difficulty
     num_puzzles = settings.num_puzzles
     # 1. Fetch puzzles from the pool (filtered for this user)
