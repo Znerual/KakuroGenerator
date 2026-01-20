@@ -67,6 +67,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
 # Trust proxy headers (e.g., X-Forwarded-Proto) from local proxy
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["127.0.0.1", "::1"])
 
@@ -302,6 +310,12 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
     """
     Generates a Kakuro puzzle using the improved CSPSolver with uniqueness guarantees.
     """
+    # 0. Input Validation
+    MAX_DIM = 30
+    if width is not None and width > MAX_DIM:
+        raise HTTPException(status_code=400, detail=f"Width cannot exceed {MAX_DIM}")
+    if height is not None and height > MAX_DIM:
+        raise HTTPException(status_code=400, detail=f"Height cannot exceed {MAX_DIM}")
     
     # 1. Randomize size if not specified
     if width is None or height is None:
@@ -357,6 +371,23 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
     
     # All retries failed
     raise HTTPException(status_code=500, detail="Failed to generate valid puzzle after multiple attempts. Try a different difficulty or size.")
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # Log the full error for debugging
+    logger.error(f"Global exception: {exc}")
+    logger.error(traceback.format_exc())
+    
+    # Return generic error to client unless in debug mode
+    if config.DEBUG:
+        return {
+            "detail": f"Internal Server Error: {str(exc)}",
+            "trace": traceback.format_exc().split("\n")
+        }
+    
+    return {
+        "detail": "Internal Server Error. Please contact support if this persists."
+    }
 
 class SkipRequest(BaseModel):
     template_id: str
