@@ -1,3 +1,14 @@
+// Utility
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // Admin Dashboard JS
 let charts = {};
 
@@ -258,11 +269,11 @@ function updatePuzzlesTable(data) {
     const tbody = document.querySelector('#puzzlesTable tbody');
     tbody.innerHTML = data.map(p => `
         <tr>
-            <td>${p.user}</td>
+            <td>${escapeHtml(p.user)}</td>
             <td>${p.id.substring(0, 8)}...</td>
             <td>${p.difficulty}</td>
             <td>${'⭐'.repeat(p.rating)}</td>
-            <td>${p.comment}</td>
+            <td>${escapeHtml(p.comment)}</td>
             <td>${new Date(p.date).toLocaleString()}</td>
         </tr>
     `).join('');
@@ -272,8 +283,8 @@ function updateAuthLogsTable(data) {
     const tbody = document.querySelector('#authLogsTable tbody');
     tbody.innerHTML = data.map(log => `
         <tr>
-            <td>${log.email}</td>
-            <td>${log.action}</td>
+            <td>${escapeHtml(log.email)}</td>
+            <td>${escapeHtml(log.action)}</td>
             <td><span class="status-badge ${log.status === 'SUCCESS' ? 'status-success' : 'status-failure'}">${log.status}</span></td>
             <td style="font-family: monospace;">${log.ip_address}</td>
             <td>${new Date(log.timestamp).toLocaleString()}</td>

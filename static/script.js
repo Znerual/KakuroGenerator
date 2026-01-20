@@ -1,3 +1,14 @@
+// Utility
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 const state = {
     puzzle: null,
     userGrid: [],
@@ -589,7 +600,10 @@ async function skipCurrentPuzzle() {
                 'Content-Type': 'application/json',
                 ...getAuthHeaders()
             },
-            body: JSON.stringify({ template_id: state.puzzle.template_id })
+            body: JSON.stringify({ 
+                template_id: state.puzzle.template_id,
+                puzzle_id: state.puzzle.id 
+            })
         });
         console.log("Puzzle skip tracked.");
     } catch (e) {
@@ -648,6 +662,12 @@ async function saveCurrentState(silent = false) {
         });
         if (res.ok) {
             if (!silent) showToast("Progress Saved!");
+            
+            // Log explicitly initiated saves
+            if (!silent) {
+                logInteraction('SAVE');
+            }
+
             console.log("Autosave successful");
         } else {
             if (!silent) showToast("Failed to save progress.");
@@ -779,11 +799,11 @@ async function renderLibrary() {
                 card.innerHTML = `
                     ${thumbnailHtml}
                     <div class="puzzle-info">
-                        <h3>${p.difficulty.replace('_', ' ').toUpperCase()}</h3>
+                        <h3>${escapeHtml(p.difficulty.replace('_', ' ').toUpperCase())}</h3>
                         <p>${p.width}x${p.height}</p>
                         <p>${new Date(p.timestamp).toLocaleString()}</p>
                     </div>
-                    <button class="delete-btn" onclick="deletePuzzle(event, '${p.id}')">&times;</button>
+                    <button class="delete-btn" onclick="deletePuzzle(event, '${escapeHtml(p.id)}')">&times;</button>
                 `;
                 card.addEventListener('click', () => loadSavedPuzzle(p.id));
                 libraryList.appendChild(card);
@@ -2435,7 +2455,19 @@ async function handleLogin() {
             const loginForm = document.getElementById('login-form');
             if (loginForm) loginForm.reset();
         } else {
-            showAuthError('login', data.detail || 'Login failed');
+            let errorMsg = data.detail || 'Login failed';
+            if (typeof errorMsg === 'object') {
+                if (Array.isArray(errorMsg)) {
+                    errorMsg = errorMsg.map(e => {
+                        const msg = e.msg;
+                        const colonIndex = msg.indexOf(':');
+                        return colonIndex !== -1 ? msg.substring(colonIndex + 1).trim() : msg;
+                    }).join(', ');
+                } else {
+                    errorMsg = JSON.stringify(errorMsg);
+                }
+            }
+            showAuthError('login', errorMsg);
         }
     } catch (e) {
         showAuthError('login', 'Network error. Please try again.');
