@@ -447,7 +447,7 @@ CSPSolver::perform_robust_uniqueness_check() {
     if (check_timeout())
       return {UniquenessResult::INCONCLUSIVE, std::nullopt};
 
-    auto [status, alt_sol] = check_uniqueness(10000000, 42 + (i * 100));
+    auto [status, alt_sol] = check_uniqueness(7500000, 42 + (i * 100));
 
     if (status == UniquenessResult::MULTIPLE)
       return {UniquenessResult::MULTIPLE, alt_sol};

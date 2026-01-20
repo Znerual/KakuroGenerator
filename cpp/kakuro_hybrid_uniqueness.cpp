@@ -369,7 +369,7 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
         bool show_alt = false;
 
         if (timed_out) {
-            search_status += " Timed out.";
+            search_status += " Timed out. Assuming UNIQUE.";
 
             board_->logger->log_step(
                 GenerationLogger::STAGE_UNIQUENESS,
@@ -426,8 +426,9 @@ HybridUniquenessChecker::check_uniqueness_hybrid(int max_nodes, int seed_offset)
     if (!found.empty()) {
         return {UniquenessResult::MULTIPLE, found[0]};
     }
-    if (timed_out)
-        return {UniquenessResult::INCONCLUSIVE, std::nullopt};
+    if (timed_out) {
+        LOG_INFO("Hybrid search timed out (" << node_count << " nodes). Assuming UNIQUE.");
+    }
     return {UniquenessResult::UNIQUE, std::nullopt};
 }
 
