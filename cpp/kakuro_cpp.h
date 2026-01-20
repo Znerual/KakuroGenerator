@@ -799,7 +799,7 @@ private:
 
   // Avoid getting stuck
   long long nodes_explored = 0;
-  const long long MAX_NODES = 100000000; // Adjust based on desired effort
+  const long long MAX_NODES = 50000000; // Adjust based on desired effort
   std::chrono::steady_clock::time_point start_time;
   const double TIME_LIMIT_SEC = 30.0;
   bool search_aborted = false;
