@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Debug Mode
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
 # JWT Configuration
 # In production, set JWT_SECRET_KEY environment variable
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
