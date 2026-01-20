@@ -151,9 +151,12 @@ async def register(register_data: RegisterRequest, request: Request,  background
         background_tasks.add_task(send_verification_email, register_data.email, verification_code, register_data.full_name or register_data.username)
         return {"message": "Registration successful! Please check your email for a verification code."}
     else:
-        # If email not configured, print code to console for dev
-        print(f"DEV MODE: Verification code for {register_data.email} is {verification_code}")
-        return {"message": f"DEV MODE: Verification code is {verification_code}"}
+        # If email not configured, print code to console for dev ONLY IF DEBUG IS ON
+        if config.DEBUG:
+            print(f"DEV MODE: Verification code for {register_data.email} is {verification_code}")
+            return {"message": f"DEV MODE: Verification code is {verification_code}"}
+        else:
+            return {"message": "Verification code sent (Dev mode hidden)"}
 
 
 
@@ -393,7 +396,8 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
     if config.is_resend_configured():
         background_tasks.add_task(send_verification_email, user.email, verification_code, user.full_name or user.username)
     else:
-        print(f"DEV MODE: Resent verification code for {user.email}: {verification_code}")
+        if config.DEBUG:
+            print(f"DEV MODE: Resent verification code for {user.email}: {verification_code}")
     
     return {"message": "If an account exists with this email, a verification code has been sent."}
 
