@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, cast, Float
+from sqlalchemy import func, desc, cast, Float, Integer
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 
@@ -67,7 +67,7 @@ async def get_performance_stats(
     # Average request duration per path
     req_stats = db.query(
         PerformanceMetric.metadata_json["path"].label("path"),
-        PerformanceMetric.metadata_json["auth_status"].label("auth_status"),
+        PerformanceMetric.metadata_json["user_type"].label("auth_status"),
         func.avg(PerformanceMetric.value).label("avg_ms"),
         func.count(PerformanceMetric.id).label("count")
     ).filter(
@@ -175,18 +175,20 @@ async def get_solving_behavior(
         PuzzleInteraction.action_type == "INPUT",
         PuzzleInteraction.duration_ms > 0
     ).group_by(Puzzle.difficulty).all()
+
+    fill_bucket_expr = cast(PuzzleInteraction.fill_count / 10, Integer)
     
     # Move speed per fill state (e.g. 0-25%, 25-50%, etc.)
     # We can group by fill_count relative to total white cells.
     # For now, let's just group by absolute fill_count buckets.
     progress_speed = db.query(
-        (PuzzleInteraction.fill_count / 10).label("bucket"),
+        fill_bucket_expr.label("bucket"),
         func.avg(PuzzleInteraction.duration_ms).label("avg_ms")
     ).filter(
         PuzzleInteraction.action_type == "INPUT",
         PuzzleInteraction.duration_ms > 0,
-        PuzzleInteraction.fill_count != None
-    ).group_by("bucket").all()
+        PuzzleInteraction.fill_count.isnot(None)
+    ).group_by(fill_bucket_expr).all()
     
     # Calculate "start options" for templates
     # Simple metric: sum of (1 / number of combinations per clue) - actually clues are hard.
@@ -195,7 +197,7 @@ async def get_solving_behavior(
     return {
         "avg_solve_times": [{"difficulty": s.difficulty, "seconds": s.avg_solve_seconds} for s in solve_times],
         "avg_move_speeds": [{"difficulty": m.difficulty, "ms": m.avg_move_ms} for m in move_speeds],
-        "speed_by_progress": [{"fill_bucket": p.bucket * 10, "ms": p.avg_ms} for p in progress_speed]
+        "speed_by_progress": [{"fill_bucket": int(p.bucket) * 10, "ms": p.avg_ms} for p in progress_speed]
     }
 
 
@@ -231,26 +233,86 @@ async def get_puzzle_stats(
 async def get_auth_logs(
     db: Session = Depends(get_db),
     admin: User = Depends(get_admin_user),
-    limit: int = 100
+    limit: int = 100,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
 ):
     """Recent authentication logs."""
-    logs = db.query(AuthLog).order_by(desc(AuthLog.timestamp)).limit(limit).all()
+    logs = db.query(AuthLog)
+
+    # Apply Date Filters
+    if start_date:
+        try:
+            # Assumes YYYY-MM-DD coming from HTML input type="date"
+            s_date = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(AuthLog.timestamp >= s_date)
+        except ValueError:
+            pass
+            
+    if end_date:
+        try:
+            e_date = datetime.strptime(end_date, "%Y-%m-%d")
+            # Set to end of day
+            e_date = e_date.replace(hour=23, minute=59, second=59)
+            query = query.filter(AuthLog.timestamp <= e_date)
+        except ValueError:
+            pass
+
+    # If filtering by date, we might want to increase the limit or remove it
+    # But for safety, let's keep a high ceiling if no limit specified
+    if start_date or end_date:
+        limit = 1000
+
+    logs = query.order_by(desc(AuthLog.timestamp)).limit(limit).all()
     return [log.to_dict() for log in logs]
 
 @router.get("/logs/errors")
 async def get_error_logs(
     admin: User = Depends(get_admin_user),
-    lines: int = 100
+    lines: int = 100,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
 ):
-    """Reads the last X lines of the debug log."""
+    """Reads the debug log with date filtering capability."""
     log_file = "kakuro_debug.log"
     if not os.path.exists(log_file):
         return {"error": "Log file not found"}
     
     try:
-        with open(log_file, "r") as f:
-            # Simple way to get last N lines
-            all_lines = f.readlines()
-            return {"logs": all_lines[-lines:]}
+        # If no filters, return the tail to save memory
+        if not start_date and not end_date:
+            with open(log_file, "r", encoding="utf-8", errors='ignore') as f:
+                # Efficiently read last N lines
+                # (Simple approach: read all if file isn't huge, or seek)
+                # For safety in python, reading lines is okay for medium files
+                lines = f.readlines()
+                return {"logs": lines[-limit:]}
+
+        # Date Filtering Logic for Text Files
+        s_date = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.min
+        e_date = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59) if end_date else datetime.max
+        
+        filtered_lines = []
+        
+        # Regex to find timestamp at start of line (Adjust based on your logging config)
+        # Matches: 2023-01-01 12:00:00 or [2023-01-01...]
+        date_pattern = re.compile(r'(\d{4}-\d{2}-\d{2})')
+        
+        with open(log_file, "r", encoding="utf-8", errors='ignore') as f:
+            for line in f:
+                match = date_pattern.search(line)
+                if match:
+                    try:
+                        line_date = datetime.strptime(match.group(1), "%Y-%m-%d")
+                        if s_date <= line_date <= e_date:
+                            filtered_lines.append(line)
+                    except:
+                        pass # If parse fails, ignore or append if it's a stack trace?
+                else:
+                    # If line has no date (e.g. stack trace), include it if previous line was included
+                    if filtered_lines:
+                        filtered_lines.append(line)
+
+        return {"logs": filtered_lines}
     except Exception as e:
         return {"error": str(e)}

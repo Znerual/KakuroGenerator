@@ -46,6 +46,12 @@ function showSection(name) {
     refreshData(name);
 }
 
+function clearLogFilters() {
+    document.getElementById('log-start-date').value = '';
+    document.getElementById('log-end-date').value = '';
+    refreshData('logs');
+}
+
 async function refreshData(forceSection = null) {
     const activeSection = forceSection || Array.from(document.querySelectorAll('.admin-nav-item')).find(i => i.classList.contains('active'))?.innerText.toLowerCase() || 'overview';
 
@@ -105,13 +111,37 @@ async function refreshData(forceSection = null) {
     }
 
     if (activeSection.includes('logs')) {
-        const authData = await adminFetch('/admin/logs/auth');
-        const errorData = await adminFetch('/admin/logs/errors');
+        // Get filter values
+        const startDate = document.getElementById('log-start-date').value;
+        const endDate = document.getElementById('log-end-date').value;
+
+        // Build Query String
+        let queryParams = '';
+        if (startDate) queryParams += `&start_date=${startDate}`;
+        if (endDate) queryParams += `&end_date=${endDate}`;
+        
+        // Remove leading & if exists and prepend ?
+        if (queryParams) queryParams = '?' + queryParams.substring(1);
+
+        // Fetch Auth Logs
+        const authData = await adminFetch(`/admin/logs/auth${queryParams}`);
         if (authData) updateAuthLogsTable(authData);
+
+        // Fetch Error Logs
+        const errorData = await adminFetch(`/admin/logs/errors${queryParams}`);
         if (errorData) {
             const viewer = document.getElementById('errorLogViewer');
-            viewer.innerText = errorData.logs ? errorData.logs.join('') : 'No logs or error reading file.';
-            viewer.scrollTop = viewer.scrollHeight;
+            if (errorData.logs && errorData.logs.length > 0) {
+                viewer.innerText = errorData.logs.join('');
+            } else {
+                viewer.innerText = "No logs found for the selected period.";
+            }
+            // Only scroll to bottom if we are NOT filtering (default view)
+            if (!queryParams) {
+                viewer.scrollTop = viewer.scrollHeight;
+            } else {
+                viewer.scrollTop = 0; // Scroll to top to see search results
+            }
         }
     }
 }

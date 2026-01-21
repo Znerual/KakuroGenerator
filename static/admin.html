@@ -397,6 +397,19 @@
 
             <!-- Logs Section -->
             <div id="section-logs" class="admin-section" style="display: none;">
+                <div class="stat-card" style="margin-bottom: 1.5rem; padding: 1rem; display: flex; gap: 1rem; align-items: center; background: var(--bg-secondary);">
+                    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                        <label style="font-size:0.7rem; color:var(--text-muted);">Start Date</label>
+                        <input type="date" id="log-start-date" class="form-input" style="padding: 5px;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                        <label style="font-size:0.7rem; color:var(--text-muted);">End Date</label>
+                        <input type="date" id="log-end-date" class="form-input" style="padding: 5px;">
+                    </div>
+                    <button class="btn-refresh" onclick="refreshData('logs')" style="height: fit-content; align-self: flex-end; margin-bottom: 2px;">Apply Filter</button>
+                    <button class="btn-refresh" onclick="clearLogFilters()" style="height: fit-content; align-self: flex-end; margin-bottom: 2px; background: transparent; border: 1px solid var(--border-color);">Clear</button>
+                </div>
+
                 <div class="chart-title">Authentication History</div>
                 <div class="table-container">
                     <table id="authLogsTable">
@@ -413,7 +426,7 @@
                     </table>
                 </div>
 
-                <div class="chart-title" style="margin-top: 2rem;">System Error Logs (Tail)</div>
+                <div class="chart-title" style="margin-top: 2rem;">System Error Logs</div>
                 <div id="errorLogViewer" class="log-viewer">Loading logs...</div>
             </div>
         </div>
