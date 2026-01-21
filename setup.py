@@ -63,6 +63,7 @@ class CMakeBuild(build_ext):
                 f'-DPython_EXECUTABLE={python_exe}',  # Modern CMake (3.12+)
                 f'-DPython3_EXECUTABLE={python_exe}', # Explicit Python 3 hint
                 f'-Dpybind11_DIR={pybind11_dir}',      # Explicitly point to pybind11
+                "-DCMAKE_BUILD_TYPE=Release",
                 '-DBUILD_PYTHON_BINDINGS=ON',
             ]
 
@@ -105,64 +106,18 @@ class CMakeBuild(build_ext):
                 cwd=self.build_temp
             )
             
-            # # Find the built extension and copy it to the right place
-            # # CMake might put it in various locations depending on the system
-            # built_extensions = []
-            
-            # # Common locations where CMake might put the file
-            # search_paths = [
-            #     self.build_temp,
-            #     os.path.join(self.build_temp, cfg),
-            #     os.path.join(self.build_temp, 'Release'),
-            #     os.path.join(self.build_temp, 'Debug'),
-            #     extdir,
-            # ]
-
-            # # Look for .pyd on Windows, .so on Linux
-            # ext_pattern = '*.pyd' if sys.platform.startswith("win") else '*.so'
-            
-            # for search_path in search_paths:
-            #     pattern = os.path.join(search_path, f'kakuro_cpp{ext_pattern}')
-            #     # Also try matching specific naming conventions like kakuro_cpp.cp312-win_amd64.pyd
-            #     glob_results = glob.glob(pattern)
-            #     if not glob_results:
-            #         # Try wildcard for safety
-            #         pattern = os.path.join(search_path, f'kakuro_cpp*{ext_pattern}')
-            #         glob_results = glob.glob(pattern)
-                
-            #     built_extensions.extend(glob_results)
-            
-            # if built_extensions:
-            #     # Sort by modification time to get the freshest build
-            #     built_extensions.sort(key=os.path.getmtime, reverse=True)
-            #     source_file = built_extensions[0]
-                
-            #     target_dir = os.path.abspath('python')
-            #     os.makedirs(target_dir, exist_ok=True)
-            #     target_file = os.path.join(target_dir, os.path.basename(source_file))
-                
-            #     # Only copy if source and target are different files
-            #     if os.path.abspath(source_file) != os.path.abspath(target_file):
-            #         print(f"Copying {source_file} -> {target_file}")
-            #         shutil.copy2(source_file, target_file)
-            #     else:
-            #         print(f"Source and target are the same: {source_file}")
-            # else:
-            #     print("Warning: Could not find built extension in:")
-            #     for path in search_paths:
-            #         print(f"  - {path}")
-            
             print() 
         except Exception as e:
-            print(f"Warning: Extension build failed with error: {e}")
-            print("Continuing installation without C++ extensions...")
-            # Don't re-raise - allow installation to continue
+            raise RuntimeError(
+                f"C++ extension build failed: {e}\n"
+                "Refusing to build wheel with precompiled binaries."
+            )
 
 ext_modules = []
 if PYBIND11_AVAILABLE:
     try:
         subprocess.check_output(['cmake', '--version'])
-        ext_modules = [CMakeExtension('kakuro_cpp', sourcedir='cpp')]
+        ext_modules = [CMakeExtension('kakuro.kakuro_cpp', sourcedir='cpp')]
     except OSError:
         print("CMake not found - installing without C++ extensions")
 setup(
