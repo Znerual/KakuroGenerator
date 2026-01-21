@@ -23,6 +23,7 @@ from typing import List, Optional, Dict
 class BookSettings(BaseModel):
     difficulty: str = "medium"
     num_puzzles: int = 4
+    puzzles_per_page: int = 1
 
 # Import auth and database modules
 import kakuro.storage as storage
@@ -856,7 +857,7 @@ def generate_book_endpoint(
     if not base_url.startswith("http"):
         base_url = f"http://{base_url}" 
     
-    book_gen.generate_pdf(saved_puzzles_data, file_obj=pdf_buffer, base_url=base_url)
+    book_gen.generate_pdf(saved_puzzles_data, file_obj=pdf_buffer, base_url=base_url, puzzles_per_page=settings.puzzles_per_page)
     
     pdf_buffer.seek(0)
     

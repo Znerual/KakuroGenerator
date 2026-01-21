@@ -241,177 +241,155 @@ def calculate_optimal_cell_size(board_json, max_width, max_height):
     if rows == 0 or cols == 0: return 10
     return min(max_width / cols, max_height / rows)
 
-def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000"):
+def draw_puzzle_on_page(c, p_data, difficulty_score, puzzle_num, base_url, page_width=A5[0], page_height=A5[1]):
+    """Draws a single puzzle and its solution footer on a canvas of given size."""
+    # --- 1. HEADER ---
+    diff_name = p_data.get('difficulty', 'medium')
+    # Draw difficulty badge
+    draw_difficulty_badge(c, page_width - 2 * MARGIN_X, page_height - MARGIN_Y, diff_name, f"{difficulty_score}")
+    
+    # Title
+    title_text = f"PUZZLE  {puzzle_num}"
+    c.setFont(FONT_TITLE, 22)
+    title_w = c.stringWidth(title_text, FONT_TITLE, 22)
+    box_w = title_w + 10 * mm
+    box_h = 14 * mm
+    box_x = MARGIN_X
+    box_y = page_height - MARGIN_Y - box_h - 2 * mm
+    
+    c.setFillColor(colors.black)
+    c.rect(box_x, box_y, box_w, box_h, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.drawCentredString(box_x + box_w / 2, box_y + 4 * mm, title_text)
+
+    # --- 2. MAIN PUZZLE ---
+    area_top_y = box_y - 10 * mm
+    area_bottom_y = DIVIDER_Y + 5 * mm
+    area_w = page_width - (2 * MARGIN_X)
+    area_h = area_top_y - area_bottom_y
+    
+    cell_size = calculate_optimal_cell_size(p_data, area_w, area_h)
+    grid_cols = len(p_data['grid'][0])
+    grid_rows = len(p_data['grid'])
+    board_w = grid_cols * cell_size
+    board_h = grid_rows * cell_size
+    
+    px_offset = MARGIN_X + (area_w - board_w) / 2
+    py_offset = area_bottom_y + (area_h - board_h) / 2 + board_h
+    
+    draw_board(c, p_data, px_offset, py_offset, cell_size, show_solution=False)
+
+    # --- 3. SOLUTION FOOTER ---
+    footer_h = DIVIDER_Y
+    footer_y = 0
+    
+    c.setFillColor(colors.Color(0.95, 0.95, 0.95))
+    c.rect(0, footer_y, page_width, footer_h, fill=1, stroke=0)
+    
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1)
+    c.line(0, footer_y + footer_h, page_width, footer_y + footer_h)
+    
+    # Text
+    c.setFillColor(colors.black)
+    c.setFont(FONT_TITLE, 14)
+    text_y_center = footer_y + (footer_h / 2)
+    
+    c.drawString(MARGIN_X + 5*mm, text_y_center + 10, "SOLUTION")
+    c.setFont(FONT_SERIF, 11)
+    c.drawString(MARGIN_X + 5*mm, text_y_center - 5, f"Puzzle #{puzzle_num}")
+    
+    c.setFont("Courier-Bold", 10)
+    pid = str(p_data.get('id', 'N/A'))
+    short_id = p_data.get('short_id', pid[:8] if len(pid) > 8 else pid)
+    c.drawString(MARGIN_X + 5*mm, text_y_center - 28, f"CODE: {short_id}")
+
+    # QR Code
+    qr_size = 35 * mm
+    qr_x = (page_width - qr_size) / 2
+    qr_y = footer_y + (footer_h - qr_size) / 2 + 5 * mm
+    solution_url = f"{base_url}/?solution_id={short_id}"
+    draw_qr_code(c, qr_x, qr_y, qr_size, solution_url)
+    
+    c.setFillColor(colors.black)
+    c.setFont(FONT_SANS, 8)
+    c.drawCentredString(page_width / 2, qr_y - 4*mm, "Scan to verify & rate")
+    c.setFont(FONT_SANS, 6)
+    c.drawCentredString(page_width / 2, qr_y - 7*mm, f"Or visit: {base_url}/?solution_id={short_id}")
+
+    # Page/Puzzle Number
+    c.setFillColor(colors.black)
+    c.setFont(FONT_SERIF, 9)
+    c.drawCentredString(page_width / 2, 5 * mm, str(puzzle_num))
+
+
+def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000", puzzles_per_page=1):
     """
     Generates a PDF book from a list of puzzle dictionaries.
-    
-    Args:
-        puzzles (list): List of puzzle dictionaries. Each dict should have 'grid', 'difficulty', 'id'.
-                       May also have 'difficulty_score'.
-        file_obj (file-like, optional): If provided, writes PDF to this object. None = save to file.
-        base_url (str): Base URL for QR links.
     """
+    from reportlab.lib.pagesizes import A4, A5
+    
     output_dest = file_obj if file_obj else PDF_FILENAME
-    c = canvas.Canvas(output_dest, pagesize=A5)
+    
+    if puzzles_per_page == 2:
+        effective_page_size = A4
+    else:
+        effective_page_size = A5
+        
+    c = canvas.Canvas(output_dest, pagesize=effective_page_size)
     c.setTitle("Kakuro Puzzle Book")
     
-    num_puzzles = len(puzzles)
-    print(f"Generating PDF for {num_puzzles} puzzles...")
+    PAGE_W, PAGE_H = effective_page_size
+    A5_W, A5_H = A5
     
-    # Validate and process puzzles
     processed_puzzles = []
     for p in puzzles:
-        # Normalize difficulty score
-        # Sometimes it's a "DifficultyEstimator" object from generation, sometimes a string/float from DB
         score = p.get('difficulty_score', p.get('difficulty', 'Unknown'))
-        
-        # Ensure we have an ID for the URL
         if 'id' not in p or not p['id']:
-             # Fallback if no ID (shouldn't happen in real app)
              p['id'] = "MISSING_ID"
-
         processed_puzzles.append((p, score))
 
-    total_pages = num_puzzles + 1
+    num_puzzles = len(processed_puzzles)
     
-    for page_idx in range(total_pages):
-        puzzle_idx = page_idx
-        solution_idx = page_idx
+    if puzzles_per_page == 1:
+        for i, (p_data, score) in enumerate(processed_puzzles):
+            draw_puzzle_on_page(c, p_data, score, i + 1, base_url, A5_W, A5_H)
+            c.showPage()
+    else:
+        # 2 puzzles per page (A4 Portrait)
+        # Each A5 Portrait is rotated 90 degrees to fill the A4 page.
+        # Top puzzle fills top half (210 wide x 148.5 high).
+        # Bottom puzzle fills bottom half (210 wide x 148.5 high).
         
-        has_puzzle = 0 <= puzzle_idx < len(processed_puzzles)
-        has_solution = 0 <= solution_idx < len(processed_puzzles)
+        for i in range(0, num_puzzles, 2):
+            # Top Puzzle
+            p1_data, s1 = processed_puzzles[i]
+            c.saveState()
+            c.translate(0, PAGE_H) # Move to top-left
+            c.rotate(-90)           # Rotate 90 deg clockwise
+            # Now X is DOWN (A4 height), Y is RIGHT (A4 width)
+            # Area is width: 148.5 (half A4 height), height: 210 (A4 width)
+            draw_puzzle_on_page(c, p1_data, s1, i + 1, base_url, PAGE_H / 2, PAGE_W)
+            c.restoreState()
+            
+            # Bottom Puzzle
+            if i + 1 < num_puzzles:
+                p2_data, s2 = processed_puzzles[i+1]
+                c.saveState()
+                c.translate(0, PAGE_H / 2) # Move to middle-left
+                c.rotate(-90)
+                draw_puzzle_on_page(c, p2_data, s2, i + 2, base_url, PAGE_H / 2, PAGE_W)
+                c.restoreState()
+            
+            c.showPage()
 
-        # ==========================================
-        # 1. HEADER DESIGN
-        # ==========================================
-        if has_puzzle:
-            current_puzzle, difficulty_score = processed_puzzles[puzzle_idx]
-            # Draw the new Fancy Difficulty Badge
-            diff_name = current_puzzle.get('difficulty', 'medium')
-            draw_difficulty_badge(c, PAGE_WIDTH - 2 * MARGIN_X, PAGE_HEIGHT - MARGIN_Y, diff_name, f"{difficulty_score}" )
-            
-            # Main Title (Black Pill Box) - Moved to the left
-            title_text = f"PUZZLE  {puzzle_idx + 1}"
-            c.setFont(FONT_TITLE, 22)
-            title_w = c.stringWidth(title_text, FONT_TITLE, 22)
-            
-            box_w = title_w + 10 * mm
-            box_h = 14 * mm
-            box_x = MARGIN_X # Move to left margin
-            
-            # Align top of box with the Difficulty text baseline roughly
-            box_y = PAGE_HEIGHT - MARGIN_Y - box_h - 2 * mm 
-            
-            c.setFillColor(colors.black)
-            c.rect(box_x, box_y, box_w, box_h, fill=1, stroke=0)
-            
-            c.setFillColor(colors.white)
-            c.drawCentredString(box_x + box_w / 2, box_y + 4 * mm, title_text)
-
-            # ==========================================
-            # 2. MAIN PUZZLE
-            # ==========================================
-            # Define area below header, above footer
-            area_top_y = box_y - 10 * mm
-            area_bottom_y = DIVIDER_Y + 5 * mm
-            area_w = PAGE_WIDTH - (2 * MARGIN_X)
-            area_h = area_top_y - area_bottom_y
-            
-            
-            # Calculate Layout
-            cell_size = calculate_optimal_cell_size(current_puzzle, area_w, area_h)
-            
-            # Get actual pixel size of the grid
-            grid_cols = len(current_puzzle['grid'][0])
-            grid_rows = len(current_puzzle['grid'])
-            board_w = grid_cols * cell_size
-            board_h = grid_rows * cell_size
-            
-            # Center positions
-            x_offset = MARGIN_X + (area_w - board_w) / 2
-            y_offset = area_bottom_y + (area_h - board_h) / 2 + board_h
-            
-            draw_board(c, current_puzzle, x_offset, y_offset, cell_size, show_solution=False)
-
-        # ==========================================
-        # 3. SOLUTION FOOTER DESIGN
-        # ==========================================
-        if has_solution:
-            # Draw Light Grey Background for the Footer
-            c.setFillColor(colors.Color(0.95, 0.95, 0.95)) # Very light grey (whitesmoke)
-            c.setStrokeColor(colors.transparent)
-            # Rectangle covers bottom part of page
-            c.rect(0, 0, PAGE_WIDTH, DIVIDER_Y, fill=1, stroke=0)
-            
-            # Add a thin top border to the footer
-            c.setStrokeColor(colors.black)
-            c.setLineWidth(1)
-            c.line(0, DIVIDER_Y, PAGE_WIDTH, DIVIDER_Y)
-            
-            # --- Solution Content ---
-            sol_puzzle, difficulty_score = processed_puzzles[solution_idx]
-            
-            # Left Side: Text Label
-            c.setFillColor(colors.black)
-            c.setFont(FONT_TITLE, 14)
-            
-            # Vertically center text in footer
-            text_y_center = DIVIDER_Y / 2
-            
-            c.drawString(MARGIN_X + 5*mm, text_y_center + 10, "SOLUTION")
-            c.setFont(FONT_SERIF, 11)
-            c.drawString(MARGIN_X + 5*mm, text_y_center - 5, f"Puzzle #{solution_idx + 1}")
-            
-            # Draw short readable ID textual representation for manual entry
-            c.setFont("Courier-Bold", 10)
-            # Use short_id if available, fallback to first 8 of ID
-            pid = str(sol_puzzle.get('id', 'N/A'))
-            short_id = sol_puzzle.get('short_id', pid[:8] if len(pid) > 8 else pid)
-            c.drawString(MARGIN_X + 5*mm, text_y_center - 28, f"CODE: {short_id}")
-
-
-            # Center: QR Code
-            # Available space for QR
-            qr_size = 35 * mm
-            qr_x = (PAGE_WIDTH - qr_size) / 2
-            qr_y = (DIVIDER_Y - qr_size) / 2 + 5 * mm # Slightly higher to fit 2 lines of text
-            
-            # URL to the solution page
-            solution_url = f"{base_url}/?solution_id={short_id}"
-            
-            # We need to transform the cairo/reportlab coordinate system for the drawing
-            # But draw_qr_code wrapper handles it
-            draw_qr_code(c, qr_x, qr_y, qr_size, solution_url)
-            
-            c.setFillColor(colors.black)
-            c.setFont(FONT_SANS, 8)
-            c.drawCentredString(PAGE_WIDTH / 2, qr_y - 4*mm, "Scan to verify & rate")
-            c.setFont(FONT_SANS, 6)
-            c.drawCentredString(PAGE_WIDTH / 2, qr_y - 7*mm, f"Or visit: {base_url}/?solution_id={short_id}")
-
-        elif not has_puzzle:
-            # End of book Page
-            c.setFillColor(colors.black)
-            c.setFont(FONT_TITLE, 16)
-            c.drawCentredString(PAGE_WIDTH/2, PAGE_HEIGHT/2, "CONGRATULATIONS!")
-            c.setFont(FONT_SERIF, 12)
-            c.drawCentredString(PAGE_WIDTH/2, PAGE_HEIGHT/2 - 20, "You have completed all puzzles.")
-
-        # ==========================================
-        # 4. FOOTER (Page Number)
-        # ==========================================
-        # Standard book placement: Bottom Center
-        c.setFillColor(colors.black)
-        c.setFont(FONT_SERIF, 9)
-        # We place it very low, inside the solution box if it exists, or just at bottom
-        c.drawCentredString(PAGE_WIDTH / 2, 5 * mm, str(page_idx + 1))
-
-        c.showPage()
 
     c.save()
     if not file_obj:
         print(f"✓ PDF saved to {PDF_FILENAME}")
     
+    return puzzles
+
     return puzzles
 
 if __name__ == "__main__":
