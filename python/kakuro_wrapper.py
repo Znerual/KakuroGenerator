@@ -220,8 +220,14 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
         board = KakuroBoard(width, height, use_cpp=use_cpp)
         solver = CSPSolver(board)
         
+        # Primary attempt
         success = solver.generate_puzzle(difficulty)
         
+        # Fallback Logic for HARD
+        if not success and difficulty == "hard":
+            # print("Falling back to medium generation for hard puzzle...")
+            success = solver.generate_puzzle("medium")
+            
         if success:
             # Estimate actual difficulty
             estimator = KakuroDifficultyEstimator(board)
@@ -229,6 +235,16 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
             
             if score.uniqueness != 'Unique':
                 continue 
+            
+            # If we requested HARD, ensure the result is actually HARD (or EXTREME)
+            # score.max_tier is an integer enum value (4=HARD, 5=EXTREME)
+            if difficulty == "hard":
+                if int(score.max_tier) < 3: # 4 is HARD
+                    # print(f"Fallback result too easy: {score.rating}. Discarding.")
+                    continue
+                # else:
+                #     print(f"Fallback success: Medium generation produced {score.rating} puzzle!")
+
             #print(f"✓ Generated puzzle successfully. Score: {score} ({type(score)})")
             return board
     
