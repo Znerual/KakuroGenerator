@@ -536,6 +536,38 @@ function calculateGridBounds() {
     state.gridBounds = { minRow, maxRow, minCol, maxCol };
 }
 
+/**
+ * Checks if the board is completely filled and 100% correct.
+ * Unlike checkPuzzle(), this does not modify UI state (showErrors)
+ * unless the puzzle is actually solved.
+ */
+function checkIfSolved() {
+    if (!state.puzzle) return false;
+
+    // 1. Check if board is full first
+    if (!isBoardFull()) return false;
+
+    // 2. Check correctness
+    for (let r = 0; r < state.puzzle.height; r++) {
+        for (let c = 0; c < state.puzzle.width; c++) {
+            const userCell = state.userGrid[r][c];
+            // The solution value is stored in the original grid data
+            // We need to look at state.puzzle.grid if userGrid doesn't have the 'value' prop directly,
+            // but looking at your loadPuzzleIntoState, state.userGrid copies props from data.grid.
+            // Assuming cell.value contains the solution.
+            
+            if (userCell.type === 'WHITE') {
+                // Compare user input with solution
+                if (userCell.userValue !== userCell.value) {
+                    return false; 
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
 async function logInteraction(actionType, data = {}) {
     // We only log if a puzzle is active. 
     // Authentication is handled by headers; backend ignores if not logged in.
@@ -1825,6 +1857,10 @@ function submitRating() {
     // Save with rating
     saveCurrentState();
     showToast("Thank you for your feedback!");
+
+    setTimeout(() => {
+        fetchPuzzle(); 
+    }, 500);
 }
 
 function closeRatingModal() {
@@ -2981,13 +3017,27 @@ function handleInputNumber(numStr) {
 
             renderBoard();
             triggerAutosave();
+
             if (window.innerWidth <= 768) {
                 hideNumpad();
+            }
 
-                // Auto-check on mobile if the board is full
-                if (isBoardFull()) {
-                    checkPuzzle();
-                }
+            // AUTO-CHECK LOGIC (Works on Desktop & Mobile)
+            // If the board is full and correct, trigger the win immediately.
+            if (checkIfSolved()) {
+                state.puzzle.status = "solved";
+                logInteraction('SOLVED');
+                
+                // Show visual feedback (Green cells)
+                state.showErrors = true; 
+                renderBoard();
+                
+                showToast("Perfect! Puzzle Solved!");
+                
+                // Slight delay before modal so user sees the green board
+                setTimeout(() => {
+                    showRatingModal();
+                }, 500);
             }
         }
     }
