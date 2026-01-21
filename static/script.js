@@ -738,9 +738,11 @@ async function downloadBook() {
 
     const diffSelect = document.getElementById('pdf-difficulty-select');
     const countInput = document.getElementById('pdf-count-input');
-
+    const layoutSelect = document.getElementById('pdf-layout-select');
+    
     const difficulty = diffSelect ? diffSelect.value : 'medium';
     let numPuzzles = countInput ? parseInt(countInput.value) : 4;
+    const layout = layoutSelect ? parseInt(layoutSelect.value) : 1;
 
     // Clamp to 1-5
     numPuzzles = Math.max(1, Math.min(5, numPuzzles));
@@ -756,7 +758,8 @@ async function downloadBook() {
             },
             body: JSON.stringify({
                 difficulty: difficulty,
-                num_puzzles: numPuzzles
+                num_puzzles: numPuzzles,
+                puzzles_per_page: layout
             })
         });
 
