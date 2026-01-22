@@ -84,7 +84,9 @@ def list_users():
         print(f"{'ID':<40} | {'Username':<20} | {'Email':<30} | {'Admin':<5} | {'Verified':<8}")
         print("-" * 110)
         for u in users:
-            print(f"{u.id:<40} | {u.username:<20} | {u.email:<30} | {str(u.is_admin):<5} | {str(u.email_verified):<8}")
+            username = u.username or ""
+            email = u.email or ""
+            print(f"{u.id:<40} | {username:<20} | {email:<30} | {str(u.is_admin):<5} | {str(u.email_verified):<8}")
     finally:
         db.close()
 
