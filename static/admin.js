@@ -27,7 +27,14 @@ async function adminFetch(url) {
         return null;
     }
 
-    return await response.json();
+    try {
+        return await response.json();
+    } catch (e) {
+        console.error(`ERROR parsing JSON from ${url}:`, e);
+        const text = await response.text();
+        console.log(`DEBUG: Raw response (first 200 chars): ${text.substring(0, 200)}`);
+        return null;
+    }
 }
 
 function showSection(name) {
