@@ -1529,7 +1529,7 @@ function handleGlobalKey(e) {
     // Handle note mode typing
     if (state.noteMode && state.selectedCells.size > 0) {
         // Allow alphanumeric input for notes
-        if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+        if (e.key.length === 1 && /[a-zA-Z0-9<>~]/.test(e.key)) {
             e.preventDefault();
             handleNoteInput(e.key);
             return;
