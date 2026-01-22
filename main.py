@@ -283,6 +283,14 @@ app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 async def read_index():
     return FileResponse(os.path.join(STATIC_PATH, "index.html"))
 
+@app.get("/info")
+async def get_info():
+    """Expose application info to the frontend."""
+    return {
+        "debug": config.DEBUG,
+        "version": "1.0.0"
+    }
+
 # Minimum white cells required to accept a puzzle
 # verification fails if the puzzle is "too empty"
 MIN_CELLS_MAP = {
