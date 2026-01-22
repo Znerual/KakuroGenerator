@@ -911,40 +911,58 @@ void HybridUniquenessChecker::hybrid_search(
              }
         }
 
-        // FIX: Verify that the solution satisfies ALL sum constraints
-        // The propagation only checked "all different", not sums!
-        for (const auto& sector : board_->sectors_h) {
-            if (sector->empty()) continue;
-            Cell* first = (*sector)[0];
-            if (first->c == 0) continue; // Should have header
-            auto clue = board_->grid[first->r][first->c - 1].clue_h;
-            if (!clue) continue;
-            
-            int sum = 0;
-            for (Cell* c : *sector) {
-                sum += sol[{c->r, c->c}];
+        auto validate_sectors = [&](const std::vector<std::shared_ptr<std::vector<Cell*>>>& sectors, bool is_horz) -> bool {
+            for (const auto& sector : sectors) {
+                if (sector->empty()) continue;
+                
+                Cell* first = (*sector)[0];
+                std::optional<int> clue;
+                
+                if (is_horz) {
+                    if (first->c > 0) {
+                        clue = board_->grid[first->r][first->c - 1].clue_h;
+                    }
+                } else {
+                    if (first->r > 0) {
+                        clue = board_->grid[first->r - 1][first->c].clue_v;
+                    }
+                }
+                
+                if (!clue.has_value()) continue; // No clue to validate
+                
+                int sum = 0;
+                std::unordered_set<int> used;
+                
+                for (Cell* c : *sector) {
+                    if (!sol.count({c->r, c->c})) {
+                        return false; // Incomplete sector
+                    }
+                    int val = sol.at({c->r, c->c});
+                    
+                    // Check for duplicates
+                    if (used.count(val)) {
+                        return false;
+                    }
+                    used.insert(val);
+                    sum += val;
+                }
+                
+                // Check sum matches clue
+                if (sum != *clue) {
+                    return false;
+                }
             }
-            if (sum != *clue) {
-                LOG_ERROR("Invalid sum for sector " << first->r << ", " << first->c << ": " << sum << " != " << *clue);
-                return; // Invalid sum
-            }
+            return true;
+        };
+        
+        // Validate both horizontal and vertical sectors
+        if (!validate_sectors(board_->sectors_h, true)) {
+            return; // Invalid solution - backtrack
         }
-        for (const auto& sector : board_->sectors_v) {
-            if (sector->empty()) continue;
-            Cell* first = (*sector)[0];
-            if (first->r == 0) continue; // Should have header
-            auto clue = board_->grid[first->r - 1][first->c].clue_v;
-            if (!clue) continue;
-            
-            int sum = 0;
-            for (Cell* c : *sector) {
-                sum += sol[{c->r, c->c}];
-            }
-            if (sum != *clue) {
-                LOG_ERROR("Invalid sum for sector " << first->r << ", " << first->c << ": " << sum << " != " << *clue);
-                return; // Invalid sum
-            }
+        if (!validate_sectors(board_->sectors_v, false)) {
+            return; // Invalid solution - backtrack
         }
+
 
         // Check difference from original solution
         for (const auto& [coords, val] : sol) {
@@ -1044,6 +1062,7 @@ void HybridUniquenessChecker::hybrid_search(
             int unknown_count = 0;
             int min_remaining = 0;
             int max_remaining = 0;
+            Cell* last_unknown = nullptr;
 
             for (Cell* n : *sec) {
                 if (n->value.has_value()) {
@@ -1060,6 +1079,7 @@ void HybridUniquenessChecker::hybrid_search(
                     current_sum += *n->value;
                 } else {
                     unknown_count++;
+                    last_unknown = n;
                     // Estimate bounds for remaining cells
                     uint16_t mask = candidates[n];
                     // If n == var, we shouldn't be here since var has value, but just in case
@@ -1104,6 +1124,37 @@ void HybridUniquenessChecker::hybrid_search(
                     max_remaining += local_max;
                 }
             }
+
+            // CRITICAL FIX: If only one cell remains unknown, force exact value
+            if (unknown_count == 1 && last_unknown != nullptr && last_unknown != var) {
+                int required = target - current_sum;
+                
+                // Check if required value is valid (1-9)
+                if (required < 1 || required > 9) {
+                    if (next_on_avoid_path && avoid_sol.count({last_unknown->r, last_unknown->c})) {
+                        LOG_ERROR("[SOUNDNESS BUG] Last cell requires invalid value " << required 
+                                << " for cell (" << last_unknown->r << "," << last_unknown->c << ")");
+                    }
+                    return false;
+                }
+                
+                // Check if required value is in the candidate set
+                if (!(candidates[last_unknown] & (1 << required))) {
+                    if (next_on_avoid_path && avoid_sol.count({last_unknown->r, last_unknown->c})) {
+                        int correct_val = avoid_sol.at({last_unknown->r, last_unknown->c});
+                        LOG_ERROR("[SOUNDNESS BUG] Last cell needs " << required 
+                                << " but it's not in candidates (mask=" << candidates[last_unknown] 
+                                << "). Correct value: " << correct_val);
+                    }
+                    return false;
+                }
+                
+                // Optional but recommended: Force the assignment immediately
+                if (popcount9(candidates[last_unknown]) > 1) {
+                    saved_candidates.push_back({last_unknown, candidates[last_unknown]});
+                    candidates[last_unknown] = (1 << required);
+                }
+            }
             
             // Check sum feasibility
             auto check_soundness_on_failure = [&](const std::string& reason) {
@@ -1138,18 +1189,36 @@ void HybridUniquenessChecker::hybrid_search(
                     check_soundness_on_failure("Sector full but sum " + std::to_string(current_sum) + " != target " + std::to_string(target));
                     return false;
                 }
-            } else {
-                // Check if target is reachable
-                if (current_sum + min_remaining > target) {
-                    check_soundness_on_failure("Target " + std::to_string(target) + " unreachable (min possible " + std::to_string(current_sum + min_remaining) + ")");
-                    return false;
-                }
-                if (current_sum + max_remaining < target) {
-                    check_soundness_on_failure("Target " + std::to_string(target) + " unreachable (max possible " + std::to_string(current_sum + max_remaining) + ")");
-                    return false;
+                return true;
+            } 
+
+            int actual_min = current_sum;
+            int actual_max = current_sum;
+
+            for (Cell* n : *sec) {
+                if (!n->value.has_value() && n != var) {
+                    uint16_t mask = candidates[n];
+                    
+                    // Find true min/max from current candidates
+                    int cell_min = 10, cell_max = 0;
+                    for(int d=1; d<=9; d++) {
+                        if (mask & (1<<d)) {
+                            if (d < cell_min) cell_min = d;
+                            if (d > cell_max) cell_max = d;
+                        }
+                    }
+                    
+                    if (cell_min == 10) return false; // No valid candidates
+                    
+                    actual_min += cell_min;
+                    actual_max += cell_max;
                 }
             }
 
+            if (actual_min > target || actual_max < target) {
+                check_soundness_on_failure("Target unreachable with current candidates");
+                return false;
+            }
             return true;
         };
 
