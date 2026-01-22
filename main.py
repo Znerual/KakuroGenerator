@@ -759,7 +759,7 @@ def fetch_new_puzzles_from_pool(db: Session, current_user: Optional[User], diffi
             w = random.randint(min_s, max_s)
             h = random.randint(min_s, max_s)
             
-            tmpl = generator_service.generate_single_puzzle(db, difficulty, means, height=h, width=w)
+            tmpl = generator_service.generate_single_puzzle(db, difficulty, None, height=h, width=w)
             if not tmpl:
                 continue
           
