@@ -10,6 +10,8 @@ from kakuro.auth import get_admin_user
 import kakuro.performance as performance
 from kakuro.generator_service import generator_service
 import os
+import re
+
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -238,7 +240,7 @@ async def get_auth_logs(
     end_date: Optional[str] = None
 ):
     """Recent authentication logs."""
-    logs = db.query(AuthLog)
+    query = db.query(AuthLog)
 
     # Apply Date Filters
     if start_date:
@@ -285,8 +287,8 @@ async def get_error_logs(
                 # Efficiently read last N lines
                 # (Simple approach: read all if file isn't huge, or seek)
                 # For safety in python, reading lines is okay for medium files
-                lines = f.readlines()
-                return {"logs": lines[-limit:]}
+                all_lines = f.readlines()
+                return {"logs": all_lines[-lines:]}
 
         # Date Filtering Logic for Text Files
         s_date = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.min
