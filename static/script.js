@@ -48,7 +48,8 @@ const state = {
     puzzleQueue: [], // Queue of puzzles from the feed
     currentBatchDifficulty: null, // Track difficulty of current queue items
     leaderboardType: 'monthly', // 'monthly' or 'all-time'
-    leaderboardData: []
+    leaderboardData: [],
+    info: { debug: false } // Application info from backend
 };
 
 const boardEl = document.getElementById('kakuro-board');
@@ -213,6 +214,21 @@ function init() {
             fetchLeaderboardData();
         });
     });
+
+    // Fetch app info (debug mode, etc.)
+    fetchInfo();
+}
+
+async function fetchInfo() {
+    try {
+        const res = await fetch('/info');
+        if (res.ok) {
+            state.info = await res.json();
+            console.log("App info loaded:", state.info);
+        }
+    } catch (e) {
+        console.error("Failed to fetch app info:", e);
+    }
 }
 
 function checkAndShowTutorial() {
@@ -439,6 +455,17 @@ async function fetchPuzzle() {
 }
 
 function loadPuzzleIntoState(data) {
+    // 0. Normalization Pass: Backend might return values as strings, but we need numbers
+    // This ensures that userValue (int) === value (int) comparison logic works.
+    const normalizeCell = (cell) => {
+        if (cell.value != null) cell.value = parseInt(cell.value);
+        if (cell.userValue != null) cell.userValue = parseInt(cell.userValue);
+        if (cell.clue_h != null) cell.clue_h = parseInt(cell.clue_h);
+        if (cell.clue_v != null) cell.clue_v = parseInt(cell.clue_v);
+    };
+    if (data.grid) data.grid.forEach(row => row.forEach(normalizeCell));
+    if (data.userGrid) data.userGrid.forEach(row => row.forEach(normalizeCell));
+
     state.puzzle = data;
     // If loading from storage, userGrid might already be present
     if (data.userGrid) {
@@ -493,6 +520,13 @@ function loadPuzzleIntoState(data) {
 
     // Calculate grid bounds
     calculateGridBounds();
+
+    // Update title in debug mode
+    if (state.info && state.info.debug) {
+        document.title = `Kakuro: ${data.id}`;
+    } else {
+        document.title = "Kakuro Generator";
+    }
 
     console.log("State updated, rendering board...");
     renderBoard();
@@ -557,8 +591,8 @@ function checkIfSolved() {
             // Assuming cell.value contains the solution.
             
             if (userCell.type === 'WHITE') {
-                // Compare user input with solution
-                if (userCell.userValue !== userCell.value) {
+                // Compare user input with solution (loose comparison for extra safety)
+                if (userCell.userValue != userCell.value) {
                     return false; 
                 }
             }
@@ -1378,7 +1412,7 @@ function createGridCell(cellData, r, c) {
             valueEl.className = 'cell-value';
             valueEl.textContent = cellData.userValue;
             if (state.showErrors) {
-                if (cellData.userValue === cellData.value) {
+                if (cellData.userValue == cellData.value) {
                     valueEl.classList.add('correct');
                 } else {
                     valueEl.classList.add('incorrect');
@@ -1760,7 +1794,7 @@ function checkPuzzle() {
                 if (!cell.userValue) {
                     allFilled = false;
                     allCorrect = false;
-                } else if (cell.userValue !== cell.value) {
+                } else if (cell.userValue != cell.value) {
                     allCorrect = false;
                 }
             }
