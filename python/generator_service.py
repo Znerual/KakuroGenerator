@@ -65,7 +65,7 @@ class GeneratorService:
         This is used for both background filling and on-demand fallback.
         """
         if means is None:
-            means = self.get_means(db)
+            means = self._get_all_means(db)
 
         # 1. Call C++ Generator
         if height is None or width is None:
