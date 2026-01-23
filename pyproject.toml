@@ -48,3 +48,15 @@ kakuro = "python"
 
 [tool.setuptools.package-data]
 "*" = ["*.so", "*.pyd", "*.dll"]
+
+[tool.cibuildwheel]
+before-build = [
+  "rm -rf build",
+  "rm -rf python/*.so",
+]
+
+[dependency-groups]
+dev = [
+    "alembic>=1.18.1",
+]
+
