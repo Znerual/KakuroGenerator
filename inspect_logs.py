@@ -108,15 +108,17 @@ def list_latest(db: Session, limit=10):
         return
 
     # Simple table formatting
-    print(f"{'ID':<6} | {'Type':<10} | {'Dur(ms)':<8} | {'Fill':<5} | {'PuzzleID':<10}")
+    print(f"{'ID':<6} | {'Type':<10} | {'Dur(ms)':<8} | {'Fill':<5} | {'PuzzleID':<10} | {'OldValue':<10} | {'NewValue':<10}")
     print("-" * 60)
     
     for r in rows:
         dur = str(r.duration_ms) if r.duration_ms is not None else "NULL"
         fill = str(r.fill_count) if r.fill_count is not None else "NULL"
         pid = str(r.puzzle_id)[:8] + "..." if r.puzzle_id else "NULL"
+        old_value = str(r.old_value)[:8] + "..." if r.old_value else "NULL"
+        new_value = str(r.new_value)[:8] + "..." if r.new_value else "NULL"
         
-        print(f"{r.id:<6} | {r.action_type:<10} | {dur:<8} | {fill:<5} | {pid:<10}")
+        print(f"{r.id:<6} | {r.action_type:<10} | {dur:<8} | {fill:<5} | {pid:<10} | {old_value:<10} | {new_value:<10}")
 
 def main():
     parser = argparse.ArgumentParser(description="Inspect Kakuro Interaction Logs")
