@@ -154,7 +154,7 @@ def draw_clue_cell(c, x, y, size, down_val, right_val):
 
 def draw_input_cell(c, x, y, size, value=None, is_solution=False):
     """Draws a crisp white input cell."""
-    c.setFillColor(colors.grey)
+    c.setFillColor(colors.lightgrey)
     c.setStrokeColor(colors.black)
     c.setLineWidth(0.8)
     c.rect(x, y, size, size, fill=1, stroke=1)
