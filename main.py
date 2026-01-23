@@ -694,6 +694,7 @@ def get_puzzle_feed(
     """
     Returns a feed of puzzles from the pre-generated pool.
     """
+    logger.debug(f"Fetching feed for {difficulty} difficulty with limit {limit}")
     return fetch_new_puzzles_from_pool(db, current_user, difficulty, limit)
 
 def fetch_new_puzzles_from_pool(db: Session, current_user: Optional[User], difficulty: str, limit: int):
@@ -793,6 +794,7 @@ def solution_redirect(puzzle_id: str):
     Redirects to the main app with the solution_id parameter.
     This allows the frontend to load and display the specific puzzle/solution.
     """
+    logger.debug(f"Redirecting to solution: {puzzle_id}")
     return RedirectResponse(url=f"/?solution_id={puzzle_id}")
 
 
@@ -801,6 +803,7 @@ def reset_password_redirect(token: str):
     """
     Redirects to the main app with the reset_token parameter.
     """
+    logger.debug(f"Redirecting to reset password: {token}")
     return RedirectResponse(url=f"/?reset_token={token}")
 
 
