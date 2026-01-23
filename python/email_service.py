@@ -4,8 +4,11 @@ Uses Resend API for email delivery.
 """
 
 import resend
+import logging
 from typing import Optional
 import kakuro.config as config
+
+logger = logging.getLogger(__name__)
 
 
 def send_verification_email(email: str, code: str, user_name: Optional[str] = None) -> bool:
@@ -21,7 +24,7 @@ def send_verification_email(email: str, code: str, user_name: Optional[str] = No
         True if email sent successfully, False otherwise
     """
     if not config.is_resend_configured():
-        print("Resend not configured, skipping email")
+        logger.error("Resend not configured, skipping email")
         return False
     
     resend.api_key = config.RESEND_API_KEY
@@ -77,7 +80,7 @@ def send_verification_email(email: str, code: str, user_name: Optional[str] = No
         resend.Emails.send(params)
         return True
     except Exception as e:
-        print(f"Error sending verification email: {e}")
+        logger.error(f"Error sending verification email: {e}")
         return False
 
 
@@ -94,7 +97,7 @@ def send_password_reset_email(email: str, token: str, user_name: Optional[str] =
         True if email sent successfully, False otherwise
     """
     if not config.is_resend_configured():
-        print("Resend not configured, skipping email")
+        logger.error("Resend not configured, skipping email")
         return False
     
     resend.api_key = config.RESEND_API_KEY
@@ -176,7 +179,7 @@ def send_password_reset_email(email: str, token: str, user_name: Optional[str] =
         resend.Emails.send(params)
         return True
     except Exception as e:
-        print(f"Error sending password reset email: {e}")
+        logger.error(f"Error sending password reset email: {e}")
         return False
 
 
@@ -264,5 +267,5 @@ def send_welcome_email(email: str, user_name: Optional[str] = None) -> bool:
         resend.Emails.send(params)
         return True
     except Exception as e:
-        print(f"Error sending welcome email: {e}")
+        logger.error(f"Error sending welcome email: {e}")
         return False

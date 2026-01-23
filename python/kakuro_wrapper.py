@@ -6,7 +6,9 @@ This version integrates with the existing FastAPI backend.
 
 import sys
 import os
+import logging
 
+logger = logging.getLogger(__name__)
 # Try to import the C++ module
 try:
     # Look for the module in the python directory
@@ -17,7 +19,7 @@ try:
     _CSPSolver = kakuro_cpp.CSPSolver
     _KakuroDifficultyEstimator = kakuro_cpp.KakuroDifficultyEstimator
     CPP_AVAILABLE = True
-    print("✓ C++ acceleration loaded successfully")
+    logger.debug("✓ C++ acceleration loaded successfully")
 except ImportError as e:
     try:
         import kakuro_cpp as kakuro_cpp
@@ -26,12 +28,12 @@ except ImportError as e:
         _CSPSolver = kakuro_cpp.CSPSolver
         _KakuroDifficultyEstimator = kakuro_cpp.KakuroDifficultyEstimator
         CPP_AVAILABLE = True
-        print("✓ C++ acceleration loaded successfully")
+        logger.debug("✓ C++ acceleration loaded successfully")
     except ImportError as e:
         CPP_AVAILABLE = False
-        print(f"⚠ C++ module not available: {e}")
-        print("  Falling back to pure Python implementation")
-        print("  To enable C++ acceleration, run: python setup.py build_ext --inplace")
+        logger.error(f"⚠ C++ module not available: {e}")
+        logger.error("  Falling back to pure Python implementation")
+        logger.error("  To enable C++ acceleration, run: python setup.py build_ext --inplace")
 
 
 class KakuroBoard:
@@ -248,7 +250,7 @@ def generate_kakuro(width: int, height: int, difficulty: str = "medium",
             #print(f"✓ Generated puzzle successfully. Score: {score} ({type(score)})")
             return board
     
-    print(f"Failed to generate puzzle with difficulty {difficulty}")
+    logger.info(f"Failed to generate puzzle with difficulty {difficulty}")
     return board
 
 def generate_random_kakuro(use_cpp: bool = True):

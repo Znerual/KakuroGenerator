@@ -363,7 +363,7 @@ def generate_puzzle(width: Optional[int] = None, height: Optional[int] = None, d
         if success:
             # Final validation check to ensure the puzzle isn't too trivial
             if len(board.white_cells) < min_white_cells:
-                print("Too trivial, retrying...")
+                logger.debug("Too trivial, retrying...")
                 #continue # Retry to get a meatier puzzle
 
             # Serialize

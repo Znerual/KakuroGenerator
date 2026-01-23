@@ -8,7 +8,9 @@ from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics import renderPDF
 import io
+import logging
 
+logger = logging.getLogger(__name__)
 
 # --- CONFIGURATION ---
 PDF_FILENAME = "kakuro_book_design.pdf"
@@ -386,7 +388,7 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000", puzzl
 
     c.save()
     if not file_obj:
-        print(f"✓ PDF saved to {PDF_FILENAME}")
+        logger.info(f"✓ PDF saved to {PDF_FILENAME}")
     
     return puzzles
 

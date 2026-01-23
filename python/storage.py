@@ -1,8 +1,12 @@
+from typing import List, Dict, Optional
 import os
 import json
 import uuid
 import sys
-from typing import List, Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def get_storage_path():
     if getattr(sys, 'frozen', False):
@@ -55,7 +59,7 @@ def list_puzzles() -> List[Dict]:
                         "timestamp": data.get("timestamp")
                     })
             except Exception as e:
-                print(f"Error reading {filename}: {e}")
+                logger.error(f"Error reading {filename}: {e}")
     return puzzles
 
 def delete_puzzle(puzzle_id: str) -> bool:

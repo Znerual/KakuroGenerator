@@ -176,7 +176,7 @@ class CSPSolver:
                 # This implies the geometry itself is flawed (e.g., a symmetric loop).
                 # Now we try to block a cell.
                 
-                print(f"Values failed for Topo {topo_attempt}. Attempting topology repair...")
+                logger.info(f"Values failed for Topo {topo_attempt}. Attempting topology repair...")
                 
                 if self._repair_topology_robust(last_ambiguity):
                     # SUCCESSFUL REPAIR

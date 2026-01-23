@@ -15,6 +15,9 @@ from .models import User
 import kakuro.config as config
 import random
 import string
+import logging
+
+logger = logging.getLogger(__name__)
 
 # HTTP Bearer token scheme
 security = HTTPBearer(auto_error=False)
@@ -192,12 +195,12 @@ def get_current_user_and_session(
     """
     if not credentials:
         # Avoid logging for every missing credential if desired, but good for debug
-        print("DEBUG AUTH: No credentials provided")
+        logger.info("DEBUG AUTH: No credentials provided")
         return None, None
     
     payload = decode_token(credentials.credentials)
     if not payload:
-        print(f"DEBUG AUTH: Token decoding failed for: {credentials.credentials[:10]}...")
+        logger.info(f"DEBUG AUTH: Token decoding failed for: {credentials.credentials[:10]}...")
         return None, None
     
     user_id = payload.get("sub")
@@ -227,18 +230,18 @@ def get_admin_user(
     Raises 401 if user is not logged in, or 403 Forbidden if the user is not an admin.
     """
     if not current_user:
-        print("DEBUG AUTH: get_admin_user - current_user is None")
+        logger.error("DEBUG AUTH: get_admin_user - current_user is None")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required"
         )
     if not current_user.is_admin:
-        print(f"DEBUG AUTH: get_admin_user - user '{current_user.username}' is NOT an admin")
+        logger.error(f"DEBUG AUTH: get_admin_user - user '{current_user.username}' is NOT an admin")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrative access required"
         )
-    print(f"DEBUG AUTH: get_admin_user - user '{current_user.username}' is AUTHORIZED as admin")
+    logger.info(f"DEBUG AUTH: get_admin_user - user '{current_user.username}' is AUTHORIZED as admin")
     return current_user
 
 
