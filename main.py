@@ -634,6 +634,7 @@ class InteractionLog(BaseModel):
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     duration_ms: Optional[int] = 0
+    fill_count: Optional[int] = 0
     client_timestamp: str
     device_type: Optional[str] = "desktop"
 
@@ -648,14 +649,13 @@ def log_user_interaction(
     Uses the session ID from the token to link actions to a session.
     """
     user, session_id = auth_data
-    if not user:
-        # We generally only track logged-in users, but could expand this to anonymous if needed
-        return {"status": "ignored"}
+    user_id = user.id if user else None
+
 
     with Timer(db, "interaction_log_duration_ms", user=user):
         log_interaction(
             db=db,
-            user_id=user.id,
+            user_id=user_id,
             puzzle_id=log.puzzle_id,
             session_id=session_id,
             action_data=log.model_dump()
@@ -670,14 +670,13 @@ def log_batch_interaction(
 ):
     """Log multiple actions in one request (e.g. multi-select notes)."""
     user, session_id = auth_data
-    if not user:
-        return {"status": "ignored"}
+    user_id = user.id if user else None
 
     # Process all logs in a single transaction
     for log in logs:
         log_interaction(
             db=db,
-            user_id=user.id,
+            user_id=user_id,
             puzzle_id=log.puzzle_id,
             session_id=session_id,
             action_data=log.model_dump()

@@ -57,7 +57,7 @@ def end_user_session(db: Session, session_id: str):
 
 def log_interaction(
     db: Session, 
-    user_id: str, 
+    user_id: Optional[str], 
     puzzle_id: str, 
     action_data: Dict[str, Any],
     session_id: Optional[str] = None

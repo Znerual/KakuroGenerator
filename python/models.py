@@ -215,7 +215,7 @@ class PuzzleInteraction(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     puzzle_id = Column(String, ForeignKey("puzzles.id"), nullable=False, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     session_id = Column(String, ForeignKey("user_sessions.id"), nullable=True)
 
     # Action details
