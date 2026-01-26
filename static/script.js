@@ -958,6 +958,7 @@ function setupCellInteractions(element, r, c) {
             }
 
             // 2. Select Origin Cell
+            state.selectedCells.clear();
             state.selectedCells.add(currentRC);
             state.selected = { r, c };
 
@@ -1123,47 +1124,6 @@ async function loadSolutionMode(id) {
         console.error("Load solution error:", e);
         showToast("Error: " + e.message);
     }
-}
-
-function handleLongPress(r, c, element) {
-    state.isLongPressTriggered = true;
-    state.longPressTimer = null;
-
-    // 1. Enable Note Mode
-    if (!state.noteMode) {
-        toggleNoteMode(); // Use existing toggle to update UI buttons/banners
-        showToast("Note Mode Active");
-
-        // Haptic Feedback (Vibration) - works on Android/Modern iOS
-        if (navigator.vibrate) {
-            navigator.vibrate(50);
-        }
-    }
-
-    // 2. Select the cell exclusively (clear others) for the start of the note
-    state.selectedCells.clear();
-    state.selectedCells.add(`${r},${c}`);
-    state.selected = { r, c };
-
-    // 3. Force Render to update styles (pink highlight for notes)
-    renderBoard();
-
-    // 4. Show Numpad (Must re-find element after render)
-    // We wait 0ms to let render finish
-    setTimeout(() => {
-        // Re-calculate element position because renderBoard destroys DOM
-        // This relies on the fact that renderBoard builds cells in order
-        const allCells = document.querySelectorAll('.cell');
-        const index = (r - state.gridBounds.minRow) * (state.gridBounds.maxCol - state.gridBounds.minCol + 1) + (c - state.gridBounds.minCol);
-
-        // Find the cell in the DOM based on flattened index is risky but usually works
-        // Better approach: Add data-rc to cells in renderBoard
-        const targetCell = document.querySelector(`.cell[data-rc="${r},${c}"]`);
-
-        if (targetCell && window.innerWidth <= 768) {
-            showNumpad(targetCell);
-        }
-    }, 0);
 }
 
 async function deletePuzzle(event, id) {
