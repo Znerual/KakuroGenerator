@@ -283,6 +283,10 @@ app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 async def read_index():
     return FileResponse(os.path.join(STATIC_PATH, "index.html"))
 
+@app.get("/google126de5fcdf27b99c.html")  # Replace with your actual filename
+async def google_verification():
+    return FileResponse(os.path.join(STATIC_PATH, "google126de5fcdf27b99c.html"))
+
 @app.get("/info")
 async def get_info():
     """Expose application info to the frontend."""
