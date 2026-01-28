@@ -589,11 +589,11 @@ function checkIfSolved() {
             // We need to look at state.puzzle.grid if userGrid doesn't have the 'value' prop directly,
             // but looking at your loadPuzzleIntoState, state.userGrid copies props from data.grid.
             // Assuming cell.value contains the solution.
-            
+
             if (userCell.type === 'WHITE') {
                 // Compare user input with solution (loose comparison for extra safety)
                 if (userCell.userValue != userCell.value) {
-                    return false; 
+                    return false;
                 }
             }
         }
@@ -666,9 +666,9 @@ async function skipCurrentPuzzle() {
                 'Content-Type': 'application/json',
                 ...getAuthHeaders()
             },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 template_id: state.puzzle.template_id,
-                puzzle_id: state.puzzle.id 
+                puzzle_id: state.puzzle.id
             })
         });
         console.log("Puzzle skip tracked.");
@@ -683,13 +683,12 @@ async function saveCurrentState(silent = false) {
     if (!state.puzzle) return;
 
     if (!state.user) {
-        // If this was a manual click (not silent), prompt the user to login
+        // If this was a manual click (not silent), we used to block.
+        // Now we allow anonymous saves (mostly for rating/QR code flow).
         if (!silent) {
             showToast("Please log in to save progress.");
             openAuthModal('login');
         }
-        // If it was an autosave (silent), just abort quietly
-        return;
     }
 
     // Save current notebook content
@@ -728,7 +727,7 @@ async function saveCurrentState(silent = false) {
         });
         if (res.ok) {
             if (!silent) showToast("Progress Saved!");
-            
+
             // Log explicitly initiated saves
             if (!silent) {
                 logInteraction('SAVE');
@@ -773,7 +772,7 @@ async function downloadBook() {
     const diffSelect = document.getElementById('pdf-difficulty-select');
     const countInput = document.getElementById('pdf-count-input');
     const layoutSelect = document.getElementById('pdf-layout-select');
-    
+
     const difficulty = diffSelect ? diffSelect.value : 'medium';
     let numPuzzles = countInput ? parseInt(countInput.value) : 4;
     const layout = layoutSelect ? parseInt(layoutSelect.value) : 1;
@@ -1856,7 +1855,7 @@ function submitRating() {
     showToast("Thank you for your feedback!");
 
     setTimeout(() => {
-        fetchPuzzle(); 
+        fetchPuzzle();
     }, 500);
 }
 
@@ -3024,13 +3023,13 @@ function handleInputNumber(numStr) {
             if (checkIfSolved()) {
                 state.puzzle.status = "solved";
                 logInteraction('SOLVED');
-                
+
                 // Show visual feedback (Green cells)
-                state.showErrors = true; 
+                state.showErrors = true;
                 renderBoard();
-                
+
                 showToast("Perfect! Puzzle Solved!");
-                
+
                 // Slight delay before modal so user sees the green board
                 setTimeout(() => {
                     showRatingModal();
