@@ -215,6 +215,7 @@ async def get_puzzle_stats(
         Puzzle.rating,
         Puzzle.user_comment,
         Puzzle.created_at,
+        Puzzle.updated_at,
         User.username
     ).join(User, Puzzle.user_id == User.id).filter(
         Puzzle.rating > 0
@@ -227,6 +228,7 @@ async def get_puzzle_stats(
             "rating": p.rating,
             "comment": p.user_comment,
             "date": p.created_at.isoformat(),
+            "updated_at": p.updated_at.isoformat() if p.updated_at else p.created_at.isoformat(),
             "user": p.username
         } for p in puzzles
     ]

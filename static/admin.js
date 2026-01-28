@@ -126,7 +126,7 @@ async function refreshData(forceSection = null) {
         let queryParams = '';
         if (startDate) queryParams += `&start_date=${startDate}`;
         if (endDate) queryParams += `&end_date=${endDate}`;
-        
+
         // Remove leading & if exists and prepend ?
         if (queryParams) queryParams = '?' + queryParams.substring(1);
 
@@ -312,6 +312,7 @@ function updatePuzzlesTable(data) {
             <td>${'⭐'.repeat(p.rating)}</td>
             <td>${escapeHtml(p.comment)}</td>
             <td>${new Date(p.date).toLocaleString()}</td>
+            <td>${p.updated_at ? new Date(p.updated_at).toLocaleString() : '-'}</td>
         </tr>
     `).join('');
 }
