@@ -149,7 +149,7 @@ class Puzzle(Base):
     
     id = Column(String, primary_key=True)
     short_id = Column(String, unique=True, nullable=True, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     template_id = Column(String, ForeignKey("puzzle_templates.id"), nullable=True, index=True)
     
     # Puzzle configuration
