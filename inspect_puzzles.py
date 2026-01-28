@@ -23,7 +23,7 @@ def print_header(title):
     print(f"{'='*100}")
 
 def list_puzzles(db, limit=20, status_filter=None, show_all=False):
-    query = db.query(Puzzle).join(User, Puzzle.user_id == User.id)
+    query = db.query(Puzzle).outerjoin(User, Puzzle.user_id == User.id)
     
     if status_filter:
         query = query.filter(Puzzle.status == status_filter)

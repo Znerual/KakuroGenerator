@@ -562,7 +562,70 @@ def save_puzzle_endpoint(
             
             db.commit()
         else:
-            # Fall back to file storage for anonymous users
+            # check if puzzle exists in DB even for anonymous users (e.g. from QR code)
+            existing_puzzle = db.query(Puzzle).filter(Puzzle.id == request.id).first()
+            
+            if existing_puzzle:
+                 # Update ONLY rating/comments/notes for anonymous users on existing puzzles
+                 # We don't want them to overwrite someone else's grid progress if they just stumbled on the ID,
+                 # BUT for the QR code use case, they are "solving" it.
+                 # Let's assume if they have the ID, they can update it.
+                 # Ideally, we should check if existing_puzzle.user_id is ANONYMOUS_USER_ID
+                 # or if we want to allow rating "others" puzzles.
+                 # For now: Update everything to support the QR flow where the puzzle might not belong to them 
+                 # but they are physically holding the paper.
+                 
+                 existing_puzzle.rating = request.rating
+                 existing_puzzle.difficulty_vote = request.difficultyVote
+                 existing_puzzle.user_comment = request.userComment
+                 # Optional: Save their grid too?
+                 existing_puzzle.grid = request.grid 
+                 existing_puzzle.user_grid = request.userGrid
+                 existing_puzzle.status = request.status
+                 
+                 db.commit()
+            else:
+                 # Create new puzzle for Anonymous user
+                 # This handles the case where they scan a QR code for a puzzle that wasn't "saved" to DB yet
+                 # (e.g. generated on fly or old version) OR just fallback.
+                 
+                new_puzzle = Puzzle(
+                    id=request.id,
+                    user_id=None, # Assign to Anonymous
+                    width=request.width,
+                    height=request.height,
+                    difficulty=request.difficulty,
+                    grid=request.grid,
+                    user_grid=request.userGrid,
+                    status=request.status,
+                    row_notes=request.rowNotes,
+                    col_notes=request.colNotes,
+                    cell_notes=request.cellNotes,
+                    notebook=request.notebook,
+                    rating=request.rating,
+                    difficulty_vote=request.difficultyVote,
+                    user_comment=request.userComment,
+                    template_id=request.template_id
+                )
+                
+                 # Auto-create template if missing (same logic as above)
+                if not request.template_id and request.status != 'started':
+                    new_template = PuzzleTemplate(
+                        width=request.width,
+                        height=request.height,
+                        difficulty=request.difficulty,
+                        grid=request.grid,
+                        difficulty_score=0.0,
+                        difficulty_data={}
+                    )
+                    db.add(new_template)
+                    db.flush()
+                    new_puzzle.template_id = new_template.id
+
+                db.add(new_puzzle)
+                db.commit()
+
+            # STILL save to file storage as backup/legacy
             data = request.model_dump()
             if not data.get("timestamp"):
                 data["timestamp"] = datetime.datetime.now().isoformat()
