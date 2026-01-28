@@ -45,7 +45,7 @@ def list_puzzles(db, limit=20, status_filter=None, show_all=False):
 
     # Table Header
     # ID | User | Status | Diff | Rating | Created At
-    print(f"{'ID':<8} | {'User':<15} | {'Status':<10} | {'Diff':<10} | {'Rating':<6} | {'Created At':<20} | {'Hidden?'}")
+    print(f"{'ID':<8} | {'User':<15} | {'Status':<10} | {'Diff':<10} | {'Rating':<6} | {'Rating Vote':<6} | {'Created At':<20} | {'Hidden?'}")
     print("-" * 100)
     
     for p in puzzles:
@@ -58,8 +58,9 @@ def list_puzzles(db, limit=20, status_filter=None, show_all=False):
         
         created = p.created_at.strftime("%Y-%m-%d %H:%M") if p.created_at else "Unknown"
         rating = str(p.rating) if p.rating is not None else "0"
+        rating_vote = str(p.difficulty_vote) if p.difficulty_vote is not None else "0"
         
-        print(f"{pid:<8} | {user:<15} | {p.status:<10} | {p.difficulty:<10} | {rating:<6} | {created:<20} | {is_hidden}")
+        print(f"{pid:<8} | {user:<15} | {p.status:<10} | {p.difficulty:<10} | {rating:<6} | {rating_vote:<6} | {created:<20} | {is_hidden}")
 
 def inspect_puzzle_details(db, puzzle_id):
     puzzle = db.query(Puzzle).filter(Puzzle.id.like(f"{puzzle_id}%")).first()
@@ -73,6 +74,7 @@ def inspect_puzzle_details(db, puzzle_id):
     print(f"Status:         {puzzle.status}")
     print(f"Difficulty:     {puzzle.difficulty}")
     print(f"Rating:         {puzzle.rating}")
+    print(f"Rating Vote:    {puzzle.difficulty_vote}")
     print(f"User Comment:   {puzzle.user_comment}")
     print(f"Created At:     {puzzle.created_at}")
     print(f"Updated At:     {puzzle.updated_at}")
@@ -86,7 +88,7 @@ def main():
     parser = argparse.ArgumentParser(description="Inspect Kakuro Puzzles")
     parser.add_argument("command", choices=["list", "details"], help="Command to run")
     parser.add_argument("--id", type=str, help="Puzzle ID (partial ok) for details")
-    parser.add_argument("--limit", type=int, default=20, help="Number of rows to list")
+    parser.add_argument("--limit", type=int, default=100, help="Number of rows to list")
     parser.add_argument("--status", type=str, help="Filter by status (e.g., 'started', 'solved')")
     parser.add_argument("--all", action="store_true", help="Show all (no limit)")
     
