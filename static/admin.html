@@ -389,6 +389,7 @@
                                 <th>Comment</th>
                                 <th>Date</th>
                                 <th>Last Updated</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -432,6 +433,73 @@
 
                 <div class="chart-title" style="margin-top: 2rem;">System Error Logs</div>
                 <div id="errorLogViewer" class="log-viewer">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inspector Modal -->
+    <div id="inspector-modal" class="modal-overlay"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+        <div class="modal-content"
+            style="background: var(--surface-color); padding: 2rem; border-radius: var(--radius-md); width: 80%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; display: flex; flex-direction: column;">
+            <button onclick="document.getElementById('inspector-modal').style.display='none'"
+                style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+
+            <h2 style="margin-bottom: 1.5rem; color: var(--primary-color);">Puzzle Inspection</h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div class="info-group">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.7;">METADATA</h3>
+                    <div id="inspector-metadata" style="line-height: 1.6; font-size: 0.95rem;"></div>
+                </div>
+                <div class="info-group">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.7;">FEEDBACK</h3>
+                    <div id="inspector-feedback" style="line-height: 1.6; font-size: 0.95rem;"></div>
+                </div>
+            </div>
+
+            <!-- Split View: Timeline (Left) and Visual Grid (Right) -->
+            <div
+                style="flex: 1; display: grid; grid-template-columns: 350px 1fr; gap: 2rem; overflow: hidden; min-height: 400px;">
+
+                <!-- Left: Interaction Timeline -->
+                <div class="timeline-section" style="display: flex; flex-direction: column; overflow: hidden;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.7;">INTERACTION HISTORY</h3>
+                    <div class="table-container" style="flex: 1; overflow-y: auto;">
+                        <table id="inspector-table" style="width: 100%;">
+                            <thead style="position: sticky; top: 0; background: var(--bg-secondary); z-index: 1;">
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Visual Replay -->
+                <div class="replay-section"
+                    style="display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 1rem; overflow-y: auto;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 1rem; opacity: 0.7; width: 100%; text-align: left;">
+                        VISUAL REPLAY</h3>
+
+                    <div id="replay-grid-container" style="margin-bottom: 1rem;">
+                        <!-- Grid rendered here via JS -->
+                        <div style="color: var(--text-muted); padding: 2rem;">Loading Grid...</div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="replay-controls"
+                        style="display: flex; gap: 1rem; align-items: center; background: var(--surface-elevated); padding: 0.5rem 1rem; border-radius: 20px;">
+                        <button onclick="ReplayManager.jumpToStart()" class="action-btn" title="Start">⏮</button>
+                        <button onclick="ReplayManager.stepBack()" class="action-btn" title="Previous">◀</button>
+                        <span id="replay-step-display" style="font-family: monospace; padding: 0 10px;">0 / 0</span>
+                        <button onclick="ReplayManager.stepForward()" class="action-btn" title="Next">▶</button>
+                        <button onclick="ReplayManager.jumpToEnd()" class="action-btn" title="End">⏭</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

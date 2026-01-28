@@ -233,6 +233,54 @@ async def get_puzzle_stats(
         } for p in puzzles
     ]
 
+@router.get("/puzzle/{puzzle_id}/details")
+async def get_puzzle_detail(
+    puzzle_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Detailed view of a puzzle with all interactions and feedback."""
+    puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_id).outerjoin(User, Puzzle.user_id == User.id).add_columns(User.username).first()
+    
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+        
+    p_obj = puzzle[0] # The Puzzle model instance
+    username = puzzle[1] # The username from join
+    
+    # Fetch interactions
+    interactions = db.query(PuzzleInteraction).filter(
+        PuzzleInteraction.puzzle_id == puzzle_id
+    ).order_by(PuzzleInteraction.timestamp.asc()).all()
+    
+    return {
+        "puzzle": {
+            "id": p_obj.id,
+            "difficulty": p_obj.difficulty,
+            "rating": p_obj.rating,
+            "difficulty_vote": p_obj.difficulty_vote,
+            "comment": p_obj.user_comment,
+            "status": p_obj.status,
+            "date": p_obj.created_at.isoformat() if p_obj.created_at else None,
+            "updated_at": p_obj.updated_at.isoformat() if p_obj.updated_at else None,
+            "user": username or "Anonymous",
+            "grid": p_obj.grid,
+            "width": p_obj.width,
+            "height": p_obj.height
+        },
+        "interactions": [
+            {
+                "action": i.action_type,
+                "row": i.row,
+                "col": i.col,
+                "old": i.old_value,
+                "new": i.new_value,
+                "duration": i.duration_ms,
+                "timestamp": i.timestamp.isoformat()
+            } for i in interactions
+        ]
+    }
+
 @router.get("/logs/auth")
 async def get_auth_logs(
     db: Session = Depends(get_db),

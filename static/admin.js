@@ -313,6 +313,9 @@ function updatePuzzlesTable(data) {
             <td>${escapeHtml(p.comment)}</td>
             <td>${new Date(p.date).toLocaleString()}</td>
             <td>${p.updated_at ? new Date(p.updated_at).toLocaleString() : '-'}</td>
+            <td>
+                <button class="action-btn" onclick="inspectPuzzle('${p.id}')" style="padding: 4px 8px; font-size: 0.8rem;">View</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -349,6 +352,218 @@ function renderGeneratorStatus(data) {
         `;
         container.insertAdjacentHTML('beforeend', html);
     });
+}
+
+// --- REPLAY LOGIC ---
+const ReplayManager = {
+    grid: [],
+    width: 0,
+    height: 0,
+    interactions: [],
+    currentStep: -1, // -1 means initial state (before any interactions)
+    activeState: {}, // Tracks current value of cells "R_C" -> value
+
+    init(puzzleData, interactions) {
+        this.grid = puzzleData.grid;
+        this.width = puzzleData.width;
+        this.height = puzzleData.height;
+        this.interactions = interactions;
+        this.currentStep = interactions.length - 1; // Start at the end
+        this.activeState = {};
+
+        // Compute final state
+        this.interactions.forEach(i => {
+            if (i.row !== null && i.col !== null) {
+                this.activeState[`${i.row}_${i.col}`] = i.new;
+            }
+        });
+
+        this.renderGridStructure();
+        this.updateUI();
+    },
+
+    renderGridStructure() {
+        const container = document.getElementById('replay-grid-container');
+        container.innerHTML = '';
+
+        // 1. Calculate Grid
+        const cellSize = 30; // Smaller for admin view
+        container.style.display = 'grid';
+        container.style.gridTemplateColumns = `repeat(${this.width}, ${cellSize}px)`;
+        container.style.width = 'fit-content';
+        container.style.gap = '1px';
+        container.style.backgroundColor = '#333';
+        container.style.border = '2px solid #555';
+
+        // 2. Render Cells
+        for (let r = 0; r < this.height; r++) {
+            for (let c = 0; c < this.width; c++) {
+                const cellData = this.grid[r][c];
+                const cell = document.createElement('div');
+                cell.id = `replay-cell-${r}-${c}`;
+                cell.style.width = `${cellSize}px`;
+                cell.style.height = `${cellSize}px`;
+                cell.style.display = 'flex';
+                cell.style.alignItems = 'center';
+                cell.style.justifyContent = 'center';
+                cell.style.fontSize = '0.8rem';
+                cell.style.position = 'relative'; // For clues
+
+                if (cellData.type === 'BLOCK') {
+                    cell.style.backgroundColor = '#222'; // Dark grey
+                    // Render Clues
+                    // SVG or just text? Let's use simple positioning similar to main game
+                    if (cellData.clue_v || cellData.clue_h) {
+                        // Diagonal line
+                        cell.style.background = 'linear-gradient(to top right, #222 49%, #555 50%, #222 51%)';
+
+                        if (cellData.clue_v) { // Bottom Left
+                            const span = document.createElement('span');
+                            span.innerText = cellData.clue_v;
+                            span.style.position = 'absolute';
+                            span.style.bottom = '2px';
+                            span.style.left = '4px';
+                            span.style.fontSize = '0.6rem';
+                            span.style.color = '#ccc';
+                            cell.appendChild(span);
+                        }
+                        if (cellData.clue_h) { // Top Right
+                            const span = document.createElement('span');
+                            span.innerText = cellData.clue_h;
+                            span.style.position = 'absolute';
+                            span.style.top = '2px';
+                            span.style.right = '4px';
+                            span.style.fontSize = '0.6rem';
+                            span.style.color = '#ccc';
+                            cell.appendChild(span);
+                        }
+                    }
+                } else {
+                    cell.style.backgroundColor = '#fff';
+                    cell.style.color = '#000';
+                    cell.className = 'replay-input-cell';
+                }
+                container.appendChild(cell);
+            }
+        }
+    },
+
+    updateUI() {
+        // 1. Update Grid Values
+        // Clear all inputs first? No, we have activeState.
+        // But activeState needs to reflect currentStep.
+
+        // Re-calculate active state from scratch is safest for "Jump" consistency
+        // or just apply incremental updates.
+        // Let's re-calc to be robust. 
+        const stateAtStep = {};
+        for (let i = 0; i <= this.currentStep; i++) {
+            const act = this.interactions[i];
+            if (act.row !== null && act.col !== null) {
+                stateAtStep[`${act.row}_${act.col}`] = act.new;
+            }
+        }
+
+        // Render values
+        for (let r = 0; r < this.height; r++) {
+            for (let c = 0; c < this.width; c++) {
+                const cell = document.getElementById(`replay-cell-${r}-${c}`);
+                if (cell && cell.className.includes('replay-input-cell')) {
+                    const val = stateAtStep[`${r}_${c}`];
+                    // Handle comma-separated notes if needed? Assume values for now.
+                    // If val is null/undefined/"", clear it
+                    cell.innerText = (val !== null && val !== undefined) ? val : '';
+                }
+            }
+        }
+
+        // 2. Highlight Table Row
+        document.querySelectorAll('#inspector-table tr').forEach(tr => tr.style.backgroundColor = '');
+        if (this.currentStep >= 0) {
+            const row = document.getElementById(`interaction-row-${this.currentStep}`);
+            if (row) {
+                row.style.backgroundColor = 'rgba(79, 159, 255, 0.2)'; // Highlight color
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // 3. Update Controls Text
+        document.getElementById('replay-step-display').innerText = `${this.currentStep + 1} / ${this.interactions.length}`;
+    },
+
+    stepForward() {
+        if (this.currentStep < this.interactions.length - 1) {
+            this.currentStep++;
+            this.updateUI();
+        }
+    },
+
+    stepBack() {
+        if (this.currentStep >= -1) {
+            // If at -1, stay there.
+            if (this.currentStep === -1) return;
+            this.currentStep--;
+            this.updateUI();
+        }
+    },
+
+    jumpToStart() {
+        this.currentStep = -1;
+        this.updateUI();
+    },
+
+    jumpToEnd() {
+        this.currentStep = this.interactions.length - 1;
+        this.updateUI();
+    }
+};
+
+async function inspectPuzzle(puzzleId) {
+    const data = await adminFetch(`/admin/puzzle/${puzzleId}/details`);
+    if (!data) return;
+
+    const p = data.puzzle;
+
+    // Metadata
+    document.getElementById('inspector-metadata').innerHTML = `
+        <strong>ID:</strong> ${p.id}<br>
+        <strong>User:</strong> ${escapeHtml(p.user)}<br>
+        <strong>Difficulty:</strong> ${p.difficulty}<br>
+        <strong>Status:</strong> <span class="status-badge ${p.status === 'solved' ? 'status-success' : ''}">${p.status}</span><br>
+        <strong>Created:</strong> ${new Date(p.date).toLocaleString()}<br>
+        <strong>Updated:</strong> ${p.updated_at ? new Date(p.updated_at).toLocaleString() : '-'}
+    `;
+
+    // Feedback
+    document.getElementById('inspector-feedback').innerHTML = `
+        <strong>Rating:</strong> ${'⭐'.repeat(p.rating) || 'None'}<br>
+        <strong>Difficulty Vote:</strong> ${p.difficulty_vote || '-'}/10<br>
+        <strong>Comment:</strong> <p style="background:rgba(0,0,0,0.2); padding: 5px; border-radius: 4px;">${escapeHtml(p.comment) || 'No comment'}</p>
+    `;
+
+    // Timeline Table
+    const tbody = document.querySelector('#inspector-table tbody');
+    if (data.interactions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--text-muted);">No interaction history available.</td></tr>';
+    } else {
+        tbody.innerHTML = data.interactions.map((i, idx) => `
+            <tr id="interaction-row-${idx}" style="cursor: pointer;" onclick="ReplayManager.currentStep = ${idx}; ReplayManager.updateUI();">
+                <td style="font-family:monospace; font-size:0.8rem;">${new Date(i.timestamp).toLocaleTimeString()}</td>
+                <td><strong>${i.action}</strong></td>
+                <td>${escapeHtml(i.new)}</td>
+            </tr>
+        `).join('');
+    }
+
+    // Initialize/Render Replay
+    // We need grid data! Backend must provide it.
+    if (data.puzzle.grid) {
+        ReplayManager.init(data.puzzle, data.interactions);
+    } else {
+        document.getElementById('replay-grid-container').innerHTML = '<div style="color:red">Grid data missing</div>';
+    }
+
+    document.getElementById('inspector-modal').style.display = 'flex';
 }
 
 async function loadUserJourney() {
