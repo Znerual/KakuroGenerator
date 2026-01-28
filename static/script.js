@@ -713,7 +713,8 @@ async function saveCurrentState(silent = false) {
         notebook: state.notebook,
         rating: state.rating,
         difficultyVote: state.difficultyVote,
-        userComment: state.userComment
+        userComment: state.userComment,
+        timestamp: state.puzzle.timestamp // Pass original generation time
     };
 
     try {

@@ -549,6 +549,7 @@ async function inspectPuzzle(puzzleId) {
         tbody.innerHTML = data.interactions.map((i, idx) => `
             <tr id="interaction-row-${idx}" style="cursor: pointer;" onclick="ReplayManager.currentStep = ${idx}; ReplayManager.updateUI();">
                 <td style="font-family:monospace; font-size:0.8rem;">${new Date(i.timestamp).toLocaleTimeString()}</td>
+                <td style="font-family:monospace; font-size:0.8rem; color: var(--text-muted);">+${(i.duration / 1000).toFixed(1)}s</td>
                 <td><strong>${i.action}</strong></td>
                 <td>${escapeHtml(i.new)}</td>
             </tr>

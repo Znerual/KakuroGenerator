@@ -524,7 +524,8 @@ def save_puzzle_endpoint(
                     rating=request.rating,
                     difficulty_vote=request.difficultyVote,
                     user_comment=request.userComment,
-                    template_id=request.template_id
+                    template_id=request.template_id,
+                    created_at=datetime.datetime.fromisoformat(request.timestamp) if request.timestamp else datetime.datetime.now(datetime.timezone.utc)
                 )
                 
                 # If no template_id was provided (legacy/standalone gen), we should arguably create one
@@ -605,7 +606,8 @@ def save_puzzle_endpoint(
                     rating=request.rating,
                     difficulty_vote=request.difficultyVote,
                     user_comment=request.userComment,
-                    template_id=request.template_id
+                    template_id=request.template_id,
+                    created_at=datetime.datetime.fromisoformat(request.timestamp) if request.timestamp else datetime.datetime.now(datetime.timezone.utc)
                 )
                 
                  # Auto-create template if missing (same logic as above)
