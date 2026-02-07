@@ -284,7 +284,7 @@ function updateProgressChart(data) {
     charts.progress = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: data.speed_by_progress.map(p => `${p.fill_bucket}-${p.fill_bucket + 9} cells`),
+            labels: data.speed_by_progress.map(p => `${p.fill_bucket}-${p.fill_bucket + 1} cells (${p.samples} samples)`),
             datasets: [{
                 label: 'Avg Think Time (ms)',
                 data: data.speed_by_progress.map(p => p.ms),
