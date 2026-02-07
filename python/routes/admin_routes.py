@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, cast, Float, Integer
+from sqlalchemy import func, desc, cast, Float, Integer, distinct
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 
@@ -161,55 +161,83 @@ async def get_solving_behavior(
     # This requires looking at PuzzleInteraction or Puzzle status changes
     # Simple version: Puzzle.updated_at - Puzzle.created_at for solved puzzles
     
+    puzzle_time_ranges = db.query(
+        PuzzleInteraction.puzzle_id,
+        func.min(PuzzleInteraction.timestamp).label("first_interaction"),
+        func.max(PuzzleInteraction.timestamp).label("last_interaction"),
+        func.count(PuzzleInteraction.id).label("total_moves")
+    ).filter(
+        PuzzleInteraction.action_type.in_(["INPUT", "DELETE", "NOTE_ADD", "NOTE_REMOVE"])
+    ).group_by(PuzzleInteraction.puzzle_id).subquery()
+    
+    # Join with Puzzle to get difficulty and status
     solve_times = db.query(
         Puzzle.difficulty,
         func.avg(
-            (func.strftime('%s', Puzzle.updated_at) - func.strftime('%s', Puzzle.created_at))
-        ).label("avg_solve_seconds")
-    ).filter(Puzzle.status == "solved").group_by(Puzzle.difficulty).all()
+            func.strftime('%s', puzzle_time_ranges.c.last_interaction) - 
+            func.strftime('%s', puzzle_time_ranges.c.first_interaction)
+        ).label("avg_solve_seconds"),
+        func.count(Puzzle.id).label("puzzle_count"),
+        func.avg(puzzle_time_ranges.c.total_moves).label("avg_moves")
+    ).join(
+        puzzle_time_ranges, Puzzle.id == puzzle_time_ranges.c.puzzle_id
+    ).filter(
+        Puzzle.status == "solved",
+        # Ensure we have at least 2 interactions (start and end)
+        puzzle_time_ranges.c.total_moves >= 2,
+        # Ensure last interaction is after first (prevents negative times)
+        puzzle_time_ranges.c.last_interaction > puzzle_time_ranges.c.first_interaction
+    ).group_by(Puzzle.difficulty).all()
     
     # Move speed (duration_ms between interactions)
     # Filter for INPUT actions
+    # Move speed (duration_ms between interactions)
     move_speeds = db.query(
         Puzzle.difficulty,
-        func.avg(PuzzleInteraction.duration_ms).label("avg_move_ms")
-    ).join(PuzzleInteraction, Puzzle.id == PuzzleInteraction.puzzle_id).filter(
+        func.avg(PuzzleInteraction.duration_ms).label("avg_move_ms"),
+        func.count(PuzzleInteraction.id).label("sample_count")
+    ).join(Puzzle, PuzzleInteraction.puzzle_id == Puzzle.id).filter(
         PuzzleInteraction.action_type == "INPUT",
-        PuzzleInteraction.duration_ms > 0
+        PuzzleInteraction.duration_ms > 0,
+        PuzzleInteraction.duration_ms < 300000  # Filter out outliers > 5 minutes (likely pauses)
     ).group_by(Puzzle.difficulty).all()
 
-    fill_bucket_expr = cast(PuzzleInteraction.fill_count / 10, Integer)
+    fill_bucket_expr = cast(PuzzleInteraction.fill_count / 2, Integer)
     
     # Move speed per fill state (e.g. 0-25%, 25-50%, etc.)
     # We can group by fill_count relative to total white cells.
     # For now, let's just group by absolute fill_count buckets.
     progress_speed = db.query(
         fill_bucket_expr.label("bucket"),
-        func.avg(PuzzleInteraction.duration_ms).label("avg_ms")
+        func.avg(PuzzleInteraction.duration_ms).label("avg_ms"),
+        func.count(PuzzleInteraction.id).label("sample_count")
     ).filter(
         PuzzleInteraction.action_type == "INPUT",
         PuzzleInteraction.duration_ms > 0,
+        PuzzleInteraction.duration_ms < 300000,  # Filter outliers
         PuzzleInteraction.fill_count.isnot(None)
-    ).group_by(fill_bucket_expr).all()
+    ).group_by(fill_bucket_expr).order_by("bucket").all()
     
     # Calculate "start options" for templates
     # Simple metric: sum of (1 / number of combinations per clue) - actually clues are hard.
     # Let's just count templates by complexity (width * height * clues)
     
     return {
-        "avg_solve_times": [{"difficulty": s.difficulty, "seconds": s.avg_solve_seconds} for s in solve_times],
-        "avg_move_speeds": [{"difficulty": m.difficulty, "ms": m.avg_move_ms} for m in move_speeds],
-        "speed_by_progress": [{"fill_bucket": int(p.bucket) * 10, "ms": p.avg_ms} for p in progress_speed]
+        "avg_solve_times": [{"difficulty": s.difficulty, "seconds": s.avg_solve_seconds, "puzzle_count": s.puzzle_count, "avg_moves": float(s.avg_moves or 0)} for s in solve_times],
+        "avg_move_speeds": [{"difficulty": m.difficulty, "ms": m.avg_move_ms, "samples": m.sample_count} for m in move_speeds],
+        "speed_by_progress": [{"fill_bucket": int(p.bucket) * 2, "ms": p.avg_ms, "samples": p.sample_count} for p in progress_speed]
     }
 
 
 @router.get("/stats/puzzles")
 async def get_puzzle_stats(
     db: Session = Depends(get_db),
-    admin: User = Depends(get_admin_user)
+    admin: User = Depends(get_admin_user),
+    include_anonymous: bool = True,
+    min_rating: int = 0
 ):
     """Puzzle ratings and comments analysis."""
-    puzzles = db.query(
+    query = db.query(
         Puzzle.id,
         Puzzle.difficulty,
         Puzzle.rating,
@@ -217,9 +245,15 @@ async def get_puzzle_stats(
         Puzzle.created_at,
         Puzzle.updated_at,
         User.username
-    ).join(User, Puzzle.user_id == User.id).filter(
-        Puzzle.rating > 0
-    ).order_by(desc(Puzzle.rating), desc(Puzzle.created_at)).limit(100).all()
+    ).outerjoin(User, Puzzle.user_id == User.id)
+
+    if min_rating > 0:
+        query = query.filter(Puzzle.rating >= min_rating)
+
+    if not include_anonymous:
+        query = query.filter(Puzzle.user_id.isnot(None))
+
+    puzzles = query.order_by(desc(Puzzle.rating), desc(Puzzle.created_at)).limit(100).all()
     
     return [
         {
@@ -229,7 +263,7 @@ async def get_puzzle_stats(
             "comment": p.user_comment,
             "date": p.created_at.isoformat(),
             "updated_at": p.updated_at.isoformat() if p.updated_at else p.created_at.isoformat(),
-            "user": p.username
+            "user": p.username or "Anonymous"
         } for p in puzzles
     ]
 
