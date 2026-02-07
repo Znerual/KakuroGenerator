@@ -14,56 +14,33 @@
 <body>
     <div id="root">
         <div class="app-container">
-            <!-- MOBILE HEADER (Visible < 968px) -->
-            <header class="mobile-header">
-                <div class="mobile-header-content">
-                    <button id="btn-mobile-theme-toggle" class="btn-theme-toggle btn-icon-only">
-                        <span class="tool-icon">☀️</span>
-                    </button>
-                    <h1 class="mobile-brand">Kakuro</h1>
-                </div>
-            </header>
-
-            <header class="header">
+            <!-- COMPACT DESKTOP HEADER -->
+            <header class="header compact-header" id="main-header">
                 <div class="header-content">
                     <div class="header-left">
-                        <button id="btn-theme-toggle" class="btn-theme-toggle">
-                            <span class="tool-icon">☀️</span>
-                            <span class="tool-label">Light Mode</span>
-                        </button>
-                        <div class="brand-group">
-                            <h1>🎲 Kakuro Generator</h1>
-                        </div>
+                        <h1 class="brand">🎲 Kakuro</h1>
                     </div>
                     <div class="header-right">
-                        <!-- Admin button (only for admins) -->
-                        <a href="/static/admin.html" id="btn-admin-nav" class="btn-auth btn-admin-nav"
-                            style="display: none;">
-                            <span class="tool-icon">🛠️</span>
-                            <span class="tool-label">Admin</span>
-                        </a>
-                        <!-- Leaderboard button -->
-                        <button id="btn-leaderboard" class="btn-auth">
-                            <span class="tool-icon">🏆</span>
-                            <span class="tool-label">Leaderboard</span>
+                        <button id="btn-theme-toggle" class="btn-icon" title="Toggle Theme">
+                            <span>☀️</span>
                         </button>
-                        <!-- Auth buttons (shown when logged out) -->
+                        <a href="/static/admin.html" id="btn-admin-nav" class="btn-icon btn-admin-nav"
+                            style="display: none;" title="Admin">
+                            <span>🛠️</span>
+                        </a>
+                        <button id="btn-leaderboard" class="btn-icon" title="Leaderboard">
+                            <span>🏆</span>
+                        </button>
+                        <!-- Auth buttons -->
                         <div id="auth-buttons" class="auth-buttons">
-                            <button id="btn-login" class="btn-auth">
-                                <span class="tool-icon">👤</span>
-                                <span class="tool-label">Login</span>
-                            </button>
-                            <button id="btn-register" class="btn-auth btn-auth-primary">
-                                <span class="tool-icon">✨</span>
-                                <span class="tool-label">Register</span>
-                            </button>
+                            <button id="btn-login" class="btn-compact">Login</button>
+                            <button id="btn-register" class="btn-compact btn-primary-compact">Register</button>
                         </div>
-                        <!-- User menu (shown when logged in) -->
+                        <!-- User menu when logged in -->
                         <div id="user-menu" class="user-menu" style="display: none;">
-                            <button id="btn-user" class="btn-user">
-                                <span class="user-avatar">👤</span>
+                            <button id="btn-user" class="btn-user-compact">
+                                <span>👤</span>
                                 <span id="user-name" class="user-name">User</span>
-                                <span class="dropdown-arrow">▼</span>
                             </button>
                             <div id="user-dropdown" class="user-dropdown">
                                 <div class="user-stats">
@@ -78,99 +55,152 @@
                 </div>
             </header>
 
-            <div class="main-layout">
-                <!-- Left Sidebar: Puzzle Settings -->
-                <aside class="sidebar-left">
-                    <button class="sidebar-toggle" id="toggle-left">◀</button>
-                    <div class="control-card">
-                        <h3 class="card-title">⚙️ Puzzle Settings</h3>
-                        <div class="control-group">
-                            <label for="difficulty-select">Difficulty Level</label>
-                            <select id="difficulty-select" class="styled-select">
-                                <option value="very_easy">🌱 Very Easy</option>
-                                <option value="easy">🟢 Easy</option>
-                                <option value="medium" selected>🟡 Medium</option>
-                                <option value="hard">🔴 Hard</option>
-                            </select>
-                        </div>
-                        <button id="btn-generate" class="btn-large btn-primary">
-                            <span class="btn-icon">🎲</span>
-                            <span>New Puzzle</span>
+            <div class="main-layout redesigned">
+                <!-- Icon Toolbar (Left) -->
+                <aside class="toolbar" id="main-toolbar">
+                    <!-- Game Group -->
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="btn-sidebar-new-game" title="New Game">
+                            <span class="toolbar-icon">🎮</span>
+                            <span class="toolbar-label">Game</span>
+                        </button>
+                    </div>
+
+                    <!-- Tools Group -->
+                    <div class="toolbar-group" data-group="tools">
+                        <button id="btn-note-mode" class="toolbar-btn" title="Note Mode (N)">
+                            <span class="toolbar-icon">📝</span>
+                            <span class="toolbar-label">Notes</span>
+                            <span class="toolbar-status" id="note-status">OFF</span>
+                        </button>
+                        <button id="btn-notebook" class="toolbar-btn" title="Notebook">
+                            <span class="toolbar-icon">📓</span>
+                            <span class="toolbar-label">Notebook</span>
+                        </button>
+                    </div>
+
+                    <!-- Export/Lookup Group -->
+                    <div class="toolbar-group" data-group="export">
+                        <button id="btn-download-book" class="toolbar-btn" title="Generate PDF Book">
+                            <span class="toolbar-icon">📖</span>
+                            <span class="toolbar-label">PDF</span>
+                        </button>
+                        <button id="btn-open-load-modal" class="toolbar-btn" title="Load Puzzle by ID">
+                            <span class="toolbar-icon">🔍</span>
+                            <span class="toolbar-label">Load ID</span>
+                        </button>
+                    </div>
+
+                    <!-- Spacer pushes remaining to bottom -->
+                    <div class="toolbar-spacer"></div>
+
+                    <!-- Quick Actions at Bottom -->
+                    <div class="toolbar-group toolbar-bottom">
+                        <button id="btn-library" class="toolbar-btn" title="My Library">
+                            <span class="toolbar-icon">📚</span>
+                            <span class="toolbar-label">Library</span>
+                        </button>
+                        <button id="btn-save" class="toolbar-btn" title="Save Progress">
+                            <span class="toolbar-icon">💾</span>
+                            <span class="toolbar-label">Save</span>
                         </button>
                     </div>
                 </aside>
 
-                <!-- Center: Game Board -->
-                <main class="game-area">
-
+                <!-- Puzzle Area (Maximized) -->
+                <main class="game-area maximized">
                     <div class="board-container">
                         <div id="kakuro-board" class="kakuro-grid"></div>
                     </div>
 
-                    <div id="note-help" class="note-help" style="display: none;">
-                        <!-- Content will be set by JS -->
-                    </div>
+                    <div id="note-help" class="note-help" style="display: none;"></div>
 
-                    <!-- Action Bar Below Grid -->
-                    <div class="action-bar">
-                        <button id="btn-library" class="btn-action btn-secondary">
-                            <span class="btn-icon">📚</span>
-                            <span>My Library</span>
-                        </button>
-                        <button id="btn-check" class="btn-action btn-success">
-                            <span class="btn-icon">✓</span>
-                            <span>Check Solution</span>
+                    <!-- Compact Action Bar -->
+                    <div class="action-bar compact">
+                        <button id="btn-check" class="btn-check-main">
+                            <span>✓</span> Check Solution
                         </button>
                     </div>
                 </main>
+            </div>
 
-                <!-- Right Sidebar: Tools -->
-                <aside class="sidebar-right">
-                    <button class="sidebar-toggle" id="toggle-right">▶</button>
-                    <div class="control-card tools-panel">
-                        <h3 class="card-title">🛠️ Tools</h3>
-                        <button id="btn-note-mode" class="btn-tool">
-                            <span class="tool-icon">📝</span>
-                            <span class="tool-label">Note Mode</span>
-                            <span class="tool-status">OFF</span>
-                        </button>
-                        <button id="btn-notebook" class="btn-tool">
-                            <span class="tool-icon">📓</span>
-                            <span class="tool-label">Notebook</span>
-                        </button>
-                        <button id="btn-save" class="btn-tool btn-save">
-                            <span class="tool-icon">💾</span>
-                            <span class="tool-label">Save Progress</span>
-                        </button>
-                        <button id="btn-download-book" class="btn-tool"
-                            style="margin-top: 1rem; border-color: var(--accent-color);">
-                            <span class="tool-icon">📖</span>
-                            <span class="tool-label">PDF Book</span>
-                        </button>
-
-                        <div class="manual-id-input"
-                            style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-                            <label
-                                style="font-size: 0.8rem; display: block; margin-bottom: 0.5rem; color: var(--text-muted);">Find
-                                Solution by ID:</label>
-                            <div style="display: flex; gap: 5px;">
-                                <input type="text" id="manual-puzzle-id" class="form-input"
-                                    style="padding: 5px; font-size: 0.8rem;" placeholder="UUID...">
-                                <button id="btn-find-puzzle" class="btn-secondary"
-                                    style="padding: 5px 10px;">🔍</button>
-                            </div>
-                        </div>
+            <!-- Floating Notebook Window -->
+            <div id="notebook-floating" class="notebook-floating">
+                <div class="notebook-floating-header">
+                    <span class="notebook-floating-title">📓 Notebook</span>
+                    <div class="notebook-floating-controls">
+                        <button id="btn-notebook-minimize" class="btn-notebook-ctrl" title="Minimize">−</button>
+                        <button id="btn-notebook-close" class="btn-notebook-ctrl" title="Close">×</button>
                     </div>
+                </div>
+                <textarea id="notebook-floating-textarea" class="notebook-textarea"
+                    placeholder="Write your solving strategies, observations, or any notes here..."></textarea>
+            </div>
 
-                    <!-- Notebook Panel (expands below tools) -->
-                    <div id="notebook-panel" class="notebook-panel-inline">
-                        <div class="notebook-header">
-                            <h3>📓 My Notes</h3>
-                        </div>
-                        <textarea id="notebook-textarea" class="notebook-textarea"
-                            placeholder="Write your solving strategies, observations, or any notes here..."></textarea>
-                    </div>
-                </aside>
+            <!-- Hidden notebook for state sync -->
+            <textarea id="notebook-textarea" style="display:none;"></textarea>
+
+            <!-- Bottom Navigation (Mobile Only) -->
+
+        </div>
+    </div>
+
+    <!-- Load Puzzle Modal -->
+    <div id="load-puzzle-modal" class="modal">
+        <div class="modal-content">
+            <span class="close"
+                onclick="document.getElementById('load-puzzle-modal').style.display='none'">&times;</span>
+            <h2 style="margin-top:0;">🔍 Load Puzzle</h2>
+            <p>Enter a Puzzle ID to load a specific game.</p>
+            <div class="control-group">
+                <input type="text" id="manual-puzzle-id-input" class="styled-select" placeholder="e.g. 123456"
+                    style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div class="modal-actions" style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+                <button id="btn-load-puzzle-submit" class="btn-large btn-primary">Load Puzzle</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Tools Modal -->
+    <div id="mobile-tools-modal" class="modal">
+        <div class="modal-content" style="max-width: 90%; width: 320px;">
+            <span class="close-modal" id="close-mobile-tools">&times;</span>
+            <h2 style="margin-top:0;">☰ Menu</h2>
+
+            <div class="mobile-tools-section">
+                <h3>Game</h3>
+                <div class="control-group">
+                    <label>Difficulty</label>
+                    <select id="mobile-difficulty-select" class="styled-select" style="width:100%">
+                        <option value="very_easy">🌱 Very Easy</option>
+                        <option value="easy">🟢 Easy</option>
+                        <option value="medium" selected>🟡 Medium</option>
+                        <option value="hard">🔴 Hard</option>
+                    </select>
+                </div>
+                <button id="btn-mobile-new-game" class="btn-large btn-primary" style="width:100%">
+                    <span>🎲</span> New Puzzle
+                </button>
+            </div>
+
+            <div class="mobile-tools-section">
+                <h3>Actions</h3>
+                <div class="tool-list">
+                    <button id="btn-mobile-save" class="btn-secondary" style="width:100%; margin-bottom: 0.5rem;">
+                        <span>💾</span> Save Progress
+                    </button>
+                    <button id="btn-mobile-load-id" class="btn-secondary" style="width:100%; margin-bottom: 0.5rem;">
+                        <span>🔍</span> Load by ID
+                    </button>
+                    <button id="btn-mobile-pdf" class="btn-secondary" style="width:100%; margin-bottom: 0.5rem;">
+                        <span>📖</span> Generate PDF
+                    </button>
+                    <button id="btn-mobile-admin" class="btn-secondary"
+                        style="width:100%; margin-bottom: 0.5rem; display:none;">
+                        <span>🛠️</span> Admin Dashboard
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -400,25 +430,24 @@
             </div>
         </div>
     </div>
-    <!-- MOBILE: Settings Modal (Since Sidebar is hidden) -->
-    <div id="mobile-settings-modal" class="modal">
+    <!-- NEW GAME MODAL (Unified) -->
+    <div id="new-game-modal" class="modal">
         <div class="modal-content">
-            <span class="close"
-                onclick="document.getElementById('mobile-settings-modal').style.display='none'">&times;</span>
+            <span class="close" onclick="document.getElementById('new-game-modal').style.display='none'">&times;</span>
             <h2>🎮 New Game</h2>
             <div class="control-group">
-                <label for="mobile-difficulty-select">Difficulty Level</label>
-                <select id="mobile-difficulty-select" class="styled-select">
+                <label for="new-game-difficulty">Difficulty Level</label>
+                <select id="new-game-difficulty" class="styled-select">
                     <option value="very_easy">🌱 Very Easy</option>
                     <option value="easy">🟢 Easy</option>
                     <option value="medium" selected>🟡 Medium</option>
                     <option value="hard">🔴 Hard</option>
                 </select>
             </div>
-            <button id="btn-mobile-generate" class="btn-large btn-primary" style="margin-top: 20px;">
+            <button id="btn-modal-generate" class="btn-large btn-primary" style="margin-top: 20px;">
                 Generate Puzzle
             </button>
-            <button id="btn-mobile-download-book" class="btn-large btn-secondary" style="margin-top: 10px;">
+            <button id="btn-modal-download-book" class="btn-large btn-secondary" style="margin-top: 10px;">
                 📖 Download PDF Book
             </button>
         </div>
@@ -437,26 +466,23 @@
 
     <!-- MOBILE: Bottom Navigation Bar -->
     <nav class="mobile-bottom-nav">
-        <button class="nav-item" id="nav-play">
+        <button class="nav-item" id="nav-btn-game">
             <span class="nav-icon">🎮</span>
-            <span class="nav-label">Play</span>
+            <span class="nav-label">Game</span>
         </button>
-        <button class="nav-item" id="nav-check">
-            <span class="nav-icon">✓</span>
-            <span class="nav-label">Check</span>
+        <button class="nav-item" id="nav-btn-load">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-label">Load ID</span>
         </button>
-        <button class="nav-item" id="nav-notebook">
+        <button class="nav-item" id="nav-btn-notebook">
             <span class="nav-icon">📓</span>
             <span class="nav-label">Notebook</span>
         </button>
-        <button class="nav-item" id="nav-notes">
+        <button class="nav-item" id="nav-btn-notes">
             <span class="nav-icon">📝</span>
             <span class="nav-label">Notes</span>
         </button>
-        <button class="nav-item" id="nav-library">
-            <span class="nav-icon">📚</span>
-            <span class="nav-label">Library</span>
-        </button>
+        <!-- Menu button removed as requested -->
         <button class="nav-item" id="nav-profile">
             <span class="nav-icon">👤</span>
             <span class="nav-label">Profile</span>

@@ -52,18 +52,25 @@ const state = {
     info: { debug: false } // Application info from backend
 };
 
-const boardEl = document.getElementById('kakuro-board');
-const btnGenerate = document.getElementById('btn-generate');
-const btnCheck = document.getElementById('btn-check');
-const btnSave = document.getElementById('btn-save');
-const btnLibrary = document.getElementById('btn-library');
-const libraryModal = document.getElementById('library-modal');
-const closeModal = libraryModal.querySelector('.close');
-const libraryList = document.getElementById('library-list');
-const tabButtons = document.querySelectorAll('.tab-btn');
+let boardEl, btnGenerate, btnCheck, btnSave, btnLibrary, libraryModal, closeModal, libraryList, tabButtons;
+
+function setupGlobals() {
+    boardEl = document.getElementById('kakuro-board');
+    btnGenerate = document.getElementById('btn-modal-generate');
+    btnCheck = document.getElementById('btn-check');
+    btnSave = document.getElementById('btn-save');
+    btnLibrary = document.getElementById('btn-library');
+    libraryModal = document.getElementById('library-modal');
+    if (libraryModal) {
+        closeModal = libraryModal.querySelector('.close');
+    }
+    libraryList = document.getElementById('library-list');
+    tabButtons = document.querySelectorAll('.tab-btn');
+}
 
 function init() {
     console.log('Init function called');
+    setupGlobals();
     const btnNoteMode = document.getElementById('btn-note-mode');
     const btnNotebook = document.getElementById('btn-notebook');
     const btnThemeToggle = document.getElementById('btn-theme-toggle');
@@ -71,10 +78,11 @@ function init() {
     const btnDownloadBook = document.getElementById('btn-download-book');
     console.log('btnNoteMode:', btnNoteMode);
 
-    btnGenerate.addEventListener('click', fetchPuzzle);
-    btnCheck.addEventListener('click', checkPuzzle);
-    btnSave.addEventListener('click', saveCurrentState);
-    btnLibrary.addEventListener('click', openLibrary);
+
+    // btnGenerate listener removed (handled by initNewGameModal)
+    if (typeof btnCheck !== 'undefined' && btnCheck) btnCheck.addEventListener('click', checkPuzzle);
+    if (typeof btnSave !== 'undefined' && btnSave) btnSave.addEventListener('click', saveCurrentState);
+    if (typeof btnLibrary !== 'undefined' && btnLibrary) btnLibrary.addEventListener('click', openLibrary);
 
     // Bind Manual ID Lookup
     const btnFind = document.getElementById('btn-find-puzzle');
@@ -136,9 +144,11 @@ function init() {
         state.theme = savedTheme;
         applyTheme(savedTheme);
     }
-    closeModal.addEventListener('click', () => libraryModal.style.display = 'none');
+    if (closeModal) {
+        closeModal.addEventListener('click', () => libraryModal.style.display = 'none');
+    }
     window.addEventListener('click', (e) => {
-        if (e.target === libraryModal) libraryModal.style.display = 'none';
+        if (libraryModal && e.target === libraryModal) libraryModal.style.display = 'none';
     });
 
     tabButtons.forEach(btn => {
@@ -152,10 +162,26 @@ function init() {
 
     window.addEventListener('keydown', handleGlobalKey);
 
-    setupMobile();
+    // Consolidated Mobile & UI Initializers
+    try {
+        initMobileNav();
+        initMobileToolsModal();
+        initNewGameModal();
+        initLoadPuzzleModal();
+        initHeaderCollapse();
+        initFloatingNotebook();
+        setupNumpad();
+        initDesktopToolbar(); // Added here
+    } catch (e) {
+        console.error("Initialization error:", e);
+    }
 
     // Initialize authentication
-    initAuth();
+    try {
+        initAuth();
+    } catch (e) {
+        console.error("Auth init error:", e);
+    }
 
     // Clear queue when difficulty changes (so next 'New Game' fetches correct difficulty)
     const diffSelect = document.getElementById('difficulty-select');
@@ -217,6 +243,40 @@ function init() {
 
     // Fetch app info (debug mode, etc.)
     fetchInfo();
+}
+
+function initNewGameModal() {
+    const btnSidebar = document.getElementById('btn-sidebar-new-game');
+    const modal = document.getElementById('new-game-modal');
+    const btnModalGenerate = document.getElementById('btn-modal-generate');
+    const btnModalDownloadPdf = document.getElementById('btn-modal-download-book');
+
+    if (btnSidebar) {
+        btnSidebar.addEventListener('click', openNewGameModal);
+    }
+
+    if (btnModalGenerate) {
+        btnModalGenerate.addEventListener('click', () => {
+            if (modal) modal.style.display = 'none';
+            fetchPuzzle();
+        });
+    }
+
+    if (btnModalDownloadPdf) {
+        btnModalDownloadPdf.addEventListener('click', () => {
+            if (modal) modal.style.display = 'none';
+            openPdfSettings();
+        });
+    }
+
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+}
+
+function openNewGameModal() {
+    const modal = document.getElementById('new-game-modal');
+    if (modal) modal.style.display = 'block';
 }
 
 async function fetchInfo() {
@@ -318,20 +378,219 @@ function applyTheme(theme) {
 
 function toggleNotebook() {
     state.notebookOpen = !state.notebookOpen;
-    const notebookPanel = document.getElementById('notebook-panel');
+    const notebookFloating = document.getElementById('notebook-floating');
+    const mobileNotebookModal = document.getElementById('mobile-notebook-modal');
     const btnNotebook = document.getElementById('btn-notebook');
+    const navBtnNotebook = document.getElementById('nav-btn-notebook');
 
-    if (notebookPanel) {
-        if (state.notebookOpen) {
-            notebookPanel.classList.add('open');
-        } else {
-            notebookPanel.classList.remove('open');
+    // MOBILE BREAKPOINT ALIGNED TO CSS (968px)
+    if (window.innerWidth <= 968) {
+        if (mobileNotebookModal) {
+            mobileNotebookModal.style.display = state.notebookOpen ? 'block' : 'none';
+            if (state.notebookOpen) {
+                const mobileTextarea = document.getElementById('mobile-notebook-textarea');
+                if (mobileTextarea) mobileTextarea.value = state.notebook || '';
+            }
+        }
+        // Ensure floating is hidden on mobile
+        if (notebookFloating) notebookFloating.classList.remove('visible', 'open');
+    } else {
+        // Handle Desktop View
+        if (notebookFloating) {
+            if (state.notebookOpen) {
+                notebookFloating.classList.add('visible');
+                notebookFloating.classList.add('open');
+                const hiddenTextarea = document.getElementById('notebook-textarea');
+                const floatingTextarea = document.getElementById('notebook-floating-textarea');
+                if (hiddenTextarea && floatingTextarea) {
+                    floatingTextarea.value = hiddenTextarea.value;
+                }
+            } else {
+                notebookFloating.classList.remove('visible');
+                notebookFloating.classList.remove('open');
+            }
+        }
+        // Ensure mobile modal is hidden
+        if (mobileNotebookModal) mobileNotebookModal.style.display = 'none';
+    }
+
+    if (btnNotebook) btnNotebook.classList.toggle('active', state.notebookOpen);
+    if (navBtnNotebook) navBtnNotebook.classList.toggle('active', state.notebookOpen);
+}
+
+// ===============================================
+// HEADER COLLAPSE FUNCTIONALITY
+// ===============================================
+function toggleHeaderCollapse() {
+    const header = document.getElementById('main-header');
+    if (!header) return;
+
+    header.classList.toggle('collapsed');
+    localStorage.setItem('kakuro-header-collapsed', header.classList.contains('collapsed'));
+}
+
+function initHeaderCollapse() {
+    const btnHeaderCollapse = document.getElementById('btn-header-collapse');
+    if (btnHeaderCollapse) {
+        btnHeaderCollapse.addEventListener('click', toggleHeaderCollapse);
+    }
+
+    // Restore from localStorage
+    const wasCollapsed = localStorage.getItem('kakuro-header-collapsed') === 'true';
+    if (wasCollapsed) {
+        const header = document.getElementById('main-header');
+        if (header) {
+            header.classList.add('collapsed');
         }
     }
-    if (btnNotebook) {
-        btnNotebook.classList.toggle('active', state.notebookOpen);
+}
+
+// ===============================================
+// FLOATING NOTEBOOK FUNCTIONALITY
+// ===============================================
+function initFloatingNotebook() {
+    const notebook = document.getElementById('notebook-floating');
+    const header = notebook?.querySelector('.notebook-floating-header');
+    const btnMinimize = document.getElementById('btn-notebook-minimize');
+    const btnClose = document.getElementById('btn-notebook-close');
+
+    if (!notebook || !header) return;
+
+    // Dragging functionality
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.btn-notebook-ctrl')) return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = notebook.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        notebook.style.transition = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        notebook.style.left = (initialLeft + dx) + 'px';
+        notebook.style.top = (initialTop + dy) + 'px';
+        notebook.style.right = 'auto';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            notebook.style.transition = '';
+            saveNotebookPosition();
+        }
+    });
+
+    // Touch support for dragging
+    header.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.btn-notebook-ctrl')) return;
+        isDragging = true;
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        const rect = notebook.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        notebook.style.transition = 'none';
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        notebook.style.left = (initialLeft + dx) + 'px';
+        notebook.style.top = (initialTop + dy) + 'px';
+        notebook.style.right = 'auto';
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+        if (isDragging) {
+            isDragging = false;
+            notebook.style.transition = '';
+            saveNotebookPosition();
+        }
+    });
+
+    // Minimize button
+    if (btnMinimize) {
+        btnMinimize.addEventListener('click', () => {
+            notebook.classList.toggle('minimized');
+        });
+    }
+
+    // Close button
+    if (btnClose) {
+        btnClose.addEventListener('click', () => {
+            notebook.classList.remove('open');
+            state.notebookOpen = false;
+            const btnNotebook = document.getElementById('btn-notebook');
+            if (btnNotebook) {
+                btnNotebook.classList.remove('active');
+            }
+            // Sync content back
+            syncNotebookContent();
+        });
+    }
+
+    // Sync floating textarea to inline on change
+    const floatingTextarea = document.getElementById('notebook-floating-textarea');
+    if (floatingTextarea) {
+        floatingTextarea.addEventListener('input', () => {
+            const inlineTextarea = document.getElementById('notebook-textarea');
+            if (inlineTextarea) {
+                inlineTextarea.value = floatingTextarea.value;
+            }
+            state.notebook = floatingTextarea.value;
+        });
+    }
+
+    // Restore position from localStorage
+    restoreNotebookPosition();
+}
+
+function syncNotebookContent() {
+    const inlineTextarea = document.getElementById('notebook-textarea');
+    const floatingTextarea = document.getElementById('notebook-floating-textarea');
+    if (inlineTextarea && floatingTextarea) {
+        inlineTextarea.value = floatingTextarea.value;
+        state.notebook = floatingTextarea.value;
     }
 }
+
+function saveNotebookPosition() {
+    const notebook = document.getElementById('notebook-floating');
+    if (!notebook) return;
+    const rect = notebook.getBoundingClientRect();
+    localStorage.setItem('kakuro-notebook-pos', JSON.stringify({
+        left: rect.left,
+        top: rect.top
+    }));
+}
+
+function restoreNotebookPosition() {
+    const notebook = document.getElementById('notebook-floating');
+    if (!notebook) return;
+    const saved = localStorage.getItem('kakuro-notebook-pos');
+    if (saved) {
+        try {
+            const pos = JSON.parse(saved);
+            notebook.style.left = pos.left + 'px';
+            notebook.style.top = pos.top + 'px';
+            notebook.style.right = 'auto';
+        } catch (e) {
+            // Ignore parse errors
+        }
+    }
+}
+
 
 function toggleNoteMode(skipRender = false) {
     state.noteMode = !state.noteMode;
@@ -345,28 +604,36 @@ function toggleNoteMode(skipRender = false) {
     }
 
     const btnNoteMode = document.getElementById('btn-note-mode');
+    const navBtnNotes = document.getElementById('nav-btn-notes');
+
     console.log('New note mode state:', state.noteMode);
+
+    // Update Desktop Button
     if (btnNoteMode) {
         btnNoteMode.classList.toggle('active', state.noteMode);
-        const statusSpan = btnNoteMode.querySelector('.tool-status');
+        // Fix: Check both possible status locations
+        const statusSpan = btnNoteMode.querySelector('.tool-status') || document.getElementById('note-status');
         if (statusSpan) {
             statusSpan.textContent = state.noteMode ? 'ON' : 'OFF';
         }
-        console.log('Button status updated');
+    }
+
+    // Update Mobile Button
+    if (navBtnNotes) {
+        navBtnNotes.classList.toggle('active', state.noteMode);
     }
 
     const noteHelp = document.getElementById('note-help');
     if (noteHelp) {
         if (state.noteMode) {
-            // Set text based on device width
-            if (window.innerWidth <= 768) {
+            // Set text based on device width (Aligned to 968px)
+            if (window.innerWidth <= 968) {
                 // Mobile Text
                 noteHelp.innerHTML = `
                     📝 <strong>Note Mode Active</strong><br>
-                    • Long-press & drag to select<br>
-                    • Single tap to start new selection<br>
-                    • Select 2 adjacent cells for boundary notes<br>
-                    • Double-tap to exit
+                    • Drag to select multiple cells<br>
+                    • Type digits to add notes<br>
+                    • Double-tap cells to exit mode
                 `;
             } else {
                 // Desktop Text
@@ -402,8 +669,10 @@ function toggleNoteMode(skipRender = false) {
 }
 
 async function fetchPuzzle() {
+
     btnGenerate.textContent = "Loading...";
     btnGenerate.disabled = true;
+
 
     try {
         const difficultySelect = document.getElementById('difficulty-select');
@@ -449,8 +718,9 @@ async function fetchPuzzle() {
         // Or just show error. Let's show error for now as feed should work.
         alert("Error loading new puzzle: " + e.message);
     } finally {
-        btnGenerate.textContent = "New Puzzle";
+        btnGenerate.textContent = "Generate Puzzle";
         btnGenerate.disabled = false;
+
     }
 }
 
@@ -1146,6 +1416,23 @@ async function deletePuzzle(event, id) {
 function renderBoard() {
     if (!state.puzzle) return;
 
+    // Get responsive cell size based on window width
+    function getCellSize() {
+        const width = window.innerWidth;
+        if (width <= 968) return 45;
+        if (width <= 1200) return 50;
+        return 60;
+    }
+
+    function getMarginSize() {
+        const width = window.innerWidth;
+        if (width <= 968) return 30;
+        return 40;
+    }
+
+    const cellSize = getCellSize();
+    const marginSize = getMarginSize();
+
     // Clear the entire board container and rebuild
     const boardContainer = boardEl.parentElement;
 
@@ -1167,7 +1454,7 @@ function renderBoard() {
     // Create column notes row (top margin)
     const colNotesRow = document.createElement('div');
     colNotesRow.className = 'col-notes-row';
-    colNotesRow.style.gridTemplateColumns = `40px repeat(${visibleWidth}, 60px)`;
+    colNotesRow.style.gridTemplateColumns = `${marginSize}px repeat(${visibleWidth}, ${cellSize}px)`;
 
     // Empty corner cell
     const cornerCell = document.createElement('div');
@@ -1184,9 +1471,9 @@ function renderBoard() {
     // Create main content area with grid gaps for boundary notes
     const mainArea = document.createElement('div');
     mainArea.className = 'main-grid-area-with-gaps';
-    // Use 60px for cells, 20px for gaps (note areas)
-    const colTemplate = `40px repeat(${visibleWidth}, 60px)`;
-    const rowTemplate = `repeat(${visibleHeight}, 60px)`;
+    // Use responsive cell sizes
+    const colTemplate = `${marginSize}px repeat(${visibleWidth}, ${cellSize}px)`;
+    const rowTemplate = `repeat(${visibleHeight}, ${cellSize}px)`;
     mainArea.style.gridTemplateColumns = colTemplate;
     mainArea.style.gridTemplateRows = rowTemplate;
     mainArea.style.gap = '1px';
@@ -1217,13 +1504,21 @@ function renderBoard() {
 }
 
 function addBoundaryNotesOverlay(container, minRow, maxRow, minCol, maxCol) {
-    // Detect mobile layout matching CSS breakpoint
-    const isMobile = window.innerWidth <= 968;
+    // Get responsive sizes matching the CSS breakpoints
+    const width = window.innerWidth;
+    let cellSize, headerSize;
 
-    // Desktop: 60px cell, 40px header
-    // Mobile: 45px cell, 30px header
-    const cellSize = isMobile ? 45 : 60;
-    const headerSize = isMobile ? 30 : 40;
+    if (width <= 968) {
+        cellSize = 45;
+        headerSize = 30;
+    } else if (width <= 1200) {
+        cellSize = 50;
+        headerSize = 40;
+    } else {
+        cellSize = 60;
+        headerSize = 40;
+    }
+
     const gap = 1;
     const cellStride = cellSize + gap;
 
@@ -2808,146 +3103,7 @@ function updateAuthUI() {
 // End of consolidated auth module.
 
 
-function setupMobile() {
-    // 1. Generate Button in Mobile Modal
-    const btnMobileGenerate = document.getElementById('btn-mobile-generate');
-    const mobileDiffSelect = document.getElementById('mobile-difficulty-select');
-    const desktopDiffSelect = document.getElementById('difficulty-select');
-    const settingsModal = document.getElementById('mobile-settings-modal');
 
-    const closeOtherModals = (exceptId) => {
-        const modalIds = [
-            'mobile-settings-modal',
-            'mobile-notebook-modal',
-            'library-modal',
-            'auth-modal'
-        ];
-
-        modalIds.forEach(id => {
-            if (id !== exceptId) {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            }
-        });
-    };
-
-    if (btnMobileGenerate) {
-        btnMobileGenerate.addEventListener('click', () => {
-            // Sync value to desktop select (so fetchPuzzle uses it)
-            if (desktopDiffSelect) desktopDiffSelect.value = mobileDiffSelect.value;
-
-            // Close modal
-            settingsModal.style.display = 'none';
-
-            // Generate
-            fetchPuzzle();
-        });
-    }
-
-    // 2. Navigation Handlers
-    const navPlay = document.getElementById('nav-play');
-    if (navPlay && settingsModal) {
-        navPlay.addEventListener('click', () => {
-            if (settingsModal.style.display === 'block') {
-                settingsModal.style.display = 'none';
-            } else {
-                closeOtherModals('mobile-settings-modal');
-                settingsModal.style.display = 'block';
-            }
-        });
-    }
-
-    // 2. Notebook Button: Opens Notebook Modal
-    const navNotebook = document.getElementById('nav-notebook');
-    const notebookModal = document.getElementById('mobile-notebook-modal');
-    const mobileTextarea = document.getElementById('mobile-notebook-textarea');
-    const desktopTextarea = document.getElementById('notebook-textarea');
-
-    if (navNotebook && notebookModal && mobileTextarea) {
-        navNotebook.addEventListener('click', () => {
-            if (notebookModal.style.display === 'block') {
-                notebookModal.style.display = 'none';
-            } else {
-                closeOtherModals('mobile-notebook-modal');
-                // Sync state -> mobile textarea
-                mobileTextarea.value = state.notebook || '';
-                notebookModal.style.display = 'block';
-            }
-        });
-
-        // Save on input
-        mobileTextarea.addEventListener('input', (e) => {
-            state.notebook = e.target.value;
-            // Sync back to desktop textarea if it exists (for seamless switching)
-            if (desktopTextarea) desktopTextarea.value = state.notebook;
-            triggerAutosave();
-        });
-    }
-
-    // 3. Notes Button (Tools): Toggles Note Mode
-    const navNotes = document.getElementById('nav-notes');
-    if (navNotes) {
-        navNotes.addEventListener('click', () => {
-            toggleNoteMode();
-
-            // Visual feedback
-            const isActive = state.noteMode;
-            navNotes.style.color = isActive ? 'var(--success-color)' : '';
-            // Optional: Haptic feedback
-            if (navigator.vibrate) navigator.vibrate(20);
-
-            showToast(isActive ? "Note Mode ON" : "Note Mode OFF");
-        });
-    }
-
-    const navCheck = document.getElementById('nav-check');
-    if (navCheck) {
-        navCheck.addEventListener('click', () => {
-            checkPuzzle();
-        });
-    }
-
-
-
-    const navLibrary = document.getElementById('nav-library');
-    const libraryModal = document.getElementById('library-modal');
-
-    if (navLibrary && libraryModal) {
-        navLibrary.addEventListener('click', () => {
-            if (libraryModal.style.display === 'block') {
-                libraryModal.style.display = 'none';
-            } else {
-                closeOtherModals('library-modal');
-                openLibrary();
-            }
-        });
-    }
-
-    const navProfile = document.getElementById('nav-profile');
-    const authModal = document.getElementById('auth-modal');
-
-    if (navProfile) {
-        navProfile.addEventListener('click', () => {
-            if (state.user) {
-                // If logged in, we use confirm (native dialog, cannot toggle)
-                if (confirm(`Logged in as ${state.user.username}. Logout?`)) {
-                    handleLogout();
-                }
-            } else {
-                // If logged out, toggle the Auth Modal
-                if (authModal && authModal.style.display === 'block') {
-                    closeAuthModal();
-                } else {
-                    closeOtherModals('auth-modal');
-                    openAuthModal('login');
-                }
-            }
-        });
-    }
-
-
-    setupNumpad();
-}
 
 function setupNumpad() {
     const numpad = document.getElementById('mobile-numpad');
@@ -2977,7 +3133,7 @@ function setupNumpad() {
 
     // Hide numpad on scroll to prevent it floating awkwardly
     window.addEventListener('scroll', () => {
-        if (window.innerWidth <= 768) hideNumpad();
+        if (window.innerWidth <= 968) hideNumpad();
     });
 }
 
@@ -3175,9 +3331,347 @@ function renderLeaderboard() {
     }
 }
 
-// Call initSidebarToggles after the DOM is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSidebarToggles);
-} else {
-    initSidebarToggles();
+// ===============================================
+// LOAD PUZZLE MODAL
+// ===============================================
+function initLoadPuzzleModal() {
+    const btnOpen = document.getElementById('btn-open-load-modal');
+    const modal = document.getElementById('load-puzzle-modal');
+    const btnClose = modal ? modal.querySelector('.close') : null;
+    const btnSubmit = document.getElementById('btn-load-puzzle-submit');
+    const inputId = document.getElementById('manual-puzzle-id-input');
+
+    if (!modal) return;
+
+    function openModal() {
+        modal.style.display = 'block';
+        if (inputId) inputId.focus();
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
+    }
+
+    if (btnOpen) btnOpen.addEventListener('click', openModal);
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    if (btnSubmit && inputId) {
+        btnSubmit.addEventListener('click', () => {
+            const val = inputId.value.trim();
+            if (val) {
+                loadSolutionMode(val);
+                closeModal();
+            }
+        });
+
+        inputId.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = inputId.value.trim();
+                if (val) {
+                    loadSolutionMode(val);
+                    closeModal();
+                }
+            }
+        });
+    }
 }
+
+// ===============================================
+// MOBILE NAVIGATION
+// ===============================================
+function initMobileNav() {
+    const navBtnGame = document.getElementById('nav-btn-game');
+    const navBtnNotes = document.getElementById('nav-btn-notes');
+    const navBtnNotebook = document.getElementById('nav-btn-notebook');
+    const navBtnLoad = document.getElementById('nav-btn-load');
+    const navBtnProfile = document.getElementById('nav-profile');
+
+    function setActiveNav(btn) {
+        [navBtnGame, navBtnNotes, navBtnNotebook, navBtnLoad, navBtnProfile].forEach(b => {
+            if (b) b.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+    }
+
+    if (navBtnGame) {
+        navBtnGame.addEventListener('click', () => {
+            setActiveNav(navBtnGame);
+            openNewGameModal();
+        });
+    }
+
+    if (navBtnNotes) {
+        navBtnNotes.addEventListener('click', () => {
+            toggleNoteMode();
+        });
+    }
+
+    if (navBtnNotebook) {
+        navBtnNotebook.addEventListener('click', () => {
+            toggleNotebook();
+            if (state.notebookOpen) {
+                setActiveNav(navBtnNotebook);
+            } else {
+                if (navBtnGame) setActiveNav(navBtnGame);
+            }
+            // Close Library Modal if open
+            const libraryModal = document.getElementById('library-modal');
+            if (libraryModal) libraryModal.style.display = 'none';
+        });
+    }
+
+    if (navBtnLoad) {
+        navBtnLoad.addEventListener('click', () => {
+            // Open Load ID modal
+            const loadModal = document.getElementById('load-puzzle-modal');
+            if (loadModal) {
+                loadModal.style.display = 'block';
+                const input = document.getElementById('manual-puzzle-id-input');
+                if (input) input.focus();
+                setActiveNav(navBtnLoad);
+            }
+            // Close other modals if needed (e.g. library)
+            const libraryModal = document.getElementById('library-modal');
+            if (libraryModal) libraryModal.style.display = 'none';
+        });
+    }
+
+    if (navBtnProfile) {
+        navBtnProfile.addEventListener('click', () => {
+            const authModal = document.getElementById('auth-modal');
+            if (authModal) {
+                authModal.style.display = 'block';
+                setActiveNav(navBtnProfile);
+            }
+        });
+    }
+}
+
+// ===============================================
+// MOBILE TOOLS MODAL
+// ===============================================
+function initMobileToolsModal() {
+    const modal = document.getElementById('mobile-tools-modal');
+    const btnClose = document.getElementById('close-mobile-tools');
+    if (!modal) return;
+
+    if (btnClose) {
+        btnClose.addEventListener('click', () => {
+            modal.style.display = 'none';
+            // Revert active state to game?
+            const navBtnGame = document.getElementById('nav-btn-game');
+            if (navBtnGame) navBtnGame.click();
+        });
+    }
+
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+            const navBtnGame = document.getElementById('nav-btn-game');
+            if (navBtnGame) navBtnGame.click();
+        }
+    });
+
+    // Bind Tool Actions
+    const btnNew = document.getElementById('btn-mobile-new-game');
+    const selectDiff = document.getElementById('mobile-difficulty-select');
+    const btnSave = document.getElementById('btn-mobile-save');
+    const btnLoad = document.getElementById('btn-mobile-load-id');
+    const btnPdf = document.getElementById('btn-mobile-pdf');
+    const btnAdmin = document.getElementById('btn-mobile-admin');
+
+    if (btnNew) {
+        btnNew.addEventListener('click', () => {
+            if (selectDiff) {
+                const diff = selectDiff.value;
+                const mainDiff = document.getElementById('difficulty-select');
+                if (mainDiff) mainDiff.value = diff;
+
+            }
+            fetchPuzzle();
+            modal.style.display = 'none';
+        });
+    }
+
+    if (btnSave) {
+        btnSave.addEventListener('click', () => {
+            saveCurrentState();
+            modal.style.display = 'none';
+        });
+    }
+
+    if (btnLoad) {
+        btnLoad.addEventListener('click', () => {
+            modal.style.display = 'none';
+            const loadModal = document.getElementById('load-puzzle-modal');
+            if (loadModal) {
+                loadModal.style.display = 'block';
+                const input = document.getElementById('manual-puzzle-id-input');
+                if (input) input.focus();
+            }
+        });
+    }
+
+    if (btnPdf) {
+        btnPdf.addEventListener('click', () => {
+            modal.style.display = 'none';
+            openPdfSettings(); // Reusing existing function
+        });
+    }
+}
+
+
+// ===============================================
+// DESKTOP TOOLBAR LOGIC (Restored)
+// ===============================================
+function initDesktopToolbar() {
+    const toggles = document.querySelectorAll('.toolbar-group-toggle');
+    toggles.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const group = btn.closest('.toolbar-group');
+
+            // Close other groups
+            document.querySelectorAll('.toolbar-group').forEach(g => {
+                if (g !== group) g.classList.remove('active');
+            });
+
+            // Toggle current group
+            group.classList.toggle('active');
+
+            // Update button active state
+            if (group.classList.contains('active')) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    });
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.toolbar-group')) {
+            document.querySelectorAll('.toolbar-group').forEach(g => {
+                g.classList.remove('active');
+                const btn = g.querySelector('.toolbar-group-toggle');
+                if (btn) btn.classList.remove('active');
+            });
+        }
+    });
+
+    // Handle "New Puzzle" inside dropdown to close it
+    const btnGenerate = document.getElementById('btn-generate');
+    if (btnGenerate) {
+        btnGenerate.addEventListener('click', () => {
+            document.querySelectorAll('.toolbar-group').forEach(g => {
+                g.classList.remove('active');
+                const btn = g.querySelector('.toolbar-group-toggle');
+                if (btn) btn.classList.remove('active');
+            });
+        });
+    }
+}
+
+
+// ===============================================
+// NEW GAME MODAL LOGIC (Unified)
+// ===============================================
+function initNewGameModal() {
+    const modal = document.getElementById('new-game-modal');
+    const btnSidebar = document.getElementById('btn-sidebar-new-game');
+    const btnMobileNav = document.getElementById('nav-btn-game');
+    const btnMenuNew = document.getElementById('btn-mobile-new-game');
+    const btnGenerate = document.getElementById('btn-modal-generate');
+    const btnPdf = document.getElementById('btn-modal-download-book');
+    const selectDiff = document.getElementById('new-game-difficulty');
+
+    if (!modal) return;
+
+    const openModal = () => {
+        modal.style.display = 'block';
+        // Sync difficulty from main select if possible
+        const mainDiff = document.getElementById('difficulty-select');
+        if (mainDiff && selectDiff) selectDiff.value = mainDiff.value;
+    };
+
+    if (btnSidebar) btnSidebar.addEventListener('click', openModal);
+
+    // Mobile Nav Game Button: Show Game AND Open Modal
+    if (btnMobileNav) {
+        btnMobileNav.addEventListener('click', () => {
+            // We don't preventDefault, so initMobileNav listener also runs (switching view).
+            openModal();
+        });
+    }
+
+    if (btnMenuNew) {
+        btnMenuNew.addEventListener('click', () => {
+            openModal();
+            // Close mobile menu if open
+            const toolsModal = document.getElementById('mobile-tools-modal');
+            if (toolsModal) toolsModal.style.display = 'none';
+        });
+    }
+
+    if (btnGenerate) {
+        btnGenerate.addEventListener('click', () => {
+            if (selectDiff) {
+                const diff = selectDiff.value;
+                const mainDiff = document.getElementById('difficulty-select');
+                if (mainDiff) mainDiff.value = diff;
+            }
+            fetchPuzzle();
+            modal.style.display = 'none';
+        });
+    }
+
+    if (btnPdf) {
+        btnPdf.addEventListener('click', () => {
+            modal.style.display = 'none';
+            // Reuse existing openPdfSettings if available, or just log
+            if (typeof openPdfSettings === 'function') {
+                openPdfSettings();
+            }
+        });
+    }
+
+    // Close on outside click
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+}
+
+// Initialize on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+    initDesktopToolbar();
+    initNewGameModal();
+}
+
+// Handle window resize to update grid at breakpoints
+let lastBreakpoint = null;
+function getBreakpoint() {
+    const width = window.innerWidth;
+    if (width <= 968) return 'mobile';
+    if (width <= 1200) return 'tablet';
+    return 'desktop';
+}
+
+window.addEventListener('resize', () => {
+    const currentBreakpoint = getBreakpoint();
+    if (currentBreakpoint !== lastBreakpoint) {
+        lastBreakpoint = currentBreakpoint;
+        if (state.puzzle) {
+            renderBoard();
+        }
+    }
+});
+
+// Set initial breakpoint
+lastBreakpoint = getBreakpoint();
