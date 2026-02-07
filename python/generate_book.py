@@ -36,11 +36,11 @@ def draw_qr_code(c, x, y, size, data):
     qr_code.barWidth = size
     qr_code.barHeight = size
     qr_code.qrVersion = 1  # Adjust version if data requires it, 1 is smallest
-    
+
     # Create a drawing to hold the QR code
     d = Drawing(size, size)
     d.add(qr_code)
-    
+
     # Draw it on the canvas
     renderPDF.draw(d, c, x, y)
 
@@ -53,7 +53,7 @@ def draw_diamond(c, x, y, size, filled=True):
     p.lineTo(x, y - half)      # Bottom
     p.lineTo(x - half, y)      # Left
     p.close()
-    
+
     c.setLineWidth(0.5)
     c.setStrokeColor(colors.black)
     if filled:
@@ -78,12 +78,12 @@ def draw_difficulty_badge(c, right_x, top_y, difficulty_name, difficulty_score):
         "medium": {"num": 3, "label": "MEDIUM", "color": colors.Color(0.9, 0.7, 0.1)},     # Yellow/Orange
         "hard": {"num": 4, "label": "HARD", "color": colors.Color(0.8, 0.1, 0.1)}          # Red
     }
-    
+
     config = levels.get(difficulty_name.lower(), levels["medium"])
     level_num = config["num"]
     display_name = config["label"]
     badge_color = config["color"]
-    
+
     # 2. Draw "Difficulty Level" Label
     c.setFillColor(colors.black)
     c.setFont(FONT_ITALIC, 8)
@@ -92,37 +92,37 @@ def draw_difficulty_badge(c, right_x, top_y, difficulty_name, difficulty_score):
         score_text = f"Rating: {score_val:.1f}"
     except:
         score_text = ""
-        
+
     c.drawRightString(right_x, top_y, score_text)
-    
+
     # 3. Draw Level Name (MEDIUM) and Colored Badge
     c.setFont(FONT_TITLE, 14)
     # Move down by 14pts
-    
+
     name_w = c.stringWidth(display_name, FONT_TITLE, 14)
-    
+
     # Draw Badge Circle
     circle_radius = 2.5 * mm
     circle_x = right_x - name_w - 4 * mm - circle_radius
     circle_y = top_y - 14 + 4 # Center with text height roughly
-    
+
     c.setFillColor(badge_color)
     c.setStrokeColor(colors.black)
     c.setLineWidth(0.5)
     c.circle(circle_x, circle_y, circle_radius, fill=1, stroke=1)
-    
+
     # Draw the Text
     c.setFillColor(colors.black)
     c.drawRightString(right_x, top_y - 14, display_name)
-    
+
     # 4. Draw Visual Diamonds
     diamond_size = 4 * mm
     spacing = 1 * mm
     total_width = (4 * diamond_size) + (3 * spacing) 
-    
+
     start_x = right_x - total_width + (diamond_size/2)
     diamond_y = top_y - 24 # Below the text
-    
+
     # Draw 4 indicators
     for i in range(1, 5):
         cx = start_x + ((i-1) * (diamond_size + spacing))
@@ -130,35 +130,37 @@ def draw_difficulty_badge(c, right_x, top_y, difficulty_name, difficulty_score):
         draw_diamond(c, cx, diamond_y, diamond_size, filled=is_filled)
 
 def draw_clue_cell(c, x, y, size, down_val, right_val):
-    """Draws a Kakuro clue cell with a slightly darker grey and sharp lines."""
-    # 1. Background (Mid-Grey for better contrast)
-    c.setFillColor(colors.Color(0.85, 0.85, 0.85)) # slightly darker than lightgrey
+    """Draws a Kakuro clue cell with BLACK background and WHITE text."""
+    # 1. Background (BLACK)
+    c.setFillColor(colors.black)
     c.setStrokeColor(colors.black)
     c.setLineWidth(0.8)
     c.rect(x, y, size, size, fill=1, stroke=1)
-    
-    # 2. Diagonal
+
+    # 2. Diagonal (white for contrast)
     c.setLineWidth(0.5)
+    c.setStrokeColor(colors.white)
     c.line(x, y + size, x + size, y)
-    
-    # 3. Text
-    c.setFillColor(colors.black)
+
+    # 3. Text (WHITE)
+    c.setFillColor(colors.white)
     c.setFont(FONT_SANS, size / 3.8) # Slightly smaller, bolder font
-    
+
     if down_val and down_val != 0:
         # Shifted slightly for optical centering
         c.drawCentredString(x + (size * 0.28), y + (size * 0.12), str(down_val))
-        
+
     if right_val and right_val != 0:
         c.drawCentredString(x + (size * 0.72), y + (size * 0.62), str(right_val))
 
 def draw_input_cell(c, x, y, size, value=None, is_solution=False):
-    """Draws a crisp white input cell."""
-    c.setFillColor(colors.lightgrey)
+    """Draws a crisp white/light-gray input cell."""
+    # Light gray, nearly white background
+    c.setFillColor(colors.Color(0.97, 0.97, 0.97))  # Very light gray, almost white
     c.setStrokeColor(colors.black)
     c.setLineWidth(0.8)
     c.rect(x, y, size, size, fill=1, stroke=1)
-    
+
     if is_solution and value:
         c.setFillColor(colors.black)
         # Use a simpler font for the 'handwritten' number look
@@ -182,15 +184,15 @@ def get_active_board_bounds(board_json, cell_size):
     grid = board_json['grid']
     min_r, max_r = len(grid), -1
     min_c, max_c = len(grid[0]), -1
-    
+
     found_any = False
-    
+
     for r, row in enumerate(grid):
         for c, cell in enumerate(row):
             clue_h = int(cell.get('clue_h', 0))
             clue_v = int(cell.get('clue_v', 0))
             ctype = str(cell.get('type', 'white')).upper()
-            
+
             # If it's a visible cell
             if ctype in ["WHITE", "INPUT"] or clue_h > 0 or clue_v > 0:
                 min_r = min(min_r, r)
@@ -198,22 +200,22 @@ def get_active_board_bounds(board_json, cell_size):
                 min_c = min(min_c, c)
                 max_c = max(max_c, c)
                 found_any = True
-                
+
     if not found_any:
         return 0, 0, 0, 0
-        
+
     return min_c, max_c, min_r, max_r
 
 def draw_board(c, board_json, start_x, top_y, cell_size, show_solution=False):
     """Draws the board and returns the actual width/height drawn."""
     grid = board_json['grid']
-    
+
     # Draw cells
     for r, row_data in enumerate(grid):
         for col, cell in enumerate(row_data):
             pos_x = start_x + (col * cell_size)
             pos_y = top_y - ((r + 1) * cell_size)
-            
+
             clue_h = int(cell.get('clue_h', 0))
             clue_v = int(cell.get('clue_v', 0))
             val = cell.get('value', None)
@@ -229,7 +231,7 @@ def draw_board(c, board_json, start_x, top_y, cell_size, show_solution=False):
     # Usually Kakuros are irregular, so a square border around the whole bounds 
     # looks professional.
     min_c, max_c, min_r, max_r = get_active_board_bounds(board_json, cell_size)
-    
+
     # To draw a border around the *content*, we need relative coordinates
     # But usually, keeping the grid structure visible (even empty corners) 
     # is confusing. Let's just rely on the cell borders, but maybe 
@@ -249,7 +251,7 @@ def draw_puzzle_on_page(c, p_data, difficulty_score, puzzle_num, base_url, page_
     diff_name = p_data.get('difficulty', 'medium')
     # Draw difficulty badge
     draw_difficulty_badge(c, page_width - 2 * MARGIN_X, page_height - MARGIN_Y, diff_name, f"{difficulty_score}")
-    
+
     # Title
     title_text = f"PUZZLE  {puzzle_num}"
     c.setFont(FONT_TITLE, 22)
@@ -258,7 +260,7 @@ def draw_puzzle_on_page(c, p_data, difficulty_score, puzzle_num, base_url, page_
     box_h = 14 * mm
     box_x = MARGIN_X
     box_y = page_height - MARGIN_Y - box_h - 2 * mm
-    
+
     c.setFillColor(colors.black)
     c.rect(box_x, box_y, box_w, box_h, fill=1, stroke=0)
     c.setFillColor(colors.white)
@@ -269,38 +271,38 @@ def draw_puzzle_on_page(c, p_data, difficulty_score, puzzle_num, base_url, page_
     area_bottom_y = DIVIDER_Y + 5 * mm
     area_w = page_width - (2 * MARGIN_X)
     area_h = area_top_y - area_bottom_y
-    
+
     cell_size = calculate_optimal_cell_size(p_data, area_w, area_h)
     grid_cols = len(p_data['grid'][0])
     grid_rows = len(p_data['grid'])
     board_w = grid_cols * cell_size
     board_h = grid_rows * cell_size
-    
+
     px_offset = MARGIN_X + (area_w - board_w) / 2
     py_offset = area_bottom_y + (area_h - board_h) / 2 + board_h
-    
+
     draw_board(c, p_data, px_offset, py_offset, cell_size, show_solution=False)
 
     # --- 3. SOLUTION FOOTER ---
     footer_h = DIVIDER_Y
     footer_y = 0
-    
+
     c.setFillColor(colors.Color(0.95, 0.95, 0.95))
     c.rect(0, footer_y, page_width, footer_h, fill=1, stroke=0)
-    
+
     c.setStrokeColor(colors.black)
     c.setLineWidth(1)
     c.line(0, footer_y + footer_h, page_width, footer_y + footer_h)
-    
+
     # Text
     c.setFillColor(colors.black)
     c.setFont(FONT_TITLE, 14)
     text_y_center = footer_y + (footer_h / 2)
-    
+
     c.drawString(MARGIN_X + 5*mm, text_y_center + 10, "SOLUTION")
     c.setFont(FONT_SERIF, 11)
     c.drawString(MARGIN_X + 5*mm, text_y_center - 5, f"Puzzle #{puzzle_num}")
-    
+
     c.setFont("Courier-Bold", 10)
     pid = str(p_data.get('id', 'N/A'))
     short_id = p_data.get('short_id', pid[:8] if len(pid) > 8 else pid)
@@ -312,7 +314,7 @@ def draw_puzzle_on_page(c, p_data, difficulty_score, puzzle_num, base_url, page_
     qr_y = footer_y + (footer_h - qr_size) / 2 + 5 * mm
     solution_url = f"{base_url}/?solution_id={short_id}"
     draw_qr_code(c, qr_x, qr_y, qr_size, solution_url)
-    
+
     c.setFillColor(colors.black)
     c.setFont(FONT_SANS, 8)
     c.drawCentredString(page_width / 2, qr_y - 4*mm, "Scan to verify & rate")
@@ -328,22 +330,23 @@ def draw_puzzle_on_page(c, p_data, difficulty_score, puzzle_num, base_url, page_
 def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000", puzzles_per_page=1):
     """
     Generates a PDF book from a list of puzzle dictionaries.
+    Every second page is rotated 180 degrees for correct folding when printed on A4.
     """
     from reportlab.lib.pagesizes import A4, A5
-    
+
     output_dest = file_obj if file_obj else PDF_FILENAME
-    
+
     if puzzles_per_page == 2:
         effective_page_size = A4
     else:
         effective_page_size = A5
-        
+
     c = canvas.Canvas(output_dest, pagesize=effective_page_size)
     c.setTitle("Kakuro Puzzle Book")
-    
+
     PAGE_W, PAGE_H = effective_page_size
     A5_W, A5_H = A5
-    
+
     processed_puzzles = []
     for p in puzzles:
         score = p.get('difficulty_score', p.get('difficulty', 'Unknown'))
@@ -352,18 +355,43 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000", puzzl
         processed_puzzles.append((p, score))
 
     num_puzzles = len(processed_puzzles)
-    
+
     if puzzles_per_page == 1:
         for i, (p_data, score) in enumerate(processed_puzzles):
+            # Check if this is an odd-indexed page (every second page, 0-indexed)
+            # Page 2, 4, 6... (i=1, 3, 5...) need 180 degree rotation
+            is_odd_page = (i % 2) == 1
+
+            if is_odd_page:
+                c.saveState()
+                # Rotate 180 degrees around the center of the page
+                c.translate(PAGE_W / 2, PAGE_H / 2)
+                c.rotate(180)
+                c.translate(-PAGE_W / 2, -PAGE_H / 2)
+
             draw_puzzle_on_page(c, p_data, score, i + 1, base_url, A5_W, A5_H)
+
+            if is_odd_page:
+                c.restoreState()
+
             c.showPage()
     else:
         # 2 puzzles per page (A4 Portrait)
         # Each A5 Portrait is rotated 90 degrees to fill the A4 page.
         # Top puzzle fills top half (210 wide x 148.5 high).
         # Bottom puzzle fills bottom half (210 wide x 148.5 high).
-        
+
         for i in range(0, num_puzzles, 2):
+            # Check if this A4 sheet should be rotated (every second sheet)
+            sheet_num = i // 2
+            rotate_sheet = (sheet_num % 2) == 1
+
+            if rotate_sheet:
+                c.saveState()
+                c.translate(PAGE_W / 2, PAGE_H / 2)
+                c.rotate(180)
+                c.translate(-PAGE_W / 2, -PAGE_H / 2)
+
             # Top Puzzle
             p1_data, s1 = processed_puzzles[i]
             c.saveState()
@@ -373,7 +401,7 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000", puzzl
             # Area is width: 148.5 (half A4 height), height: 210 (A4 width)
             draw_puzzle_on_page(c, p1_data, s1, i + 1, base_url, PAGE_H / 2, PAGE_W)
             c.restoreState()
-            
+
             # Bottom Puzzle
             if i + 1 < num_puzzles:
                 p2_data, s2 = processed_puzzles[i+1]
@@ -382,15 +410,16 @@ def generate_pdf(puzzles, file_obj=None, base_url="http://localhost:8000", puzzl
                 c.rotate(-90)
                 draw_puzzle_on_page(c, p2_data, s2, i + 2, base_url, PAGE_H / 2, PAGE_W)
                 c.restoreState()
-            
+
+            if rotate_sheet:
+                c.restoreState()
+
             c.showPage()
 
 
     c.save()
     if not file_obj:
         logger.info(f"✓ PDF saved to {PDF_FILENAME}")
-    
-    return puzzles
 
     return puzzles
 
