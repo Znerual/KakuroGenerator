@@ -283,6 +283,10 @@ app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 async def read_index():
     return FileResponse(os.path.join(STATIC_PATH, "index.html"))
 
+@app.get("/google980a471043f55bb1.html")
+async def google_verification2():
+    return FileResponse(os.path.join(STATIC_PATH, "google980a471043f55bb1.html"))
+
 @app.get("/google126de5fcdf27b99c.html")  # Replace with your actual filename
 async def google_verification():
     return FileResponse(os.path.join(STATIC_PATH, "google126de5fcdf27b99c.html"))
