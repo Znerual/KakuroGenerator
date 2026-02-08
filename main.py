@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from sqlalchemy.orm import Session, load_only
+from sqlalchemy.orm import Session
 from sqlalchemy import func, select, desc, case, cast, Float
 import os
 import sys
@@ -960,8 +960,7 @@ def generate_book_endpoint(
 def get_all_time_leaderboard(db: Session = Depends(get_db)):
     """Fetch top 50 users by total score."""
     top_users = db.query(User).filter(User.username.isnot(None))\
-        .order_by(User.total_score.desc())\
-        .options(load_only("username", "total_score", "kakuros_solved", "avatar_url")).limit(50).all()
+        .order_by(User.total_score.desc()).limit(50).all()
     
     return [
         {
