@@ -477,8 +477,13 @@ def save_puzzle_endpoint(
         if current_user:
             # Database storage for authenticated users
             puzzle = db.query(Puzzle).filter(Puzzle.id == request.id).first()
+
+            is_new_solve = False
+            previous_status = None
+
             if puzzle:
                 # Update existing
+                previous_status = puzzle.status
                 puzzle.grid = request.grid
                 puzzle.user_grid = request.userGrid
                 puzzle.status = request.status
@@ -489,25 +494,14 @@ def save_puzzle_endpoint(
                 puzzle.rating = request.rating
                 puzzle.difficulty_vote = request.difficultyVote
                 puzzle.user_comment = request.userComment
+
+                is_new_solve = (request.status == "solved" and previous_status != "solved")
                 
-                # Update solved count if status changed to solved
-                if request.status == "solved" and puzzle.status != "solved":
-                    current_user.kakuros_solved += 1
-                    # Award points
-                    points = DIFFICULTY_POINTS.get(puzzle.difficulty, 0)
-                    current_user.total_score += points
-                    
-                    # Create score record
-                    from python.models import ScoreRecord
-                    score_record = ScoreRecord(
-                        user_id=current_user.id,
-                        puzzle_id=puzzle.id,
-                        points=points,
-                        difficulty=puzzle.difficulty
-                    )
-                    db.add(score_record)
             else:
                 # Create new
+                is_new_solve = (request.status == "solved")  # New puzzle marked as solved
+                previous_status = None
+                
                 puzzle = Puzzle(
                     id=request.id,
                     user_id=current_user.id,
@@ -527,7 +521,7 @@ def save_puzzle_endpoint(
                     template_id=request.template_id,
                     created_at=datetime.datetime.fromisoformat(request.timestamp) if request.timestamp else datetime.datetime.now(datetime.timezone.utc)
                 )
-                
+
                 # If no template_id was provided (legacy/standalone gen), we should arguably create one
                 # so this puzzle becomes shareable.
                 if not request.template_id and request.status != 'started':
@@ -544,22 +538,22 @@ def save_puzzle_endpoint(
                     puzzle.template_id = new_template.id
                 
                 db.add(puzzle)
+            
+            if is_new_solve:
+                current_user.kakuros_solved += 1
+                # Award points
+                points = DIFFICULTY_POINTS.get(request.difficulty, 0)
+                current_user.total_score += points
                 
-                if request.status == "solved":
-                    current_user.kakuros_solved += 1
-                    # Award points
-                    points = DIFFICULTY_POINTS.get(request.difficulty, 0)
-                    current_user.total_score += points
-                    
-                    # Create score record
-                    from python.models import ScoreRecord
-                    score_record = ScoreRecord(
-                        user_id=current_user.id,
-                        puzzle_id=puzzle.id,
-                        points=points,
-                        difficulty=request.difficulty
-                    )
-                    db.add(score_record)
+                # Create score record
+                from python.models import ScoreRecord
+                score_record = ScoreRecord(
+                    user_id=current_user.id,
+                    puzzle_id=puzzle.id,
+                    points=points,
+                    difficulty=request.difficulty
+                )
+                db.add(score_record)
             
             db.commit()
         else:
