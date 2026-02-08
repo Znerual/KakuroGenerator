@@ -100,7 +100,7 @@ body {
 }
 
 .header.compact-header:hover {
-    height: 100px;
+    height: 72px;
 }
 
 .compact-header .header-content {
@@ -128,7 +128,7 @@ body {
 }
 
 .header.compact-header:hover .brand {
-    font-size: 1.8rem;
+    font-size: 1.1rem;
 }
 
 .compact-header .header-right {
@@ -154,12 +154,6 @@ body {
     transition: all 0.2s ease;
 }
 
-.header.compact-header:hover .btn-icon {
-    width: 52px;
-    height: 52px;
-    font-size: 1.6rem;
-}
-
 .btn-icon:hover {
     background: var(--surface-elevated);
     border-color: var(--border-color);
@@ -178,10 +172,6 @@ body {
     transition: all 0.2s ease;
 }
 
-.header.compact-header:hover .btn-compact {
-    padding: 0.65rem 1.15rem;
-    font-size: 1rem;
-}
 
 .btn-compact:hover {
     background: var(--surface-elevated);
@@ -213,7 +203,7 @@ body {
 
 .header.compact-header:hover .btn-user-compact {
     padding: 0.65rem 1.15rem;
-    font-size: 1.05rem;
+    font-size: 0.85rem;
 }
 
 .mobile-header {
@@ -508,7 +498,7 @@ body {
 }
 
 .toolbar:hover {
-    width: 120px;
+    width: 92px;
 }
 
 .toolbar-group {
@@ -571,7 +561,7 @@ body {
 }
 
 .toolbar:hover .toolbar-icon {
-    font-size: 1.4rem;
+    font-size: 1.25rem;
 }
 
 .toolbar-label {
@@ -585,7 +575,7 @@ body {
 }
 
 .toolbar:hover .toolbar-label {
-    font-size: 0.75rem;
+    font-size: 0.6rem;
     opacity: 1;
 }
 
