@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,8 +17,9 @@ import uuid
 import datetime
 import traceback
 import logging
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
+from slowapi import _rate_limit_exceeded_handler
 
 class BookSettings(BaseModel):
     difficulty: str = "medium"
@@ -28,10 +29,10 @@ class BookSettings(BaseModel):
 # Import auth and database modules
 import kakuro.storage as storage
 from kakuro.database import init_db, get_db
-from kakuro.models import User, Puzzle, PuzzleTemplate, generate_short_id
+from kakuro.models import User, Puzzle, PuzzleTemplate, generate_short_id, ScoreRecord
 from kakuro.auth import get_current_user, get_required_user, get_current_user_and_session
 from kakuro.analytics import log_interaction
-from kakuro.routes.auth_routes import router as auth_router
+from kakuro.routes.auth_routes import router as auth_router, limiter
 from kakuro.routes.admin_routes import router as admin_router
 from kakuro.generator_service import generator_service
 import kakuro.config as config
@@ -66,11 +67,16 @@ app.add_middleware(SessionMiddleware, secret_key=config.JWT_SECRET_KEY)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://kakuro.servegame.com",
+        "https://www.kakuro.servegame.com",
+    ] if not config.DEBUG else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.state.limiter = limiter
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -457,8 +463,8 @@ class SaveRequest(BaseModel):
     width: int
     height: int
     difficulty: str
-    grid: List[List[Dict]]
-    userGrid: Optional[List[List[Dict]]] = None
+    grid: List[List[Dict]] = Field(..., max_length=50)
+    userGrid: Optional[List[List[Dict]]] = Field(None, max_length=50)
     status: str
     rowNotes: List[str]
     colNotes: List[str]
@@ -544,13 +550,17 @@ def save_puzzle_endpoint(
                 db.add(puzzle)
             
             if is_new_solve:
-                current_user.kakuros_solved += 1
-                # Award points
                 points = DIFFICULTY_POINTS.get(request.difficulty, 0)
-                current_user.total_score += points
+                db.execute(
+                    update(User)
+                    .where(User.id == current_user.id)
+                    .values(
+                        kakuros_solved=User.kakuros_solved + 1,
+                        total_score=User.total_score + points
+                    )
+                )
                 
                 # Create score record
-                from python.models import ScoreRecord
                 score_record = ScoreRecord(
                     user_id=current_user.id,
                     puzzle_id=puzzle.id,
@@ -662,6 +672,8 @@ def load_puzzle_endpoint(
         puzzle = db.query(Puzzle).filter(func.upper(Puzzle.short_id) == puzzle_id.upper()).first()
     
     if puzzle:
+        if puzzle.user_id and puzzle.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
         return puzzle.to_dict()
     
     # Fall back to file storage
@@ -948,7 +960,8 @@ def generate_book_endpoint(
 def get_all_time_leaderboard(db: Session = Depends(get_db)):
     """Fetch top 50 users by total score."""
     top_users = db.query(User).filter(User.username.isnot(None))\
-        .order_by(User.total_score.desc()).limit(50).all()
+        .order_by(User.total_score.desc())\
+        .options(load_only("username", "total_score", "kakuros_solved", "avatar_url")).limit(50).all()
     
     return [
         {
