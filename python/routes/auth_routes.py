@@ -5,6 +5,8 @@ Handles registration, login, OAuth, email verification, and password reset.
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.responses import RedirectResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -41,6 +43,8 @@ from python.performance import log_auth_attempt, Timer
 import python.config as config
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+
+limiter = Limiter(key_func=get_remote_address)
 
 
 # Request/Response Models
@@ -91,6 +95,7 @@ class MessageResponse(BaseModel):
 
 # Registration Endpoints
 @router.post("/register", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def register(register_data: RegisterRequest, request: Request,  background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Register a new user with email and password.
@@ -161,6 +166,7 @@ async def register(register_data: RegisterRequest, request: Request,  background
 
 
 @router.post("/login", response_model=AuthResponse)
+@limiter.limit("5/minute")
 async def login(login_data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """
     Login with email and password.
@@ -279,6 +285,7 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 
 # Email Verification Endpoints
 @router.post("/verify-email", response_model=AuthResponse)
+@limiter.limit("5/minute")
 async def verify_email(
     request_data: VerifyEmailRequest, 
     request: Request, 
@@ -352,6 +359,7 @@ async def verify_email(
     }
 
 @router.post("/resend-verification", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def resend_verification(request: ResendVerificationRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Resend verification code to user.
@@ -408,6 +416,7 @@ async def resend_verification(request: ResendVerificationRequest, background_tas
 
 # Password Reset Endpoints
 @router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def forgot_password(request_data: ForgotPasswordRequest, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Request a password reset link.
@@ -434,6 +443,7 @@ async def forgot_password(request_data: ForgotPasswordRequest, request: Request,
 
 
 @router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def reset_password(request_data: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """
     Reset password using the token from the reset email.
