@@ -548,7 +548,7 @@ function initFloatingNotebook() {
             if (inlineTextarea) {
                 inlineTextarea.value = floatingTextarea.value;
             }
-            state.notebook = floatingTextarea.value;
+            state.notebook = escapeHtml(floatingTextarea.value);
         });
     }
 
@@ -561,7 +561,7 @@ function syncNotebookContent() {
     const floatingTextarea = document.getElementById('notebook-floating-textarea');
     if (inlineTextarea && floatingTextarea) {
         inlineTextarea.value = floatingTextarea.value;
-        state.notebook = floatingTextarea.value;
+        state.notebook = escapeHtml(floatingTextarea.value);
     }
 }
 
@@ -765,7 +765,6 @@ function loadPuzzleIntoState(data) {
     state.rowNotes = data.rowNotes || Array(data.height).fill('');
     state.colNotes = data.colNotes || Array(data.width).fill('');
     state.cellNotes = data.cellNotes || {};
-    state.notebook = data.notebook || '';
     state.notebook = data.notebook || '';
     state.rating = data.rating || 0;
     state.difficultyVote = data.difficultyVote || 5;
@@ -977,7 +976,7 @@ async function saveCurrentState(silent = false) {
     // Save current notebook content
     const notebookTextarea = document.getElementById('notebook-textarea');
     if (notebookTextarea) {
-        state.notebook = notebookTextarea.value;
+        state.notebook = escapeHtml(notebookTextarea.value);
     }
 
     const data = {
@@ -1628,11 +1627,11 @@ function createNoteCell(type, index, value) {
 
 function updateNoteState(type, index, value) {
     if (type === 'row') {
-        state.rowNotes[index] = value;
+        state.rowNotes[index] = escapeHtml(value);
     } else if (type === 'col') {
-        state.colNotes[index] = value;
+        state.colNotes[index] = escapeHtml(value);
     } else if (type === 'cell') {
-        state.cellNotes[index] = value;
+        state.cellNotes[index] = escapeHtml(value);
     }
     triggerAutosave();
 }
@@ -2144,7 +2143,7 @@ function highlightStars(count) {
 function submitRating() {
     const commentTextarea = document.getElementById('rating-comment');
     if (commentTextarea) {
-        state.userComment = commentTextarea.value;
+        state.userComment = escapeHtml(commentTextarea.value);
     }
 
     // Capture slider value one last time (redundant but safe)
