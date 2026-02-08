@@ -675,7 +675,20 @@ async function fetchPuzzle() {
 
 
     try {
-        const difficultySelect = document.getElementById('difficulty-select');
+        // Try to get difficulty from the visible/active select
+        // Priority: new-game-difficulty (desktop), then mobile-difficulty-select
+        let difficultySelect = document.getElementById('new-game-difficulty');
+
+        // If new game modal is not open/visible, try mobile select
+        const newGameModal = document.getElementById('new-game-modal');
+        if (!difficultySelect || (newGameModal && newGameModal.style.display !== 'block')) {
+            // Check if we should use mobile select
+            const mobileSelect = document.getElementById('mobile-difficulty-select');
+            if (mobileSelect && window.innerWidth <= 968) {
+                difficultySelect = mobileSelect;
+            }
+        }
+
         const difficulty = difficultySelect ? difficultySelect.value : 'medium';
 
         if (state.puzzle &&
@@ -2150,6 +2163,10 @@ function submitRating() {
     saveCurrentState();
     showToast("Thank you for your feedback!");
 
+    if (state.user) {
+        fetchUserProfile();
+    }
+
     setTimeout(() => {
         fetchPuzzle();
     }, 500);
@@ -2184,6 +2201,42 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+function syncDifficultySelects(sourceId) {
+    const source = document.getElementById(sourceId);
+    if (!source) return;
+
+    const value = source.value;
+
+    // Sync all other difficulty selects
+    const selectIds = ['new-game-difficulty', 'mobile-difficulty-select', 'pdf-difficulty-select'];
+
+    selectIds.forEach(id => {
+        if (id !== sourceId) {
+            const select = document.getElementById(id);
+            if (select) {
+                select.value = value;
+            }
+        }
+    });
+}
+
+// Add event listeners to sync selects
+document.addEventListener('DOMContentLoaded', function () {
+    const newGameDiff = document.getElementById('new-game-difficulty');
+    const mobileDiff = document.getElementById('mobile-difficulty-select');
+    const pdfDiff = document.getElementById('pdf-difficulty-select');
+
+    if (newGameDiff) {
+        newGameDiff.addEventListener('change', () => syncDifficultySelects('new-game-difficulty'));
+    }
+    if (mobileDiff) {
+        mobileDiff.addEventListener('change', () => syncDifficultySelects('mobile-difficulty-select'));
+    }
+    if (pdfDiff) {
+        pdfDiff.addEventListener('change', () => syncDifficultySelects('pdf-difficulty-select'));
+    }
+});
 
 // =====================
 // Authentication Module
