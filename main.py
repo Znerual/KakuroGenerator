@@ -672,8 +672,6 @@ def load_puzzle_endpoint(
         puzzle = db.query(Puzzle).filter(func.upper(Puzzle.short_id) == puzzle_id.upper()).first()
     
     if puzzle:
-        if puzzle.user_id and puzzle.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized")
         return puzzle.to_dict()
     
     # Fall back to file storage
